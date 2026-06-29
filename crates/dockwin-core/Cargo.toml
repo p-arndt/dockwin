@@ -1,0 +1,15 @@
+[package]
+name = "dockwin-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+description = "Shared WSL2 engine-distro lifecycle + provisioning for dockwin, used by both the dockwin CLI and the Tauri GUI so the logic lives in exactly one place."
+
+[dependencies]
+# Permissively licensed, lightweight. anyhow=MIT/Apache, flate2 (pure-Rust
+# miniz_oxide backend)=MIT/Apache, lzma-rs (pure-Rust .xz decode)=MIT. No C
+# deps, no OpenSSL — the Ubuntu cloud rootfs ships as .tar.xz.
+anyhow = "1"
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+lzma-rs = "0.3"

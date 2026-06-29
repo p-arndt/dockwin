@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/* dockwin — dark developer-tool theme. TailwindCSS v4, config-light. */
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background-color: #0f1115;
+    color: #e6e8eb;
+    font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+}
+
+/* Tiny custom utilities that are clearer as one class than a pile of utilities. */
+@layer utilities {
+  .font-mono-app {
+    font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  }
+
+  /* Status dots with a soft halo. */
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    display: inline-block;
+    background: #6e7681;
+    box-shadow: 0 0 0 3px rgba(110, 118, 129, 0.15);
+  }
+  .dot-ok {
+    background: #3fb950;
+    box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.18);
+  }
+  .dot-off {
+    background: #6e7681;
+  }
+  .dot-warn {
+    background: #d29922;
+    box-shadow: 0 0 0 3px rgba(210, 153, 34, 0.18);
+  }
+  .dot-unknown {
+    background: #6e7681;
+    opacity: 0.6;
+  }
+
+  .cdot {
+    width: 9px;
+    height: 9px;
+    border-radius: 9999px;
+    display: inline-block;
+  }
+  .cdot-on {
+    background: #3fb950;
+    box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.15);
+  }
+  .cdot-off {
+    background: #6e7681;
+  }
+
+  /* Provisioning progress bar: a determinate fill with a moving sheen so it
+     still reads as "alive" during long phases where the pct doesn't move. */
+  .provision-bar {
+    background-image: linear-gradient(
+      100deg,
+      #1f6feb 0%,
+      #58a6ff 50%,
+      #1f6feb 100%
+    );
+    background-size: 200% 100%;
+    animation: provision-sheen 1.6s linear infinite;
+  }
+  @keyframes provision-sheen {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+}

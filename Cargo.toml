@@ -1,0 +1,20 @@
+# dockwin Cargo workspace.
+#
+#   crates/dockwin-core  — shared WSL engine lifecycle + provisioning (the brain)
+#   crates/dockwin-cli   — the `dockwin` CLI binary  (depends on core)
+#   src-tauri            — the Tauri v2 GUI           (depends on core)
+#
+# The GUI and the CLI therefore run ONE provisioning implementation — no
+# PowerShell, no duplication.
+[workspace]
+resolver = "2"
+members = ["src-tauri", "crates/dockwin-core", "crates/dockwin-cli"]
+
+# Profiles must be defined at the workspace root (member-level profiles are
+# ignored). Tuned for small, fast release binaries — the anti-bloat goal.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

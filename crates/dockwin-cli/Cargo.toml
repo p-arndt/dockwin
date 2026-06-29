@@ -1,0 +1,18 @@
+[package]
+name = "dockwin-cli"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+description = "Native Rust provisioning CLI for dockwin (a permissive replacement for the PowerShell scripts)."
+
+# The installed binary is `dockwin`, not `dockwin-cli`.
+[[bin]]
+name = "dockwin"
+path = "src/main.rs"
+
+[dependencies]
+# All provisioning logic lives in dockwin-core (shared with the GUI).
+dockwin-core = { path = "../dockwin-core" }
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"

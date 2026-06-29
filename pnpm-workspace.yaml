@@ -1,0 +1,4 @@
+# pnpm settings for dockwin. esbuild ships a prebuilt platform binary via its
+# install script; allow it to run so `vite build` works.
+allowBuilds:
+  esbuild: true

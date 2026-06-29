@@ -1,0 +1,34 @@
+{
+  "name": "dockwin-gui",
+  "version": "0.1.0",
+  "description": "Minimal web frontend for dockwin (Docker Desktop alternative for Windows 11)",
+  "license": "(MIT OR Apache-2.0)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "sidecar": "cargo build -p dockwin-cli --release && node -e \"const fs=require('fs');fs.mkdirSync('src-tauri/binaries',{recursive:true});fs.copyFileSync('target/release/dockwin.exe','src-tauri/binaries/dockwin-x86_64-pc-windows-msvc.exe')\"",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@lucide/svelte": "^1.22.0",
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@tauri-apps/cli": "^2.0.0",
+    "@tsconfig/svelte": "^5.0.0",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "tailwindcss": "^4.0.0",
+    "tslib": "^2.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0"
+  },
+  "packageManager": "pnpm@11.0.9"
+}
