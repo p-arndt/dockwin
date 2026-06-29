@@ -13,6 +13,11 @@
 // On Windows release builds, hide the console window that would otherwise pop up.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod cmd_containers_ext;
+mod cmd_images_ext;
+mod cmd_networks;
+mod cmd_system;
+mod cmd_volumes;
 mod commands;
 mod docker;
 mod relay;
@@ -138,11 +143,46 @@ fn main() {
             commands::container_remove,
             // Logs
             commands::container_logs,
+            // Container details (inspect / stats / top / rename / pause)
+            cmd_containers_ext::container_inspect,
+            cmd_containers_ext::container_rename,
+            cmd_containers_ext::container_pause,
+            cmd_containers_ext::container_unpause,
+            cmd_containers_ext::container_top,
+            cmd_containers_ext::container_stats,
             // Images
             commands::image_list,
+            cmd_images_ext::image_pull,
+            cmd_images_ext::image_remove,
+            cmd_images_ext::image_prune,
+            cmd_images_ext::image_tag,
+            cmd_images_ext::image_inspect,
+            cmd_images_ext::image_history,
+            // Volumes
+            cmd_volumes::volume_list,
+            cmd_volumes::volume_create,
+            cmd_volumes::volume_remove,
+            cmd_volumes::volume_prune,
+            cmd_volumes::volume_inspect,
+            // Networks
+            cmd_networks::network_list,
+            cmd_networks::network_create,
+            cmd_networks::network_remove,
+            cmd_networks::network_prune,
+            cmd_networks::network_inspect,
+            cmd_networks::network_connect,
+            cmd_networks::network_disconnect,
+            // System (disk usage / prune / info)
+            cmd_system::system_df,
+            cmd_system::system_info,
+            cmd_system::system_prune,
             // Compose
             commands::compose_up,
             commands::compose_down,
+            commands::compose_build,
+            commands::compose_pull,
+            commands::compose_restart,
+            commands::compose_logs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the dockwin Tauri application");

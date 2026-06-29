@@ -29,7 +29,7 @@ pub struct AppState {
 
 impl AppState {
     /// Get the cached client, connecting on first use.
-    async fn get_client(&self) -> Result<DockerClient, String> {
+    pub(crate) async fn get_client(&self) -> Result<DockerClient, String> {
         let mut guard = self.client.lock().await;
         if let Some(c) = guard.as_ref() {
             return Ok(c.clone());
@@ -43,7 +43,7 @@ impl AppState {
     }
 
     /// Drop any cached connection (forces a reconnect on next call).
-    async fn reset(&self) {
+    pub(crate) async fn reset(&self) {
         *self.client.lock().await = None;
     }
 }
@@ -420,4 +420,83 @@ pub async fn compose_down(
         Ok(false) => Err("docker compose down reported an error (see the log)".into()),
         Err(e) => Err(format!("{e:#}")),
     }
+}
+
+/// Run an arbitrary `docker compose <args>` for `path` inside the engine,
+/// streaming combined output via `compose://output`. Shared by the build/pull/
+/// restart/logs commands below so they all behave identically to up/down.
+async fn compose_action(
+    app: tauri::AppHandle,
+    state: &AppState,
+    path: String,
+    args: Vec<String>,
+    what: &'static str,
+) -> Result<(), String> {
+    let app2 = app.clone();
+    let res = tokio::task::spawn_blocking(move || {
+        let file = std::path::PathBuf::from(path);
+        let argv: Vec<&str> = args.iter().map(String::as_str).collect();
+        let mut emit = |line: &str| {
+            let _ = app2.emit("compose://output", ComposeOutputDto { line: line.to_string() });
+        };
+        dockwin_core::ops::compose_run(&file, &argv, &mut emit)
+    })
+    .await
+    .map_err(|e| format!("compose_{what} task failed: {e}"))?;
+    match res {
+        Ok(true) => {
+            state.reset().await;
+            Ok(())
+        }
+        Ok(false) => Err(format!("docker compose {what} reported an error (see the log)")),
+        Err(e) => Err(format!("{e:#}")),
+    }
+}
+
+/// `docker compose build` for `path` (rebuild service images).
+#[tauri::command]
+pub async fn compose_build(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<(), String> {
+    compose_action(app, &state, path, vec!["build".into()], "build").await
+}
+
+/// `docker compose pull` for `path` (pull service images).
+#[tauri::command]
+pub async fn compose_pull(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<(), String> {
+    compose_action(app, &state, path, vec!["pull".into()], "pull").await
+}
+
+/// `docker compose restart` for `path`.
+#[tauri::command]
+pub async fn compose_restart(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<(), String> {
+    compose_action(app, &state, path, vec!["restart".into()], "restart").await
+}
+
+/// `docker compose logs` (bounded tail snapshot) for `path`.
+#[tauri::command]
+pub async fn compose_logs(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    path: String,
+    tail: Option<u32>,
+) -> Result<(), String> {
+    let tail = tail.unwrap_or(200).to_string();
+    let args = vec![
+        "logs".into(),
+        "--no-color".into(),
+        "--tail".into(),
+        tail,
+    ];
+    compose_action(app, &state, path, args, "logs").await
 }

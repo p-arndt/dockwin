@@ -244,13 +244,19 @@ also need a `wsl --shutdown` after sleep/wake.
 | Clickable port mappings with localhost reachability warning | ✅ Implemented |
 | Log tail (snapshot) | ✅ Implemented |
 | Live log *streaming* over a Tauri channel | 🚧 `TODO` in `commands.rs` |
-| Sidebar nav (Containers / Stacks / Images / Settings) + Images view | ✅ Implemented |
+| Sidebar nav (Containers / Stacks / Images / Volumes / Networks / System / Settings) | ✅ Implemented |
+| Live provisioning **progress bar + streamed log** (download bytes → xz decompress → apt) | ✅ Implemented |
 | Docker Compose **stacks** view: containers grouped by project + per-stack start/stop/restart | ✅ Implemented |
-| Compose `up`/`down` from a `.yml` file (file picker → `docker compose`) | 🟡 Planned |
-| Bundle `dockwin.exe` as a Tauri sidecar + NSIS/MSI installer; code signing / winget | 🟡 Planned (see `docs/installer.md`) |
-| Exec into a container (interactive terminal); image pull/delete/prune; per-container CPU/mem stats | 🟡 Planned |
-| Compose up/down with project grouping; volume list/prune | 🟡 Planned |
-| Hardening: pipe ACL to current user, relay load test, WSL preflight, anti-bloat audit | 🟡 Planned |
+| Compose `up` / `down` / `build` / `pull` / `restart` / `logs` from a `.yml` (GUI file picker **or** `dockwin up`/`down` CLI) — runs inside the engine, not Docker Desktop's pipe | ✅ Implemented |
+| **Container details** drawer: live CPU/mem/net/blk **stats**, `inspect` JSON, `top` processes, rename, pause/unpause | ✅ Implemented |
+| **Images**: pull (with progress), remove, prune, tag, history, inspect | ✅ Implemented |
+| **Volumes**: list, create, remove, prune, inspect | ✅ Implemented |
+| **Networks**: list, create, remove, prune, inspect, connect/disconnect | ✅ Implemented |
+| **System**: disk usage (`df`), prune (incl. all-images / volumes), engine info | ✅ Implemented |
+| Bundle `dockwin.exe` as a Tauri sidecar + NSIS installer | ✅ Implemented |
+| `curl.exe` no-console spawns + correct cloud-image rootfs (`.tar.xz`) | ✅ Implemented |
+| Live log *streaming* over a Tauri channel; interactive exec terminal | 🟡 Planned |
+| Code signing / winget; hardening: pipe ACL to current user, relay load test, anti-bloat audit | 🟡 Planned |
 
 Anything marked 🚧 / 🟡 may contain clearly-marked `TODO` stubs in the code.
 

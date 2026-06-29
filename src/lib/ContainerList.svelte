@@ -14,12 +14,14 @@
     containers?: NormalizedContainer[];
     pending?: Set<string>;
     onAction?: (action: Action, c: NormalizedContainer) => void;
+    onSelect?: (c: NormalizedContainer) => void;
   }
 
   let {
     containers = [],
     pending = new Set<string>(),
     onAction,
+    onSelect,
   }: Props = $props();
 
   function act(action: Action, c: NormalizedContainer) {
@@ -79,8 +81,13 @@
             </td>
             <td
               class="border-b border-[#262b34] px-3 py-2.5 align-middle font-medium"
-              title={c.shortId}>{c.name}</td
             >
+              <button
+                class="cursor-pointer text-left font-medium text-[#e6e8eb] hover:text-[#2f81f7] hover:underline"
+                title={`${c.shortId} — open details (stats, inspect, top)`}
+                onclick={() => onSelect?.(c)}>{c.name}</button
+              >
+            </td>
             <td
               class="font-mono-app max-w-[240px] overflow-hidden text-ellipsis whitespace-nowrap border-b border-[#262b34] px-3 py-2.5 align-middle text-xs text-[#9aa3af]"
               title={c.image}>{c.image}</td

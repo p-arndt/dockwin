@@ -83,6 +83,26 @@ export function composeDown(path: string): Promise<void> {
   return invoke("compose_down", { path });
 }
 
+// `docker compose build` — rebuild service images.
+export function composeBuild(path: string): Promise<void> {
+  return invoke("compose_build", { path });
+}
+
+// `docker compose pull` — pull service images.
+export function composePull(path: string): Promise<void> {
+  return invoke("compose_pull", { path });
+}
+
+// `docker compose restart`.
+export function composeRestart(path: string): Promise<void> {
+  return invoke("compose_restart", { path });
+}
+
+// `docker compose logs` — bounded tail snapshot (streamed via onComposeOutput).
+export function composeLogs(path: string, tail = 200): Promise<void> {
+  return invoke("compose_logs", { path, tail });
+}
+
 // Subscribe to compose output lines (the `compose://output` event).
 export function onComposeOutput(
   handler: (line: string) => void

@@ -17,6 +17,12 @@
   import FileUp from "@lucide/svelte/icons/file-up";
   import FileDown from "@lucide/svelte/icons/file-down";
   import Terminal from "@lucide/svelte/icons/terminal";
+  import HardDrive from "@lucide/svelte/icons/hard-drive";
+  import Waypoints from "@lucide/svelte/icons/waypoints";
+  import Gauge from "@lucide/svelte/icons/gauge";
+  import Hammer from "@lucide/svelte/icons/hammer";
+  import Download from "@lucide/svelte/icons/download";
+  import ScrollText from "@lucide/svelte/icons/scroll-text";
   import { open } from "@tauri-apps/plugin-dialog";
   import * as api from "./lib/api";
   import type {
@@ -26,14 +32,25 @@
     Stack,
   } from "./lib/types";
   import ContainerList from "./lib/ContainerList.svelte";
-  import ImageList from "./lib/ImageList.svelte";
+  import ImagesView from "./lib/ImagesView.svelte";
   import StackList from "./lib/StackList.svelte";
+  import VolumesView from "./lib/VolumesView.svelte";
+  import NetworksView from "./lib/NetworksView.svelte";
+  import SystemView from "./lib/SystemView.svelte";
+  import ContainerDetails from "./lib/ContainerDetails.svelte";
 
   const POLL_MS = 3000;
 
   type EngineAction = "start" | "stop" | "restart" | "remove";
   type StackAction = "start" | "stop" | "restart";
-  type View = "containers" | "stacks" | "images" | "settings";
+  type View =
+    | "containers"
+    | "stacks"
+    | "images"
+    | "volumes"
+    | "networks"
+    | "system"
+    | "settings";
 
   // --- reactive state (Svelte 5 runes) ---
   let engineState = $state<EngineState>("unknown");
@@ -68,6 +85,9 @@
   let composeLog = $state<string[]>([]);
   let composeOpen = $state(false); // show the compose output panel
   let lastComposeFile = $state<string | null>(null);
+
+  // Container details drawer (inspect / stats / top / rename / pause).
+  let selectedContainer = $state<NormalizedContainer | null>(null);
 
   let busy = false; // non-reactive guard against overlapping refreshes
   let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -110,6 +130,9 @@
     { id: "containers", label: "Containers", icon: Boxes },
     { id: "stacks", label: "Stacks", icon: Network },
     { id: "images", label: "Images", icon: Layers },
+    { id: "volumes", label: "Volumes", icon: HardDrive },
+    { id: "networks", label: "Networks", icon: Waypoints },
+    { id: "system", label: "System", icon: Gauge },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -364,6 +387,31 @@
     }
   }
 
+  // build / pull / restart / logs: same flow, different compose verb. Reuses the
+  // last picked file (or prompts) and streams output into the compose panel.
+  async function runComposeExtra(
+    label: string,
+    run: (file: string) => Promise<void>
+  ) {
+    if (composeBusy) return;
+    const file = lastComposeFile ?? (await pickComposeFile());
+    if (!file) return;
+    composeBusy = true;
+    composeOpen = true;
+    lastComposeFile = file;
+    composeLog = [];
+    setFooter(`compose ${label}: ${file}…`);
+    try {
+      await run(file);
+      setFooter(`Compose ${label} complete.`);
+    } catch (e) {
+      setFooter(`Compose ${label} failed: ${api.errText(e)}`, true);
+    } finally {
+      composeBusy = false;
+      await refreshAll();
+    }
+  }
+
   // Tear down the engine: permanently unregister the WSL distro + remove contexts.
   async function teardownEngine() {
     if (working) return;
@@ -599,7 +647,12 @@
             {errorMsg}
           </div>
         {/if}
-        <ContainerList {containers} {pending} onAction={handleAction} />
+        <ContainerList
+          {containers}
+          {pending}
+          onAction={handleAction}
+          onSelect={(c) => (selectedContainer = c)}
+        />
       </section>
     {:else if activeView === "stacks"}
       <!-- Compose stacks (containers grouped by project) -->
@@ -626,6 +679,30 @@
           >
             <FileDown size={14} aria-hidden="true" />
             Down…
+          </button>
+          <button
+            class="flex items-center gap-1.5 rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-[5px] text-[12px] text-[#e6e8eb] transition-colors hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-40"
+            title="docker compose pull"
+            disabled={composeBusy || engineState !== "running"}
+            onclick={() => runComposeExtra("pull", api.composePull)}
+          >
+            <Download size={14} aria-hidden="true" /> Pull
+          </button>
+          <button
+            class="flex items-center gap-1.5 rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-[5px] text-[12px] text-[#e6e8eb] transition-colors hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-40"
+            title="docker compose build"
+            disabled={composeBusy || engineState !== "running"}
+            onclick={() => runComposeExtra("build", api.composeBuild)}
+          >
+            <Hammer size={14} aria-hidden="true" /> Build
+          </button>
+          <button
+            class="flex items-center gap-1.5 rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-[5px] text-[12px] text-[#e6e8eb] transition-colors hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-40"
+            title="docker compose logs (tail)"
+            disabled={composeBusy || engineState !== "running"}
+            onclick={() => runComposeExtra("logs", (f) => api.composeLogs(f))}
+          >
+            <ScrollText size={14} aria-hidden="true" /> Logs
           </button>
         </div>
       </div>
@@ -672,8 +749,14 @@
       {/if}
       <StackList {stacks} {pending} onStackAction={handleStackAction} />
     {:else if activeView === "images"}
-      <!-- Images (owns its own fetch lifecycle) -->
-      <ImageList {engineState} refreshKey={imageRefreshKey} />
+      <!-- Images (pull / remove / prune / tag / history / inspect) -->
+      <ImagesView {engineState} refreshKey={imageRefreshKey} />
+    {:else if activeView === "volumes"}
+      <VolumesView {engineState} refreshKey={imageRefreshKey} />
+    {:else if activeView === "networks"}
+      <NetworksView {engineState} refreshKey={imageRefreshKey} />
+    {:else if activeView === "system"}
+      <SystemView {engineState} refreshKey={imageRefreshKey} />
     {:else if activeView === "settings"}
       <!-- Settings / teardown -->
       <section class="rounded-md border border-[#262b34] bg-[#171a21] p-3.5">
@@ -709,6 +792,18 @@
     {/if}
   </main>
 </div>
+
+<!-- Container details drawer (fixed; self-positioned). Open via a name click. -->
+{#if selectedContainer}
+  <ContainerDetails
+    id={selectedContainer.id}
+    name={selectedContainer.name}
+    running={selectedContainer.running}
+    {engineState}
+    onClose={() => (selectedContainer = null)}
+    onChanged={refreshAll}
+  />
+{/if}
 
 <footer
   class="flex-none border-t border-[#262b34] bg-[#171a21] px-4 py-1.5 text-xs"
