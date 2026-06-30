@@ -60,10 +60,11 @@
 
 <Sidebar.Root collapsible="icon">
   <Sidebar.Header>
-    <div class="flex items-center gap-2.5 overflow-hidden px-1 py-1">
+    <div
+      class="flex items-center gap-2.5 p-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+    >
       <span
-        class="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg text-[var(--lime-ink)]"
-        style="background:linear-gradient(150deg,var(--lime-bright),var(--lime-deep));box-shadow:0 4px 14px -4px var(--lime-line),inset 0 1px 0 rgba(255,255,255,.35)"
+        class="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-[linear-gradient(150deg,var(--lime-bright),var(--lime-deep))] text-[var(--lime-ink)] shadow-[0_4px_14px_-4px_var(--lime-line),inset_0_1px_0_rgba(255,255,255,0.35)]"
       >
         <Container size={17} aria-hidden="true" />
       </span>
@@ -89,7 +90,7 @@
                   tooltipContent={item.label}
                   aria-current={activeView === item.id ? "page" : undefined}
                   onclick={() => onSelect(item.id)}
-                  class="font-medium text-muted-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-foreground data-[active=true]:shadow-[inset_2px_0_0_var(--lime)] [&_svg]:text-muted-foreground data-[active=true]:[&_svg]:text-[var(--lime)]"
+                  class="font-medium text-muted-foreground hover:bg-foreground/10! hover:text-foreground! data-[active=true]:bg-foreground/[0.14]! data-[active=true]:text-foreground! data-[active=true]:shadow-[inset_2px_0_0_var(--lime)] [&_svg]:text-muted-foreground data-[active=true]:[&_svg]:text-[var(--lime)]"
                 >
                   <ItemIcon aria-hidden="true" />
                   <span>{item.label}</span>
@@ -106,7 +107,7 @@
   </Sidebar.Content>
 
   <Sidebar.Footer class="group-data-[collapsible=icon]:hidden">
-    <div class="eng" style="margin-top:0;border-top:0;padding:4px 2px">
+    <div class="eng mt-0! border-t-0! px-0.5! py-1!">
       <div class="row">
         <span class="dot {engineTone}"></span>
         <div>

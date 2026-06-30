@@ -76,7 +76,7 @@
   }
 </script>
 
-<div class="card overflow-hidden">
+<div class="card list-card overflow-hidden">
   <Table.Root class="table-fixed">
     <Table.Header>
       <Table.Row class="hover:bg-transparent">
@@ -94,11 +94,11 @@
         >
         <Table.Head
           class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
-          style="width:24%">Ports</Table.Head
+          style="width:22%">Ports</Table.Head
         >
         <Table.Head
           class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
-          style="width:8%"
+          style="width:10%"
         ></Table.Head>
       </Table.Row>
     </Table.Header>

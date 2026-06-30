@@ -203,6 +203,27 @@
     margin: 0;
     padding: 0;
   }
+  /* Tailwind v4 changed two defaults that regressed dockwin's look:
+       1. `border-*` utilities no longer imply a color — they fall back to
+          `currentColor`, so every uncolored border (the sidebar rail seam, the
+          table-row dividers) rendered as a bright near-white line.
+       2. <button> lost its implicit `cursor: pointer`, so controls felt dead.
+     Restore both to the v3 behaviour the design was built against. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--border);
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  label[for],
+  select,
+  summary,
+  ::file-selector-button {
+    cursor: pointer;
+  }
   html,
   body {
     height: 100%;
@@ -598,6 +619,13 @@
 .card-pad {
   padding: 16px 18px;
 }
+/* Tables in a clipping card don't need their own horizontal scroller — the
+   columns are fixed-width and their content truncates, so shadcn's default
+   `overflow-x-auto` only ever produced a stray 1px scrollbar. Let the card clip
+   instead of scrolling. */
+.list-card [data-slot="table-container"] {
+  overflow: visible;
+}
 .section-title {
   font-size: 10.5px;
   font-weight: 650;
@@ -668,6 +696,11 @@
   font-family: var(--mono);
   font-size: 12px;
   color: var(--text-2);
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* quiet status cell: dot + word + muted sub-line */
@@ -675,6 +708,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 .st .l {
   display: flex;
@@ -717,6 +751,9 @@
   font-size: 11px;
   color: var(--text-4);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .ports {
@@ -1001,7 +1038,7 @@
 .kv .r .v {
   font-size: 12.5px;
   color: var(--text);
-  text-align: right;
+  text-align: left;
   word-break: break-word;
 }
 .kv .r .v.mono {
@@ -1012,7 +1049,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  justify-content: flex-end;
+  justify-content: flex-start;
   color: var(--text-2);
 }
 .kv .copy svg {
@@ -1025,7 +1062,7 @@
   display: flex;
   gap: 5px;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 .net {
   font-family: var(--mono);
