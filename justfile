@@ -10,7 +10,7 @@
 #   src/                 — Svelte 5 + TS + Tailwind v4 frontend
 
 # Run recipes through PowerShell on Windows so multi-line bodies and env work.
-set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
+set windows-shell := ["pwsh.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 # Default: show the recipe list.
 default:
