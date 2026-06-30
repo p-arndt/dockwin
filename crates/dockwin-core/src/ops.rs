@@ -522,7 +522,15 @@ pub fn install_reporting(opts: InstallOpts, report: &dyn Fn(Progress)) -> Result
             p
         }
         None => {
-            let dest = tmp_dir.join("ubuntu-noble-cloudimg.rootfs.tar.xz");
+            // Name the download after the URL's own file so decompression picks
+            // the right codec (`.gz` for ubuntu-base, `.xz` for the cloud image)
+            // — see `ensure_plain_tar`.
+            let fname = wsl::DEFAULT_ROOTFS_URL
+                .rsplit('/')
+                .next()
+                .filter(|s| !s.is_empty())
+                .unwrap_or("rootfs.tar.gz");
+            let dest = tmp_dir.join(fname);
             let dl = |frac: f32, msg: &str| {
                 report(Progress::info("download", 3.0 + frac * 42.0, msg));
             };
@@ -565,6 +573,25 @@ pub fn install_reporting(opts: InstallOpts, report: &dyn Fn(Progress)) -> Result
     // --- 4. Place /etc/wsl.conf --------------------------------------------
     report(Progress::step("configure", 79.0, "Configuring /etc/wsl.conf"));
     wsl::run_checked(&["-d", DISTRO, "-u", "root", "--", "true"])?; // ensure booted
+
+    // The minimal ubuntu-base rootfs ships no systemd, but our autostart design
+    // needs systemd as PID 1 (wsl.conf `systemd=true`). Install it BEFORE the
+    // apply-reboot below, so systemd actually comes up as PID 1 afterwards. On
+    // the full cloud image systemd is already present, so this is a quick no-op.
+    report(Progress::info("configure", 80.0, "ensuring systemd is present (required for autostart)"));
+    let bootstrap = "export DEBIAN_FRONTEND=noninteractive; \
+        apt-get update -y && apt-get install -y --no-install-recommends \
+        systemd systemd-sysv dbus ca-certificates 2>&1";
+    let mut boot_line = |line: &str| report(Progress::info("configure", 80.0, line.to_string()));
+    let bootstrapped = wsl::run_streaming(
+        &["-d", DISTRO, "-u", "root", "--", "bash", "-lc", bootstrap],
+        &mut boot_line,
+    )
+    .context("installing systemd into the base distro failed")?;
+    if !bootstrapped {
+        bail!("failed to install systemd into the distro (required for systemd autostart)");
+    }
+
     let wsl_conf = load_text_asset(opts.wsl_conf, "wsl.conf", EMBEDDED_WSL_CONF)?;
     wsl::write_into_distro(&wsl_conf, "/etc/wsl.conf", "0644")?;
 

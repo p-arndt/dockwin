@@ -114,14 +114,22 @@ default. It never binds `0.0.0.0`.
 ### Engine provisioning
 
 ```
-wsl --import dockwin <dir> ubuntu-24.04-wsl.rootfs.tar --version 2
+wsl --import dockwin <dir> ubuntu-base-24.04.tar --version 2
 ```
 
-The core then writes `/etc/wsl.conf` (`[boot] systemd=true`, interop disabled),
-runs `systemctl enable docker`, switches iptables to **legacy**, sets
-`cgroupdriver=systemd` in `daemon.json`, and `wsl --shutdown` to apply. Docker
-is installed from the **pinned official apt repo** (reproducible), not the
-unpinned `get.docker.com` script. Teardown is `wsl --unregister dockwin`.
+The base image is the **minimal Ubuntu 24.04 `ubuntu-base` rootfs** (~29 MB)
+rather than the full server cloud image (~216 MB) — same glibc/apt userland, far
+less to download. (The purpose-built WSL rootfs tarballs were removed upstream;
+`ubuntu-base` is the small, reproducible, pinned alternative.) Because the
+minimal base ships no systemd, the core **installs systemd first**, then writes
+`/etc/wsl.conf` (`[boot] systemd=true`, interop disabled), and `wsl --shutdown`
+so systemd comes up as PID 1. It then runs `systemctl enable docker`, switches
+iptables to **legacy**, and sets `cgroupdriver=systemd` in `daemon.json`. Docker
+is installed from the **pinned official apt repo** (reproducible, with
+`--no-install-recommends`), not the unpinned `get.docker.com` script. A
+diagnostic `hello-world` bridge test is **opt-in** (`DOCKWIN_RUN_NETTEST=1`) so
+it doesn't add a network image pull to every setup. Teardown is
+`wsl --unregister dockwin`.
 
 ### Components
 
@@ -131,7 +139,7 @@ unpinned `get.docker.com` script. Teardown is `wsl --unregister dockwin`.
 | **dockwin** (CLI) | Rust binary (clap) | `up/down/status/provision/teardown` + passthrough ops. Thin parser. |
 | **dockwin-gui** | Tauri v2 (Rust + web) | Stateless desktop view: container/image lists, logs, exec, stats. |
 | **Named-pipe proxy** | Rust pipe server + socat | Serves `\\.\pipe\dockwin_engine`, relays each connection into the distro. |
-| **dockwin WSL2 distro** | Ubuntu 24.04 + docker-ce + systemd | Isolated engine host; `dockerd` on a unix socket, autostarted by systemd. |
+| **dockwin WSL2 distro** | Ubuntu 24.04 `ubuntu-base` + systemd + docker-ce | Isolated engine host; `dockerd` on a unix socket, autostarted by systemd. |
 | **Provisioner** | Rust (in core) + in-distro shell | Idempotent setup; verifies engine reachability before reporting ready. |
 
 ### Key design decisions
@@ -143,8 +151,10 @@ unpinned `get.docker.com` script. Teardown is `wsl --unregister dockwin`.
   directly supported, for when the relay misbehaves.
 - **Reject the `\\wsl.localhost` unix-socket path** → it is a 9P network share,
   not a connectable AF_UNIX endpoint; verified non-working.
-- **Ubuntu 24.04 rootfs with `systemd=true`** → real autostart robustness
-  (`Restart=on-failure`, ordering, socket activation). Alpine deferred.
+- **Minimal `ubuntu-base` rootfs + install systemd, run with `systemd=true`** →
+  ~29 MB vs ~216 MB download, with real autostart robustness
+  (`Restart=on-failure`, ordering, socket activation). Alpine deferred (musl +
+  no systemd fights this design).
 - **`[boot] command="service docker start"`** fallback for any non-systemd base.
 - **One small Rust workspace, no persistent Windows service** → the anti-bloat
   thesis. All logic in `dockwin-core`, reused by CLI and GUI.
@@ -258,7 +268,7 @@ also need a `wsl --shutdown` after sleep/wake.
 | Log tail (snapshot) | ✅ Implemented |
 | Live log *streaming* over a Tauri channel | 🚧 `TODO` in `commands.rs` |
 | Sidebar nav (Containers / Stacks / Images / Volumes / Networks / System / Settings) | ✅ Implemented |
-| Live provisioning **progress bar + streamed log** (download bytes → xz decompress → apt) | ✅ Implemented |
+| Live provisioning **progress bar + streamed log** (download bytes → decompress → apt), persisted to `%LOCALAPPDATA%\dockwin\logs\provision-*.log` | ✅ Implemented |
 | Docker Compose **stacks** view: containers grouped by project + per-stack start/stop/restart | ✅ Implemented |
 | Compose `up` / `down` / `build` / `pull` / `restart` / `logs` from a `.yml` (GUI file picker **or** `dockwin up`/`down` CLI) — runs inside the engine, not Docker Desktop's pipe | ✅ Implemented |
 | **Container details** drawer: live CPU/mem/net/blk **stats**, `inspect` JSON, `top` processes, rename, pause/unpause | ✅ Implemented |
@@ -267,7 +277,7 @@ also need a `wsl --shutdown` after sleep/wake.
 | **Networks**: list, create, remove, prune, inspect, connect/disconnect | ✅ Implemented |
 | **System**: disk usage (`df`), prune (incl. all-images / volumes), engine info | ✅ Implemented |
 | Bundle `dockwin.exe` as a Tauri sidecar + NSIS installer | ✅ Implemented |
-| `curl.exe` no-console spawns + correct cloud-image rootfs (`.tar.xz`) | ✅ Implemented |
+| `curl.exe` no-console spawns + minimal `ubuntu-base` rootfs (`.tar.gz`, ~29 MB); systemd installed before the `systemd=true` reboot | ✅ Implemented |
 | Live log *streaming* over a Tauri channel; interactive exec terminal | 🟡 Planned |
 | Code signing / winget; hardening: pipe ACL to current user, relay load test, anti-bloat audit | 🟡 Planned |
 
@@ -309,10 +319,12 @@ Anything marked 🚧 / 🟡 may contain clearly-marked `TODO` stubs in the code.
 - **`systemd=true` needs recent WSL** (~2.1.5+); on stale inbox WSL it is silently
   ignored. Provisioner runs `wsl --update` / version-checks first.
 - **iptables nftables-vs-legacy** mismatch on newer Ubuntu can break container
-  bridge networking even when dockerd starts; provisioning forces legacy and
-  verifies a test container gets connectivity.
+  bridge networking even when dockerd starts; provisioning forces legacy. An
+  opt-in `hello-world` bridge test (`DOCKWIN_RUN_NETTEST=1`) can verify
+  connectivity on demand (off by default to keep setup fast).
 - **Gzipped rootfs import** can fail with "Incorrect function." on older WSL;
-  provisioner decompresses to plain `.tar` first as a safety net.
+  since the default `ubuntu-base` rootfs ships as `.tar.gz`, the provisioner
+  always decompresses to a plain `.tar` first (xz too) as a safety net.
 - **Don't run alongside Docker Desktop** — mirrored networking and context
   collisions can cause silent failures.
 - **`wsl --unregister` permanently deletes** the distro's `ext4.vhdx` — teardown

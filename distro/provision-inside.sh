@@ -68,15 +68,18 @@ apt-get update -y
 # Empty -> latest in the stable repo. Override via DOCKWIN_DOCKER_VERSION
 # (e.g. "5:27.*" matching `apt-cache madison docker-ce`).
 DOCKER_VERSION="${DOCKWIN_DOCKER_VERSION:-}"
+# --no-install-recommends keeps the install lean (skips optional extras like
+# pigz/slirp4netns/rootless that a rootful engine box doesn't need); iptables and
+# the buildx/compose plugins we want are pulled in explicitly.
 if [ -n "$DOCKER_VERSION" ]; then
     log "installing Docker Engine pinned to '${DOCKER_VERSION}'"
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
         "docker-ce=${DOCKER_VERSION}" \
         "docker-ce-cli=${DOCKER_VERSION}" \
         containerd.io docker-buildx-plugin docker-compose-plugin
 else
     log "installing latest stable Docker Engine"
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
         docker-ce docker-ce-cli containerd.io \
         docker-buildx-plugin docker-compose-plugin
 fi
@@ -176,13 +179,19 @@ docker version --format '  server: {{.Server.Version}} (api {{.Server.APIVersion
 #    Best-effort: don't fail provisioning if the base image lacks the image
 #    cache / network egress at provision time.
 # ---------------------------------------------------------------------------
-if [ "${DOCKWIN_SKIP_NETTEST:-0}" != "1" ]; then
-    log "running best-effort container bridge connectivity test"
+# The bridge test pulls hello-world from the network and runs it — a purely
+# diagnostic smoke test (it never gated provisioning, only warned). It is the
+# slow tail of provisioning, so it is OPT-IN: set DOCKWIN_RUN_NETTEST=1 to run
+# it. dockerd and the network config are identical either way.
+if [ "${DOCKWIN_RUN_NETTEST:-0}" = "1" ]; then
+    log "running container bridge connectivity test (DOCKWIN_RUN_NETTEST=1)"
     if docker run --rm hello-world >/dev/null 2>&1; then
         log "container bridge networking OK"
     else
-        warn "bridge test skipped/failed (no egress or image pull blocked); verify later with: docker run --rm hello-world"
+        warn "bridge test failed (no egress or image pull blocked); verify later with: docker run --rm hello-world"
     fi
+else
+    log "skipping bridge test (set DOCKWIN_RUN_NETTEST=1 to run it); verify anytime with: docker run --rm hello-world"
 fi
 
 log "provisioning complete."

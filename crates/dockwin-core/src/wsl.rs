@@ -19,12 +19,19 @@ use anyhow::{bail, Context, Result};
 /// The dedicated distro name. Reused everywhere (matches the original scripts).
 pub const DISTRO: &str = "dockwin";
 
-/// Default official Ubuntu 24.04 (noble) rootfs. The WSL-specific tarballs that
-/// used to live under `cloud-images.ubuntu.com/wsl/...` were removed (only the
-/// manifests remain), so we use the canonical cloud-image root tarball, which
-/// `wsl --import` accepts once decompressed. It ships as `.tar.xz`.
+/// Default base rootfs: the **minimal** Ubuntu 24.04 (noble) base image
+/// (~29 MB) instead of the full server cloud image (~216 MB) — far less to
+/// download. The WSL-specific tarballs under `cloud-images.ubuntu.com/wsl/...`
+/// were removed upstream (404), and the cloud image carries cloud-init + a
+/// server payload we don't need; `ubuntu-base` is glibc/apt and works with the
+/// official Docker apt repo just the same. It ships **no systemd**, so
+/// provisioning installs systemd before the `wsl.conf systemd=true` reboot (see
+/// [`crate::ops::install_reporting`]). Pinned to a point release for
+/// reproducibility — bump when a newer one ships. Swap back to the cloud image
+/// (`https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64-root.tar.xz`)
+/// if systemd ever misbehaves on the minimal base.
 pub const DEFAULT_ROOTFS_URL: &str =
-    "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64-root.tar.xz";
+    "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-amd64.tar.gz";
 
 /// `CREATE_NO_WINDOW` (winbase.h). Without it, every child process spawned from
 /// the GUI — which has no console of its own — briefly flashes a console window.
