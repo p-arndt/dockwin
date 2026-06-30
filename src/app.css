@@ -53,19 +53,19 @@
 }
 
 .dark {
-  --background: #0a0b0e;
+  --background: #08090c;
   --foreground: #f3f4f6;
-  --card: #101216;
+  --card: #15171d;
   --card-foreground: #f3f4f6;
-  --popover: #15181d;
+  --popover: #1b1e26;
   --popover-foreground: #f3f4f6;
   --primary: #a6e35b;
   --primary-foreground: #16240a;
-  --secondary: #15181d;
+  --secondary: #1b1e26;
   --secondary-foreground: #f3f4f6;
-  --muted: #15181d;
+  --muted: #1b1e26;
   --muted-foreground: #727a86;
-  --accent: #15181d;
+  --accent: #1b1e26;
   --accent-foreground: #f3f4f6;
   --destructive: #e5727f;
   --destructive-foreground: #f3f4f6;
@@ -88,8 +88,8 @@
   --chart-4: #e5727f;
   --chart-5: #5a626d;
 
-  --backdrop-grad: #0c0e12;
-  --backdrop-glow: 0.05;
+  --backdrop-grad: #0b0d11;
+  --backdrop-glow: 0.055;
 }
 
 @theme inline {
@@ -190,17 +190,6 @@
     background: color-mix(in srgb, var(--primary) 22%, transparent);
   }
 
-  /* Engine "live" status dot — soft pulsing ring (a pseudo-element + keyframes
-     can't be inline Tailwind). The element it decorates must be `relative`. */
-  .eng-dot-ring::after {
-    content: "";
-    position: absolute;
-    inset: -4px;
-    border-radius: 50%;
-    border: 1px solid var(--chart-2);
-    opacity: 0.5;
-    animation: eng-dot-ring 2.6s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
-  }
   @keyframes eng-dot-ring {
     0% {
       transform: scale(0.6);

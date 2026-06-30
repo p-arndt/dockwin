@@ -238,7 +238,7 @@
   <section class="flex flex-col gap-[10px]">
     <div class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70">Disk usage</div>
     {#if diskCards.length === 0}
-      <div class="bg-card border border-border rounded-[11px] shadow-sm px-[18px] pt-[26px] pb-[26px] text-center text-muted-foreground">
+      <div class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] px-[18px] pt-[26px] pb-[26px] text-center text-muted-foreground">
         {#if loading}Loading…{:else if engineRunning}No data.{:else}Engine not running.{/if}
       </div>
     {:else}
@@ -260,7 +260,7 @@
   </section>
 
   <!-- Reclaim space -->
-  <section class="bg-card border border-border rounded-[11px] shadow-sm py-[16px] px-[18px] flex flex-col gap-[12px]">
+  <section class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px] flex flex-col gap-[12px]">
     <div class="flex items-start gap-[11px]">
       <span class="size-[30px] rounded-[8px] shrink-0 grid place-items-center bg-muted border border-border text-muted-foreground [&_svg]:size-[15px]"><Trash2 aria-hidden="true" /></span>
       <div>
@@ -301,7 +301,7 @@
   </section>
 
   <!-- Engine info -->
-  <section class="bg-card border border-border rounded-[11px] shadow-sm py-[16px] px-[18px]">
+  <section class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px]">
     <div class="flex flex-col">
       <div class="flex items-center gap-[8px] text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70 pt-[4px] pb-[9px]">
         <span class="inline-flex text-muted-foreground/70 [&_svg]:size-[14px]"><Server aria-hidden="true" /></span>

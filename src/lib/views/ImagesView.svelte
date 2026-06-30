@@ -467,7 +467,7 @@
 
   <!-- ===== List + detail drawer ===== -->
   <div class="grid gap-[16px] items-start min-w-0 {selected ? 'grid-cols-[minmax(0,1fr)_clamp(340px,34%,392px)]' : 'grid-cols-[minmax(0,1fr)]'}">
-    <div class="bg-card border border-border rounded-[11px] shadow-sm overflow-hidden">
+    <div class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
       <Table.Root class="table-fixed">
         <Table.Header>
           <Table.Row class="hover:bg-transparent">
@@ -580,7 +580,7 @@
     <!-- ===== Detail drawer ===== -->
     {#if selected}
       {@const sel = selected}
-      <aside class="flex flex-col min-w-0 overflow-auto bg-card border border-border rounded-[11px] shadow-sm max-h-[calc(100vh-210px)] sticky top-0">
+      <aside class="flex flex-col min-w-0 overflow-auto bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] max-h-[calc(100vh-210px)] sticky top-0">
         <div class="pt-[18px] px-[20px] pb-[16px] border-b border-border">
           <div class="flex items-center gap-[12px]">
             <span class="size-[38px] rounded-[10px] shrink-0 grid place-items-center bg-muted border border-border text-muted-foreground [&_svg]:size-[19px]"><Layers aria-hidden="true" /></span>

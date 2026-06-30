@@ -77,7 +77,7 @@
 </script>
 
 <div
-  class="data-table-card overflow-hidden rounded-[11px] border border-border bg-card shadow-sm"
+  class="data-table-card overflow-hidden rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] [&_td]:py-[13px]"
 >
   <Table.Root class="table-fixed">
     <Table.Header>
@@ -232,7 +232,7 @@
                 <!-- primary lifecycle action: always visible, colour-coded -->
                 {#if c.running}
                   <Button
-                    variant="destructive"
+                    variant="outline"
                     size="icon-sm"
                     title="Stop"
                     disabled={acting}
@@ -242,7 +242,7 @@
                   </Button>
                 {:else}
                   <Button
-                    variant="success"
+                    variant="outline"
                     size="icon-sm"
                     title="Start"
                     disabled={acting}
@@ -269,7 +269,7 @@
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    class="text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
+                    class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     title="Remove"
                     disabled={acting}
                     onclick={(e) => act(e, "remove", c)}

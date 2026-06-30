@@ -66,12 +66,12 @@
 <Sidebar.Root collapsible="icon">
   <Sidebar.Header>
     <div
-      class="flex items-center gap-2.5 p-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+      class="flex items-center gap-3 p-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
     >
       <span
-        class="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"
+        class="flex aspect-square size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-[0_4px_14px_-4px_rgba(166,227,91,0.35),inset_0_1px_0_rgba(255,255,255,0.25)]"
       >
-        <Container size={17} aria-hidden="true" />
+        <Container size={19} aria-hidden="true" />
       </span>
       <div class="grid flex-1 leading-tight group-data-[collapsible=icon]:hidden">
         <span class="text-sm font-semibold tracking-tight">dockwin</span>
@@ -95,7 +95,7 @@
                   tooltipContent={item.label}
                   aria-current={activeView === item.id ? "page" : undefined}
                   onclick={() => onSelect(item.id)}
-                  class="font-medium text-muted-foreground hover:bg-foreground/10! hover:text-foreground! data-[active=true]:bg-foreground/[0.14]! data-[active=true]:text-foreground! data-[active=true]:shadow-[inset_2px_0_0_var(--primary)] [&_svg]:text-muted-foreground data-[active=true]:[&_svg]:text-primary"
+                  class="relative font-medium gap-3 rounded-md text-muted-foreground hover:bg-foreground/[0.05]! hover:text-foreground! data-[active=true]:bg-foreground/[0.06]! data-[active=true]:text-foreground! data-[active=true]:before:content-[''] data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-1/2 data-[active=true]:before:h-[17px] data-[active=true]:before:w-[3px] data-[active=true]:before:-translate-y-1/2 data-[active=true]:before:rounded-r-full data-[active=true]:before:bg-primary [&_svg]:text-muted-foreground data-[active=true]:[&_svg]:text-primary"
                 >
                   <ItemIcon aria-hidden="true" />
                   <span>{item.label}</span>
@@ -127,7 +127,6 @@
           : engineTone === 'off'
             ? 'bg-chart-5'
             : 'bg-chart-2'}"
-        class:eng-dot-ring={engineTone === 'live'}
       ></span>
       <div class="min-w-0 flex-1 leading-tight">
         <div class="text-[12px] font-medium text-foreground/90">{engineLine}</div>

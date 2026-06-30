@@ -303,7 +303,7 @@
   {/if}
 
   {#if showCreate}
-    <form class="bg-card border border-border rounded-[11px] shadow-sm py-[16px] px-[18px]" onsubmit={onCreate}>
+    <form class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px]" onsubmit={onCreate}>
       <div class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70 mb-[12px]">New volume</div>
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
         <div class="relative flex-1" style="min-width:200px">
@@ -344,7 +344,7 @@
     </form>
   {/if}
 
-  <div class="bg-card border border-border rounded-[11px] shadow-sm overflow-hidden">
+  <div class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
     <Table.Root class="table-fixed">
       <Table.Header>
         <Table.Row class="hover:bg-transparent">

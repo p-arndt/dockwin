@@ -17,7 +17,7 @@
   } = $props();
 </script>
 
-<div class="flex items-center gap-[14px] pl-[22px] pr-[16px] h-[46px] shrink-0 border-b border-border text-muted-foreground">
+<div class="flex items-center gap-[14px] pl-[22px] pr-[16px] h-[50px] shrink-0 border-b border-border text-muted-foreground">
   <Sidebar.Trigger class="-ml-1 text-muted-foreground hover:text-foreground" />
   <span class="w-px h-[13px] bg-border"></span>
   <span class="font-[650] text-[12.5px] tracking-[-0.1px] text-muted-foreground">{label}</span>

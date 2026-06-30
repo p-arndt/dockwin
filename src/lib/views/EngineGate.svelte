@@ -49,7 +49,7 @@
   {#if working && provision}
     <!-- Live provisioning progress. -->
     <section
-      class="w-full max-w-[32rem] bg-card border border-border rounded-[11px] shadow-sm p-[24px]"
+      class="w-full max-w-[32rem] bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] p-[24px]"
     >
       <div class="flex items-center gap-[13px]">
         <span
@@ -121,7 +121,7 @@
   {:else if engineState === "not-provisioned"}
     <!-- First-run setup. -->
     <section
-      class="w-full max-w-[32rem] bg-card border border-border rounded-[11px] shadow-sm p-[24px]"
+      class="w-full max-w-[32rem] bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] p-[24px]"
     >
       <div class="flex items-center gap-[13px]">
         <span
@@ -173,7 +173,7 @@
   {:else if engineState === "stopped"}
     <!-- Engine provisioned but not running. -->
     <section
-      class="w-full max-w-[32rem] bg-card border border-border rounded-[11px] shadow-sm p-[24px]"
+      class="w-full max-w-[32rem] bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] p-[24px]"
     >
       <div class="flex items-center gap-[13px]">
         <span
@@ -213,7 +213,7 @@
   {:else if engineState === "broken"}
     <!-- Broken engine: distro registered but its disk image is missing. -->
     <section
-      class="w-full max-w-[32rem] bg-destructive/15 border border-destructive/40 rounded-[11px] shadow-sm p-[24px]"
+      class="w-full max-w-[32rem] bg-destructive/15 border border-destructive/40 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] p-[24px]"
     >
       <div class="flex items-center gap-[13px]">
         <span
@@ -258,7 +258,7 @@
   {:else}
     <!-- unknown: can't yet determine the engine state. -->
     <section
-      class="w-full max-w-[32rem] bg-card border border-border rounded-[11px] shadow-sm p-[24px]"
+      class="w-full max-w-[32rem] bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] p-[24px]"
     >
       <div class="flex items-center gap-[13px]">
         <span

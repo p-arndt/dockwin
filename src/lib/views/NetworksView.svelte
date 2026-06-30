@@ -260,7 +260,7 @@
   <!-- Create network form -->
   {#if engineState === "running"}
     <form
-      class="bg-card border border-border rounded-[11px] shadow-sm px-[18px] py-[16px] flex flex-wrap items-end gap-[12px]"
+      class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] px-[18px] py-[16px] flex flex-wrap items-end gap-[12px]"
       onsubmit={createNetwork}
     >
       <label class="flex flex-col gap-[6px]">
@@ -294,7 +294,7 @@
     </form>
   {/if}
 
-  <div class="bg-card border border-border rounded-[11px] shadow-sm overflow-hidden">
+  <div class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
     <Table.Root class="table-fixed">
       <Table.Header>
         <Table.Row class="hover:bg-transparent">

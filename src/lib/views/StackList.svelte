@@ -75,7 +75,7 @@
 
 {#if stacks.length === 0}
   <div
-    class="bg-card border border-border rounded-[11px] shadow-sm py-[16px] px-[18px]"
+    class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px]"
   >
     <p
       class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground"
@@ -93,7 +93,7 @@
       {@const busy = stackBusy(s)}
       {@const allRunning = s.running === s.total}
       <section
-        class="bg-card border border-border rounded-[11px] shadow-sm overflow-hidden"
+        class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden"
       >
         <header
           class="flex items-center gap-[12px] py-[12px] px-[16px] border-b border-border bg-muted/50"

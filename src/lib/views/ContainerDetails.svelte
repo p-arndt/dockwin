@@ -476,14 +476,14 @@
         <!-- live stat cards -->
         <div class="ov-stats">
           {#if !running}
-            <div class="px-[18px] py-7 text-center text-[13px] text-muted-foreground">Container is not running — no live stats.</div>
+            <div class="rounded-[10px] border border-border bg-muted/20 px-[18px] py-6 text-center text-[13px] text-muted-foreground">Container is not running — no live stats.</div>
           {:else if statsError}
             <Alert.Root variant="destructive">
               <TriangleAlert aria-hidden="true" />
               <Alert.Description>{statsError}</Alert.Description>
             </Alert.Root>
           {:else if !stats}
-            <div class="px-[18px] py-7 text-center text-[13px] text-muted-foreground">Loading stats…</div>
+            <div class="rounded-[10px] border border-border bg-muted/20 px-[18px] py-6 text-center text-[13px] text-muted-foreground">Loading stats…</div>
           {:else}
             <div class="grid grid-cols-2 gap-[10px]">
               <!-- CPU — the one focused chart on this screen -->
@@ -652,7 +652,7 @@
       </div>
     {:else if activeTab === "inspect"}
       {#if inspectLoading && inspectText === null}
-        <div class="px-[18px] py-7 text-center text-[13px] text-muted-foreground">Loading inspect…</div>
+        <div class="rounded-[10px] border border-border bg-muted/20 px-[18px] py-6 text-center text-[13px] text-muted-foreground">Loading inspect…</div>
       {:else if inspectError}
         <Alert.Root variant="destructive">
           <TriangleAlert aria-hidden="true" />
@@ -672,16 +672,16 @@
       {/if}
     {:else if activeTab === "top"}
       {#if !running}
-        <div class="px-[18px] py-7 text-center text-[13px] text-muted-foreground">Container is not running — no processes.</div>
+        <div class="rounded-[10px] border border-border bg-muted/20 px-[18px] py-6 text-center text-[13px] text-muted-foreground">Container is not running — no processes.</div>
       {:else if topLoading && top === null}
-        <div class="px-[18px] py-7 text-center text-[13px] text-muted-foreground">Loading processes…</div>
+        <div class="rounded-[10px] border border-border bg-muted/20 px-[18px] py-6 text-center text-[13px] text-muted-foreground">Loading processes…</div>
       {:else if topError}
         <Alert.Root variant="destructive">
           <TriangleAlert aria-hidden="true" />
           <Alert.Description>{topError}</Alert.Description>
         </Alert.Root>
       {:else if top && top.processes.length > 0}
-        <div class="rounded-[11px] border border-border bg-card shadow-md overflow-hidden">
+        <div class="rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
           <Table.Root class="table-fixed">
             <Table.Header>
               <Table.Row class="hover:bg-transparent">
@@ -702,7 +702,7 @@
           </Table.Root>
         </div>
       {:else}
-        <div class="px-[18px] py-7 text-center text-[13px] text-muted-foreground">No processes reported.</div>
+        <div class="rounded-[10px] border border-border bg-muted/20 px-[18px] py-6 text-center text-[13px] text-muted-foreground">No processes reported.</div>
       {/if}
     {/if}
   </div>
