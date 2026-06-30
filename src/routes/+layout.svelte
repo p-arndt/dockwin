@@ -20,10 +20,15 @@
   import TopBar from "$lib/views/TopBar.svelte";
   import UpdateBanner from "$lib/views/UpdateBanner.svelte";
   import { setAppController } from "$lib/state/app.svelte";
+  import { getAppVersion } from "$lib/api/updater";
 
   let { children } = $props();
 
   const app = setAppController();
+
+  // App version shown in the status bar. Read once from the bundle on mount;
+  // stays null (and hidden) in plain-browser dev where Tauri isn't present.
+  let appVersion = $state<string | null>(null);
 
   // The active screen is derived straight from the URL. "/" redirects to
   // /containers (see +page.ts), so the empty default is only transient.
@@ -35,6 +40,7 @@
 
   onMount(() => {
     app.mount();
+    getAppVersion().then((v) => (appVersion = v));
     // Hand off from the static app.html splash to the real shell now that
     // Svelte has committed its first paint.
     const splash = document.getElementById("initial-splash");
@@ -116,6 +122,12 @@
       >
         <span class="min-w-0 truncate">{app.footer}</span>
         <span class="flex-1"></span>
+        {#if appVersion}
+          <span class="shrink-0 tabular-nums text-muted-foreground" title="dockwin app version">
+            v{appVersion}
+          </span>
+          <span class="w-px h-[11px] bg-border shrink-0"></span>
+        {/if}
         <button
           type="button"
           onclick={() => navigate("settings")}
