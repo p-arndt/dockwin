@@ -25,7 +25,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 // owner/repo the release assets live under (mirrors tauri.conf.json endpoints).
-const REPO = "dockwin/dockwin";
+const REPO = "p-arndt/dockwin";
 // tauri's platform key for a 64-bit Windows target.
 const PLATFORM = "windows-x86_64";
 

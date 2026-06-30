@@ -69,8 +69,12 @@ build-web:
 
 # Build the release GUI + NSIS installer (-> target/release/bundle/nsis/).
 # `pnpm tauri build` runs `pnpm build` + `pnpm sidecar` first via beforeBuildCommand.
+# Updater signing: if a local key exists at %USERPROFILE%\.dockwin\dockwin-updater.key
+# the installer is SIGNED so the in-app updater can verify it (and a .sig is
+# emitted). Without the key it builds UNSIGNED with updater artifacts disabled, so
+# a key-free local bundle still succeeds. CI signs via repo secrets instead.
 installer:
-    pnpm tauri build
+    node scripts/bundle.mjs
 
 # Alias for `installer`.
 bundle: installer
