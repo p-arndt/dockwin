@@ -1,29 +1,12 @@
 <script lang="ts">
-  // Top-level shell: branded sidebar (Workloads / Resources + counts + active
-  // rail + engine pod, the single engine-status anchor) and a slim top ctx bar
-  // (active-view label + theme toggle + actions; accent lives in Settings).
+  // Root shell + screen router. Owns the engine lifecycle, container data/actions
+  // and polling, then delegates each screen to a view component. The engine status
+  // is anchored in the sidebar pod; the top bar holds the active context + actions.
   // Talks to dockwin-core only through src/lib/api (no raw invoke).
-  import { onMount, type Component } from "svelte";
+  import { onMount } from "svelte";
   import Container from "@lucide/svelte/icons/container";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
-  import PlayCircle from "@lucide/svelte/icons/circle-play";
-  import CircleStop from "@lucide/svelte/icons/circle-stop";
-  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
-  import HelpCircle from "@lucide/svelte/icons/circle-help";
-  import Settings from "@lucide/svelte/icons/settings";
-  import Trash2 from "@lucide/svelte/icons/trash-2";
-  import FileUp from "@lucide/svelte/icons/file-up";
-  import FileDown from "@lucide/svelte/icons/file-down";
-  import Terminal from "@lucide/svelte/icons/terminal";
-  import Hammer from "@lucide/svelte/icons/hammer";
-  import Download from "@lucide/svelte/icons/download";
-  import ScrollText from "@lucide/svelte/icons/scroll-text";
-  import Moon from "@lucide/svelte/icons/moon";
-  import Sun from "@lucide/svelte/icons/sun";
-  import Search from "@lucide/svelte/icons/search";
-  import { open } from "@tauri-apps/plugin-dialog";
   import * as api from "./lib/api";
-  import { theme, ACCENT_SHADES } from "./lib/state/theme.svelte";
   import type {
     EngineState,
     NormalizedContainer,
@@ -31,24 +14,23 @@
     ProvisionUi,
     Stack,
   } from "./lib/types";
+  import { confirmDialog } from "./lib/state/confirm.svelte";
+  import { createCompose } from "./lib/state/compose.svelte";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+  import AppSidebar, { NAV, type View } from "./lib/components/AppSidebar.svelte";
+  import ThemeToggle from "./lib/components/ThemeToggle.svelte";
+  import ConfirmHost from "./lib/components/ConfirmHost.svelte";
   import EngineGate from "./lib/views/EngineGate.svelte";
-  import ContainerList from "./lib/views/ContainerList.svelte";
+  import TopBar from "./lib/views/TopBar.svelte";
+  import ContainersView from "./lib/views/ContainersView.svelte";
+  import StacksView from "./lib/views/StacksView.svelte";
   import ImagesView from "./lib/views/ImagesView.svelte";
-  import StackList from "./lib/views/StackList.svelte";
   import VolumesView from "./lib/views/VolumesView.svelte";
   import NetworksView from "./lib/views/NetworksView.svelte";
   import SystemView from "./lib/views/SystemView.svelte";
-  import ContainerDetails from "./lib/views/ContainerDetails.svelte";
+  import SettingsView from "./lib/views/SettingsView.svelte";
   import UpdateBanner from "./lib/views/UpdateBanner.svelte";
-  import ConfirmHost from "./lib/components/ConfirmHost.svelte";
-  import { confirmDialog } from "./lib/state/confirm.svelte";
-  import { Button } from "$lib/components/ui/button/index.js";
-  import { Checkbox } from "$lib/components/ui/checkbox/index.js";
-  import { Label } from "$lib/components/ui/label/index.js";
-  import { Badge } from "$lib/components/ui/badge/index.js";
-  import * as Alert from "$lib/components/ui/alert/index.js";
-  import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-  import AppSidebar, { NAV, type View } from "./lib/components/AppSidebar.svelte";
 
   const POLL_MS = 3000;
 
@@ -65,83 +47,66 @@
   let engineBusy = $state(false);
   let repairing = $state(false); // engine_repair (reset broken distro) in flight
 
-  // Active sidebar view.
   let activeView = $state<View>("containers");
-  // Bumped on manual refresh so the Images view reloads while it's open.
+  // Bumped on manual refresh so the open resource view reloads.
   let imageRefreshKey = $state(0);
 
   // Setup / teardown (provisioning is long-running — minutes).
   let working = $state(false); // provision or teardown in flight
   let enableTcp = $state(false); // opt into the insecure loopback-TCP fallback
   let withBackup = $state(false); // export a .tar before teardown
+  let provision = $state<ProvisionUi | null>(null); // live provisioning progress
 
-  // Live provisioning progress (driven by the engine://provision event).
-  let provision = $state<ProvisionUi | null>(null);
-
-  // Compose (docker compose up/down inside the engine).
-  let composeBusy = $state(false);
-  let composeLog = $state<string[]>([]);
-  let composeOpen = $state(false); // show the compose output panel
-  let lastComposeFile = $state<string | null>(null);
-
-  // Container details: selected container + whether it's shown as the full-width
-  // page (true) or the right-side drawer (false). FULL-DETAIL routing.
+  // Container details: selected container + whether it's the full-width page
+  // (true) or the right-side drawer (false).
   let selectedContainer = $state<NormalizedContainer | null>(null);
   let detailFull = $state(false);
 
   let busy = false; // non-reactive guard against overlapping refreshes
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-  // --- derived engine presentation ---
-  interface EnginePresentation {
-    dot: string;
-    icon: Component;
-    label: string;
-    btn: string;
-  }
-  const ENGINE: Record<EngineState, EnginePresentation> = {
-    running: { dot: "dot-ok", icon: PlayCircle, label: "Engine: running", btn: "Stop" },
-    stopped: { dot: "dot-off", icon: CircleStop, label: "Engine: stopped", btn: "Start" },
-    "not-provisioned": {
-      dot: "dot-warn",
-      icon: TriangleAlert,
-      label: "Engine: not provisioned",
-      btn: "Set up",
-    },
-    broken: {
-      dot: "dot-warn",
-      icon: TriangleAlert,
-      label: "Engine: broken",
-      btn: "Repair",
-    },
-    unknown: { dot: "dot-unknown", icon: HelpCircle, label: "Engine: unknown", btn: "—" },
-  };
-  let engine = $derived(ENGINE[engineState] ?? ENGINE.unknown);
-  // The management shell (sidebar + resource views) only mounts once the engine
-  // is running. Every other state is owned by the full-window EngineGate, so the
-  // engine lifecycle never bleeds into the management UI.
+  // --- derived ---
+  // The management shell only mounts once the engine is running; every other
+  // state is owned by the full-window EngineGate, so the engine lifecycle never
+  // bleeds into the management UI.
   let engineReady = $derived(engineState === "running");
   let engineToggleDisabled = $derived(
     engineBusy || working || repairing || engineState === "unknown"
   );
-  // Tone for the quiet status dots (ctx bar + engine pod).
+  // Tone for the quiet status dots (top bar + engine pod).
   let engineTone = $derived(
     engineState === "running" ? "live" : engineState === "stopped" ? "off" : "warn"
+  );
+  // Compact engine status line shown in the sidebar pod + engine-gate bar.
+  let engineLine = $derived(
+    engineState === "running"
+      ? "Engine running"
+      : engineState === "stopped"
+        ? "Engine stopped"
+        : engineState === "not-provisioned"
+          ? "Engine not provisioned"
+          : engineState === "broken"
+            ? "Engine broken"
+            : "Engine unknown"
   );
   let runningCount = $derived(containers.filter((c) => c.running).length);
   // Containers grouped into Docker Compose stacks (by project label).
   let stacks = $derived(api.groupStacks(containers));
-
   // Per-view counts shown as nav badges (AppSidebar owns the nav model itself).
   let navCounts = $derived<Partial<Record<View, number>>>({
     containers: containers.length,
     stacks: stacks.length,
   });
+  // Active-view label for the top-bar breadcrumb.
+  let activeViewLabel = $derived(
+    activeView === "settings"
+      ? "Settings"
+      : (NAV.find((n) => n.id === activeView)?.label ?? "")
+  );
 
   function setView(view: View) {
     activeView = view;
   }
-
   function setFooter(msg: string, isError = false) {
     footer = msg;
     footerErr = isError;
@@ -212,11 +177,15 @@
     }
   }
 
-  // Explicit user-triggered refresh: also nudge the Images view to reload.
+  // Explicit user-triggered refresh: also nudge the open resource view to reload.
   async function manualRefresh() {
     imageRefreshKey++;
     await refreshAll();
   }
+
+  // Compose state + actions live in their own controller (created here so the
+  // state survives navigating away from and back to the Stacks screen).
+  const compose = createCompose({ setFooter, refreshAll });
 
   // pending is a Set held in $state; reassign to trigger reactivity.
   function markPending(id: string, on: boolean) {
@@ -349,82 +318,6 @@
     }
   }
 
-  // --- Compose (docker compose up/down inside the dockwin engine) ---
-  async function pickComposeFile(): Promise<string | null> {
-    const sel = await open({
-      multiple: false,
-      directory: false,
-      title: "Select a Docker Compose file",
-      filters: [{ name: "Compose", extensions: ["yml", "yaml"] }],
-    });
-    return typeof sel === "string" ? sel : null;
-  }
-
-  async function composeUp() {
-    if (composeBusy) return;
-    const file = await pickComposeFile();
-    if (!file) return;
-    composeBusy = true;
-    composeLog = [];
-    composeOpen = true;
-    lastComposeFile = file;
-    activeView = "stacks";
-    setFooter(`compose up: ${file}…`);
-    try {
-      await api.composeUp(file, false);
-      setFooter("Compose up complete.");
-    } catch (e) {
-      setFooter(`Compose up failed: ${api.errText(e)}`, true);
-    } finally {
-      composeBusy = false;
-      await refreshAll();
-    }
-  }
-
-  async function composeDown() {
-    if (composeBusy) return;
-    const file = lastComposeFile ?? (await pickComposeFile());
-    if (!file) return;
-    composeBusy = true;
-    composeOpen = true;
-    lastComposeFile = file;
-    setFooter(`compose down: ${file}…`);
-    try {
-      await api.composeDown(file);
-      setFooter("Compose down complete.");
-    } catch (e) {
-      setFooter(`Compose down failed: ${api.errText(e)}`, true);
-    } finally {
-      composeBusy = false;
-      await refreshAll();
-    }
-  }
-
-  // build / pull / restart / logs: same flow, different compose verb. Reuses the
-  // last picked file (or prompts) and streams output into the compose panel.
-  async function runComposeExtra(
-    label: string,
-    run: (file: string) => Promise<void>
-  ) {
-    if (composeBusy) return;
-    const file = lastComposeFile ?? (await pickComposeFile());
-    if (!file) return;
-    composeBusy = true;
-    composeOpen = true;
-    lastComposeFile = file;
-    composeLog = [];
-    setFooter(`compose ${label}: ${file}…`);
-    try {
-      await run(file);
-      setFooter(`Compose ${label} complete.`);
-    } catch (e) {
-      setFooter(`Compose ${label} failed: ${api.errText(e)}`, true);
-    } finally {
-      composeBusy = false;
-      await refreshAll();
-    }
-  }
-
   // Tear down the engine: permanently unregister the WSL distro + remove contexts.
   async function teardownEngine() {
     if (working) return;
@@ -499,19 +392,13 @@
       .then((u) => unlisteners.push(u))
       .catch(() => {});
     api
-      .on<string | { status?: string; state?: string }>(
-        "dockwin://engine-state",
-        (ev) => {
-          const payload = ev?.payload;
-          if (payload == null) return;
-          const raw =
-            typeof payload === "string"
-              ? payload
-              : payload.status ?? payload.state;
-          engineState = api.mapEngineStatus(raw);
-          refreshContainers();
-        }
-      )
+      .on<string | { status?: string; state?: string }>("dockwin://engine-state", (ev) => {
+        const payload = ev?.payload;
+        if (payload == null) return;
+        const raw = typeof payload === "string" ? payload : payload.status ?? payload.state;
+        engineState = api.mapEngineStatus(raw);
+        refreshContainers();
+      })
       .then((u) => unlisteners.push(u))
       .catch(() => {});
 
@@ -521,9 +408,7 @@
       .then((u) => unlisteners.push(u))
       .catch(() => {});
     api
-      .onComposeOutput((line) => {
-        composeLog = [...composeLog, line].slice(-500);
-      })
+      .onComposeOutput((line) => compose.appendLog(line))
       .then((u) => unlisteners.push(u))
       .catch(() => {});
 
@@ -553,41 +438,7 @@
       }
     };
   });
-
-  const EngineIcon = $derived(engine.icon);
-  // "Engine: running" → "Engine running" for the compact status lines.
-  let engineLine = $derived(engine.label.replace(": ", " "));
-  // Label for the active view, shown as the ctx-bar breadcrumb.
-  let activeViewLabel = $derived(
-    activeView === "settings"
-      ? "Settings"
-      : (NAV.find((n) => n.id === activeView)?.label ?? "")
-  );
 </script>
-
-{#snippet themeControls()}
-  <div
-    class="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5"
-    aria-label="Theme"
-  >
-    <Button
-      variant={theme.theme === "dark" ? "secondary" : "ghost"}
-      size="sm"
-      aria-pressed={theme.theme === "dark"}
-      onclick={() => theme.setTheme("dark")}
-    >
-      <Moon aria-hidden="true" />Dark
-    </Button>
-    <Button
-      variant={theme.theme === "light" ? "secondary" : "ghost"}
-      size="sm"
-      aria-pressed={theme.theme === "light"}
-      onclick={() => theme.setTheme("light")}
-    >
-      <Sun aria-hidden="true" />Light
-    </Button>
-  </div>
-{/snippet}
 
 {#if !engineReady}
   <!-- Engine lifecycle: a slim branded bar (so theme is still toggleable) + the
@@ -603,15 +454,9 @@
       <span class="sep"></span>
       <span class="live {engineTone}"><span class="d"></span>{engineLine}</span>
       <span class="sp"></span>
-      {@render themeControls()}
+      <ThemeToggle />
       <span class="sep"></span>
-      <Button
-        variant="outline"
-        size="icon"
-        title="Refresh"
-        disabled={working}
-        onclick={manualRefresh}
-      >
+      <Button variant="outline" size="icon" title="Refresh" disabled={working} onclick={manualRefresh}>
         <RefreshCw aria-hidden="true" />
       </Button>
     </div>
@@ -630,212 +475,36 @@
   </div>
 {:else}
   <Sidebar.Provider class="h-screen overflow-hidden">
-    <!-- ===== SIDEBAR (shadcn — collapsible down to an icon rail) ===== -->
-    <AppSidebar
-      {activeView}
-      counts={navCounts}
-      {engineTone}
-      {engineLine}
-      onSelect={setView}
-    />
+    <AppSidebar {activeView} counts={navCounts} {engineTone} {engineLine} onSelect={setView} />
 
-    <!-- ===== MAIN ===== -->
     <Sidebar.Inset class="main">
-      <!-- slim ctx bar — engine status lives in the sidebar pod, so the bar holds
-           only the active context + the right-aligned controls. -->
-      <div class="ctx">
-        <Sidebar.Trigger class="-ml-1 text-muted-foreground hover:text-foreground" />
-        <span class="sep"></span>
-        <span class="ctx-view">{activeViewLabel}</span>
-        <span class="sp"></span>
-        {@render themeControls()}
-        <span class="sep"></span>
-        <Button
-          variant={activeView === "settings" ? "secondary" : "outline"}
-          size="icon"
-          title="Settings"
-          onclick={() => setView("settings")}
-        >
-          <Settings aria-hidden="true" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          title="Refresh"
-          disabled={working}
-          onclick={manualRefresh}
-        >
-          <RefreshCw aria-hidden="true" />
-        </Button>
-        {#if engineState === "running" || engineState === "stopped"}
-          <Button
-            variant="outline"
-            style="min-width:74px;justify-content:center"
-            disabled={engineToggleDisabled}
-            onclick={toggleEngine}
-          >
-            {#if engineState === "running"}
-              <CircleStop aria-hidden="true" />{engineBusy ? "Stopping…" : "Stop"}
-            {:else}
-              <PlayCircle aria-hidden="true" />{engineBusy ? "Starting…" : "Start"}
-            {/if}
-          </Button>
-        {/if}
-      </div>
+      <TopBar
+        label={activeViewLabel}
+        {engineState}
+        settingsActive={activeView === "settings"}
+        {engineBusy}
+        {working}
+        {engineToggleDisabled}
+        onSettings={() => setView("settings")}
+        onRefresh={manualRefresh}
+        onToggleEngine={toggleEngine}
+      />
 
       {#if activeView === "containers"}
-        {#if selectedContainer && detailFull}
-          <!-- FULL-DETAIL: the list is hidden, ContainerDetails fills the pane. -->
-          <div class="detail-full">
-            <ContainerDetails
-              container={selectedContainer}
-              full={true}
-              onClose={closeDetail}
-              onToggleFull={toggleDetailFull}
-            />
-          </div>
-        {:else}
-          <div class="head">
-            <h1>Containers</h1>
-            <Badge variant="secondary" class="gap-1.5 font-normal">
-              <span class="size-1.5 rounded-full bg-[var(--ok)] shadow-[0_0_7px_var(--ok)]"></span>
-              <b class="num text-foreground">{runningCount}</b> running
-              <span class="text-muted-foreground">·</span>
-              <b class="num text-foreground">{containers.length}</b> total
-            </Badge>
-            <span class="sp"></span>
-            <div class="relative w-[260px]" aria-hidden="true">
-              <Search
-                class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <div
-                class="flex h-8 items-center gap-2 rounded-lg border border-input bg-card pl-9 pr-2 text-[12.5px] text-muted-foreground"
-              >
-                <span>Search</span>
-                <kbd class="ml-auto rounded border border-border px-1 font-mono text-[10px]">Ctrl K</kbd>
-              </div>
-            </div>
-          </div>
-          <div class="body" class:split={!!selectedContainer}>
-            <div class="list">
-              {#if errorMsg}
-                <Alert.Root variant="destructive" class="mb-3.5">
-                  <TriangleAlert aria-hidden="true" />
-                  <Alert.Description>{errorMsg}</Alert.Description>
-                </Alert.Root>
-              {/if}
-              <ContainerList
-                {containers}
-                {pending}
-                onAction={handleAction}
-                onSelect={selectContainer}
-              />
-            </div>
-            {#if selectedContainer}
-              <ContainerDetails
-                container={selectedContainer}
-                full={false}
-                onClose={closeDetail}
-                onToggleFull={toggleDetailFull}
-              />
-            {/if}
-          </div>
-        {/if}
+        <ContainersView
+          {containers}
+          {pending}
+          {runningCount}
+          {errorMsg}
+          selected={selectedContainer}
+          {detailFull}
+          onAction={handleAction}
+          onSelect={selectContainer}
+          onCloseDetail={closeDetail}
+          onToggleFull={toggleDetailFull}
+        />
       {:else if activeView === "stacks"}
-        <div class="head">
-          <h1>Stacks</h1>
-          <Badge variant="secondary" class="gap-1.5 font-normal">
-            <b class="num text-foreground">{stacks.length}</b>
-            {stacks.length === 1 ? "project" : "projects"}
-          </Badge>
-          <span class="sp"></span>
-          <Button
-            title="Pick a docker-compose.yml and run it on the dockwin engine"
-            disabled={composeBusy || engineState !== "running"}
-            onclick={composeUp}
-          >
-            <FileUp aria-hidden="true" />
-            {composeBusy ? "Working…" : "Compose up"}
-          </Button>
-          <Button
-            variant="outline"
-            title="docker compose down"
-            disabled={composeBusy || engineState !== "running"}
-            onclick={composeDown}
-          >
-            <FileDown aria-hidden="true" />Down
-          </Button>
-          <Button
-            variant="outline"
-            title="docker compose pull"
-            disabled={composeBusy || engineState !== "running"}
-            onclick={() => runComposeExtra("pull", api.composePull)}
-          >
-            <Download aria-hidden="true" />Pull
-          </Button>
-          <Button
-            variant="outline"
-            title="docker compose build"
-            disabled={composeBusy || engineState !== "running"}
-            onclick={() => runComposeExtra("build", api.composeBuild)}
-          >
-            <Hammer aria-hidden="true" />Build
-          </Button>
-          <Button
-            variant="outline"
-            title="docker compose logs (tail)"
-            disabled={composeBusy || engineState !== "running"}
-            onclick={() => runComposeExtra("logs", (f) => api.composeLogs(f))}
-          >
-            <ScrollText aria-hidden="true" />Logs
-          </Button>
-        </div>
-        <div class="body">
-          <div class="page" style="padding-top:0">
-            {#if engineState === "running"}
-              <p class="prose">
-                Tip: in a terminal you can also run
-                <code class="code">dockwin up</code> from a folder with a
-                <code class="code">docker-compose.yml</code> (use this instead of
-                <code class="code">docker compose</code>, which targets Docker Desktop).
-              </p>
-            {/if}
-            {#if errorMsg}
-              <Alert.Root variant="destructive">
-                <TriangleAlert aria-hidden="true" />
-                <Alert.Description>{errorMsg}</Alert.Description>
-              </Alert.Root>
-            {/if}
-            {#if composeOpen && composeLog.length}
-              <div class="outpane">
-                <div class="bar">
-                  <Terminal aria-hidden="true" />
-                  <span style="font-weight:600;color:var(--text)">Compose output</span>
-                  {#if lastComposeFile}
-                    <span class="mono" style="font-size:11px;color:var(--text-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title={lastComposeFile}>
-                      {lastComposeFile}
-                    </span>
-                  {/if}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    style="margin-left:auto"
-                    onclick={() => (composeOpen = false)}
-                  >
-                    Hide
-                  </Button>
-                </div>
-                <div class="body-out">
-                  {#each composeLog as line, i (i)}
-                    <div style="white-space:pre-wrap;word-break:break-all">{line}</div>
-                  {/each}
-                </div>
-              </div>
-            {/if}
-            <StackList {stacks} {pending} onStackAction={handleStackAction} />
-          </div>
-        </div>
+        <StacksView {stacks} {pending} {engineState} {errorMsg} {compose} onStackAction={handleStackAction} />
       {:else if activeView === "images"}
         <div class="body"><ImagesView {engineState} refreshKey={imageRefreshKey} /></div>
       {:else if activeView === "volumes"}
@@ -845,65 +514,7 @@
       {:else if activeView === "system"}
         <div class="body"><SystemView {engineState} refreshKey={imageRefreshKey} /></div>
       {:else if activeView === "settings"}
-        <div class="head"><h1>Settings</h1></div>
-        <div class="body">
-          <div class="page">
-            <div class="card card-pad" style="max-width:60ch">
-              <div class="section-title" style="margin-bottom:12px">Appearance</div>
-              <div style="display:flex;flex-direction:column;gap:16px">
-                <div class="setrow">
-                  <div>
-                    <div class="setrow-t">Theme</div>
-                    <div class="setrow-s">Dark is the hero; light is first-class.</div>
-                  </div>
-                  {@render themeControls()}
-                </div>
-                <div class="setrow">
-                  <div>
-                    <div class="setrow-t">Accent</div>
-                    <div class="setrow-s">The lime shade used for primary actions and highlights.</div>
-                  </div>
-                  <div class="sw" title="Accent shade">
-                    {#each ACCENT_SHADES as _shade, i (i)}
-                      <button
-                        class={"l" + (i + 1)}
-                        class:a={theme.accent === i}
-                        aria-label={`Accent shade ${i + 1}`}
-                        onclick={() => theme.setAccent(i)}
-                      ></button>
-                    {/each}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="card card-pad" style="max-width:60ch">
-              <div class="section-title" style="margin-bottom:12px">Engine</div>
-              <div style="display:flex;flex-direction:column;gap:14px">
-                <p class="prose" style="margin:0">
-                  The engine listens on the Windows named pipe by default. The
-                  insecure loopback-TCP endpoint (127.0.0.1:2375) is only enabled
-                  if you opted in during setup — it is not recommended for normal
-                  use.
-                </p>
-                <div class="field">
-                  <Checkbox id="opt-backup" bind:checked={withBackup} />
-                  <Label for="opt-backup">
-                    Export a <code class="code">.tar</code> backup before removing
-                  </Label>
-                </div>
-                <div>
-                  <Button
-                    variant="destructive"
-                    disabled={working}
-                    onclick={teardownEngine}
-                  >
-                    <Trash2 aria-hidden="true" />Remove engine
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <SettingsView {working} bind:withBackup onTeardown={teardownEngine} />
       {/if}
 
       <div class="statusbar" class:err={footerErr}>{footer}</div>
