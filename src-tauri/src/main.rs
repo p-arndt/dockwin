@@ -134,6 +134,7 @@ fn main() {
             commands::engine_stop,
             commands::engine_provision,
             commands::engine_teardown,
+            commands::engine_repair,
             commands::set_tcp_fallback,
             // Containers
             commands::container_list,

@@ -93,6 +93,17 @@ pub async fn engine_status(state: tauri::State<'_, AppState>) -> Result<EngineSt
         });
     }
 
+    if matches!(engine_state, dockwin_core::ops::EngineState::Broken) {
+        return Ok(EngineStatusDto {
+            status: "broken".to_string(),
+            version: None,
+            detail: Some(format!(
+                "WSL distro '{}' is registered but its disk image is missing — repair to reset it, then reprovision",
+                dockwin_core::wsl::DISTRO
+            )),
+        });
+    }
+
     match state.get_client().await {
         Ok(client) => match client.version().await {
             Ok(version) => Ok(EngineStatusDto {
@@ -247,6 +258,18 @@ pub async fn engine_teardown(
     tokio::task::spawn_blocking(move || dockwin_core::backend::detect().uninstall(backup, None, true))
         .await
         .map_err(|e| format!("engine_teardown task failed: {e}"))?
+        .map_err(|e| format!("{e:#}"))?;
+    state.reset().await;
+    Ok(())
+}
+
+/// Reset a broken / dangling engine registration (`wsl --unregister` a distro
+/// whose disk image is gone) so the first-run provision flow can start fresh.
+#[tauri::command]
+pub async fn engine_repair(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    tokio::task::spawn_blocking(|| dockwin_core::backend::detect().repair())
+        .await
+        .map_err(|e| format!("engine_repair task failed: {e}"))?
         .map_err(|e| format!("{e:#}"))?;
     state.reset().await;
     Ok(())

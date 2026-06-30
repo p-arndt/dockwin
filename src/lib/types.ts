@@ -6,6 +6,7 @@ export type EngineState =
   | "running"
   | "stopped"
   | "not-provisioned"
+  | "broken"
   | "unknown";
 
 // Raw status string as emitted by the backend EngineStatusDto.

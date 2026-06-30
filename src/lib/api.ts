@@ -28,6 +28,8 @@ export function mapEngineStatus(raw: unknown): EngineState {
     case "not_provisioned":
     case "not-provisioned":
       return "not-provisioned";
+    case "broken":
+      return "broken";
     case "unreachable":
     case "unknown":
       return "unknown";
@@ -61,6 +63,11 @@ export function engineProvision(enableTcp = false): Promise<void> {
 // `backup` exports the distro to a .tar first. Caller confirms beforehand.
 export function engineTeardown(backup = false): Promise<void> {
   return invoke("engine_teardown", { backup });
+}
+
+// Reset a broken / dangling engine registration so it can be reprovisioned.
+export function engineRepair(): Promise<void> {
+  return invoke("engine_repair");
 }
 
 // Subscribe to provisioning progress (the `engine://provision` event).

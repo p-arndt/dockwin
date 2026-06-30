@@ -169,7 +169,7 @@ done
 [ "$ok" -eq 1 ] || die "dockerd did not become reachable; check 'journalctl -u docker' inside the distro"
 
 log "dockerd is up:"
-docker version --format '  server: {{.Server.Version}} (api {{.Server.ApiVersion}})' || true
+docker version --format '  server: {{.Server.Version}} (api {{.Server.APIVersion}})' || true
 
 # ---------------------------------------------------------------------------
 # 6. Optional bridge-connectivity smoke test (iptables sanity).

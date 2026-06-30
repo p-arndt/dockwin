@@ -133,6 +133,119 @@ fn default_install_dir() -> PathBuf {
     base.join("dockwin").join("distro")
 }
 
+/// Where we record the chosen install dir so teardown/repair can find a CUSTOM
+/// location. Kept in %LOCALAPPDATA%\dockwin (the default parent) — NOT inside the
+/// distro dir, which gets deleted. A plain one-line text file (no serde dep).
+fn state_path() -> PathBuf {
+    let base = std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    base.join("dockwin").join("install-dir.txt")
+}
+
+/// Record the install dir an install used, so a later teardown/repair removes
+/// the right folder even when it was a custom `--install_dir`. Best-effort.
+fn record_install_dir(dir: &Path) {
+    let p = state_path();
+    if let Some(parent) = p.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let _ = fs::write(&p, dir.to_string_lossy().as_bytes());
+}
+
+/// Read the install dir recorded at install time, if any.
+fn read_recorded_install_dir() -> Option<PathBuf> {
+    let s = fs::read_to_string(state_path()).ok()?;
+    let s = s.trim();
+    if s.is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(s))
+    }
+}
+
+/// Remove the distro's install directory (recorded custom dir, else the default)
+/// plus the recorded-path file. Shared by [`uninstall`] and [`repair`] so the
+/// folder never outlives the WSL registration. Best-effort: warns, never fails.
+fn cleanup_install_dir() {
+    let dir = read_recorded_install_dir().unwrap_or_else(default_install_dir);
+    let is_default = dir == default_install_dir();
+    if dir.exists() {
+        match fs::remove_dir_all(&dir) {
+            Ok(()) => ok(&format!("removed install directory {}", dir.display())),
+            Err(e) => warn(&format!(
+                "could not remove {} ({e}); delete it manually",
+                dir.display()
+            )),
+        }
+    }
+    // Drop the recorded-path file (it lives in the default parent, not in `dir`).
+    let _ = fs::remove_file(state_path());
+    // Tidy our OWN default parent (%LOCALAPPDATA%\dockwin) only when it is empty;
+    // never remove a user-chosen custom dir's parent. `remove_dir` no-ops unless
+    // the directory is already empty.
+    if is_default {
+        if let Some(parent) = dir.parent() {
+            let _ = fs::remove_dir(parent);
+        }
+    }
+}
+
+/// Directory for persisted provisioning logs (%LOCALAPPDATA%\dockwin\logs).
+fn logs_dir() -> PathBuf {
+    let base = std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    base.join("dockwin").join("logs")
+}
+
+/// Seconds since the Unix epoch (used to name a provisioning log uniquely).
+fn unix_secs() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// A persisted provisioning log. Every [`Progress`] update during an install —
+/// including the streamed in-distro apt/docker output — is appended here so a
+/// failed setup can be debugged after the fact. Best-effort: if the file can't
+/// be opened, logging silently no-ops and provisioning proceeds. Single-threaded
+/// use (the install reporter is only ever called from one thread), so a `RefCell`
+/// suffices for the interior mutability the `Fn` reporter needs.
+struct ProvisionLog {
+    file: Option<std::cell::RefCell<File>>,
+    path: PathBuf,
+}
+
+impl ProvisionLog {
+    fn open() -> Self {
+        let dir = logs_dir();
+        let _ = fs::create_dir_all(&dir);
+        let path = dir.join(format!("provision-{}.log", unix_secs()));
+        let file = File::create(&path).ok().map(std::cell::RefCell::new);
+        if let Some(f) = &file {
+            let _ = writeln!(
+                f.borrow_mut(),
+                "# dockwin provisioning log (epoch {})",
+                unix_secs()
+            );
+        }
+        Self { file, path }
+    }
+
+    fn write(&self, p: &Progress) {
+        if let Some(f) = &self.file {
+            let _ = writeln!(
+                f.borrow_mut(),
+                "[{:<10}] {:<4} {:>3.0}%  {}",
+                p.phase, p.level, p.pct, p.message
+            );
+        }
+    }
+}
+
 /// Locate one of the shipped distro assets (wsl.conf / provision-inside.sh) by
 /// walking a few likely locations relative to cwd and the executable. Returns
 /// None when only the embedded copy is available (the normal shipping case).
@@ -276,6 +389,9 @@ pub enum EngineState {
     NotProvisioned,
     Stopped,
     Running,
+    /// Registered with WSL but unbootable — its backing `ext4.vhdx` is missing
+    /// (e.g. the install dir was deleted). Needs a repair + reprovision.
+    Broken,
 }
 
 impl EngineState {
@@ -284,6 +400,7 @@ impl EngineState {
             EngineState::NotProvisioned => "not_provisioned",
             EngineState::Stopped => "stopped",
             EngineState::Running => "running",
+            EngineState::Broken => "broken",
         }
     }
 }
@@ -295,6 +412,16 @@ pub fn engine_state() -> Result<EngineState> {
     }
     if wsl::distro_running(DISTRO)? && wsl::docker_server_version()?.is_some() {
         return Ok(EngineState::Running);
+    }
+    // Registered but not confirmed running: distinguish a healthy stopped distro
+    // from a BROKEN one whose backing disk image is gone (e.g. the install dir
+    // was deleted). Only flag Broken when we positively located its vhdx path
+    // and the file is missing — if the path can't be read we stay Stopped, so
+    // there are no false positives for unusual setups.
+    if let Some(base) = wsl::distro_base_path(DISTRO) {
+        if !base.join("ext4.vhdx").exists() {
+            return Ok(EngineState::Broken);
+        }
     }
     Ok(EngineState::Stopped)
 }
@@ -316,6 +443,10 @@ pub fn status() -> Result<()> {
         }
     } else {
         println!("    dockerd reachable : n/a");
+    }
+    if registered && !running && matches!(engine_state()?, EngineState::Broken) {
+        warn("distro is registered but its disk image is MISSING (broken).");
+        warn("reset it with `dockwin repair`, then reprovision with `dockwin install`.");
     }
     if !registered {
         ok("not provisioned yet -> run `dockwin install`");
@@ -355,6 +486,17 @@ pub fn install(opts: InstallOpts) -> Result<()> {
 ///   preflight 0–3 · download 3–45 · decompress 45–62 · import 62–78 ·
 ///   configure 78–82 · provision 82–96 · verify/context 96–100.
 pub fn install_reporting(opts: InstallOpts, report: &dyn Fn(Progress)) -> Result<()> {
+    // Persist every progress update (incl. the streamed in-distro apt/docker
+    // output) to a timestamped file so a failed setup can be debugged later.
+    // Shadow `report` with a tee that logs then forwards to the real reporter,
+    // so all existing `report(...)` call sites are captured with no extra churn.
+    let log = ProvisionLog::open();
+    let report = &|p: Progress| {
+        log.write(&p);
+        report(p);
+    };
+    report(Progress::info("preflight", 0.0, format!("logging to {}", log.path.display())));
+
     // --- 1. Preflight -------------------------------------------------------
     report(Progress::step("preflight", 1.0, "Preflight: checking WSL2"));
     let (ver_ok, ver_text) = wsl::capture(&["--version"])?;
@@ -399,12 +541,15 @@ pub fn install_reporting(opts: InstallOpts, report: &dyn Fn(Progress)) -> Result
 
     // --- 3. Import the distro (idempotent) ----------------------------------
     report(Progress::step("import", 64.0, format!("Importing WSL2 distro '{DISTRO}'")));
+    // Resolve the install dir up front and record it, so a later teardown/repair
+    // can clean up a CUSTOM location (the record lives outside the deleted dir).
+    let install_dir = opts.install_dir.unwrap_or_else(default_install_dir);
+    record_install_dir(&install_dir);
     if wsl::distro_exists(DISTRO)? {
         report(Progress::warn("import", 78.0, format!(
             "distro '{DISTRO}' already exists; skipping import (re-provisioning in place)"
         )));
     } else {
-        let install_dir = opts.install_dir.unwrap_or_else(default_install_dir);
         fs::create_dir_all(&install_dir).context("creating install dir")?;
         wsl::run_checked(&[
             "--import",
@@ -593,8 +738,20 @@ pub fn start(timeout_secs: u64) -> Result<()> {
     if !wsl::distro_exists(DISTRO)? {
         bail!("distro '{DISTRO}' is not registered. Run install first.");
     }
+    if matches!(engine_state()?, EngineState::Broken) {
+        bail!(
+            "distro '{DISTRO}' is registered but its disk image is missing, so it \
+             cannot boot. Run `dockwin repair` to reset the registration, then \
+             `dockwin install` to reprovision."
+        );
+    }
     step(&format!("Booting distro '{DISTRO}'"));
-    wsl::run_checked(&["-d", DISTRO, "-u", "root", "--", "true"])?;
+    if !wsl::run(&["-d", DISTRO, "-u", "root", "--", "true"])? {
+        bail!(
+            "failed to boot distro '{DISTRO}' (its disk image may be missing or \
+             corrupt). Try `dockwin repair`, then `dockwin install`."
+        );
+    }
     ok("distro is running.");
 
     step("Ensuring dockerd is started");
@@ -700,27 +857,41 @@ pub fn uninstall(backup: bool, backup_path: Option<PathBuf>, assume_yes: bool) -
     }
 
     // `wsl --unregister` deletes the ext4.vhdx but leaves the import directory
-    // behind — and on a partial/failed unregister (lock, distro still busy) the
-    // vhdx itself can linger. `install` created this dir, so teardown removes it
-    // here to stay symmetric. Best-effort: warn (don't fail) if it can't.
-    let install_dir = default_install_dir();
-    if install_dir.exists() {
-        match fs::remove_dir_all(&install_dir) {
-            Ok(()) => {
-                ok(&format!("removed install directory {}", install_dir.display()));
-                // Drop the now-empty parent (%LOCALAPPDATA%\dockwin); `remove_dir`
-                // only succeeds when empty, so a shared/non-empty parent is left be.
-                if let Some(parent) = install_dir.parent() {
-                    let _ = fs::remove_dir(parent);
-                }
-            }
-            Err(e) => warn(&format!(
-                "could not remove {} ({e}); delete it manually",
-                install_dir.display()
-            )),
-        }
-    }
+    // behind — and on a partial/failed unregister the vhdx itself can linger.
+    // Remove the recorded (or default) install dir so teardown stays symmetric.
+    cleanup_install_dir();
 
     println!("dockwin uninstall complete.");
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// repair
+// ---------------------------------------------------------------------------
+
+/// Reset a broken / dangling engine registration so it can be cleanly
+/// reprovisioned — the [`EngineState::Broken`] case, e.g. the distro is still
+/// registered with WSL but its `ext4.vhdx` was deleted out from under it.
+/// Terminates and unregisters the distro (there is no live data to preserve when
+/// it is broken) and removes the recorded/default install dir + state record.
+/// Docker contexts are left in place; a fresh `install` reuses them. Idempotent.
+pub fn repair() -> Result<()> {
+    if !wsl::distro_exists(DISTRO)? {
+        ok(&format!(
+            "nothing to repair: distro '{DISTRO}' is not registered."
+        ));
+        cleanup_install_dir(); // drop any stale dir / state record anyway
+        println!("Provision with `dockwin install` (or the GUI's Set up engine).");
+        return Ok(());
+    }
+    step(&format!("Repairing engine: unregistering distro '{DISTRO}'"));
+    let _ = wsl::run(&["--terminate", DISTRO]);
+    if wsl::run(&["--unregister", DISTRO])? {
+        ok("unregistered the broken distro.");
+    } else {
+        warn("unregister failed; the distro may already be gone.");
+    }
+    cleanup_install_dir();
+    println!("Engine reset. Reprovision with `dockwin install` (or the GUI's Set up engine).");
     Ok(())
 }

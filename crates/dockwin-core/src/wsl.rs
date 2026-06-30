@@ -11,6 +11,7 @@
 //!     `/mnt` path-translation dance the PowerShell installer used).
 
 use std::io::Write;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 use anyhow::{bail, Context, Result};
@@ -174,6 +175,75 @@ pub fn write_into_distro(content: &str, dest: &str, mode: &str) -> Result<()> {
         bail!("writing {dest} into the distro failed");
     }
     Ok(())
+}
+
+/// Best-effort: the on-disk folder WSL records as `name`'s BasePath — the
+/// directory that holds its `ext4.vhdx`. Read from the WSL registry so we can
+/// tell a healthy *stopped* distro from a BROKEN one whose disk image was
+/// deleted out from under it (which would otherwise only fail at cold-boot
+/// time, with a cryptic `MountVhd` error). Returns None when the distro or its
+/// registry value can't be found — callers treat None as "can't tell".
+#[cfg(windows)]
+pub fn distro_base_path(name: &str) -> Option<PathBuf> {
+    // The Lxss registry holds one subkey per distro, each carrying a
+    // `DistributionName` and a `BasePath` value. Dump the tree and return the
+    // BasePath of the block whose DistributionName matches `name`.
+    let out = command("reg.exe")
+        .args([
+            "query",
+            r"HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss",
+            "/s",
+        ])
+        .output()
+        .ok()?;
+    // reg.exe emits console-codepage text (not UTF-16 like wsl.exe's lists);
+    // paths are ASCII so a lossy UTF-8 decode is fine.
+    let text = String::from_utf8_lossy(&out.stdout);
+
+    // A value line looks like: "    <Key>    REG_SZ    <data>".
+    let value = |line: &str, key: &str| -> Option<String> {
+        let rest = line.trim().strip_prefix(key)?;
+        Some(rest.split("REG_SZ").nth(1)?.trim().to_string())
+    };
+
+    let mut block_name: Option<String> = None;
+    let mut block_base: Option<String> = None;
+    for line in text.lines() {
+        if line.trim_start().starts_with("HKEY_") {
+            // A new key block starts: the previous block is now complete.
+            if block_name.as_deref() == Some(name) {
+                if let Some(b) = block_base.take() {
+                    return Some(strip_extended_prefix(&b));
+                }
+            }
+            block_name = None;
+            block_base = None;
+            continue;
+        }
+        if let Some(v) = value(line, "DistributionName") {
+            block_name = Some(v);
+        } else if let Some(v) = value(line, "BasePath") {
+            block_base = Some(v);
+        }
+    }
+    // Evaluate the final block (no trailing key header follows it).
+    if block_name.as_deref() == Some(name) {
+        if let Some(b) = block_base {
+            return Some(strip_extended_prefix(&b));
+        }
+    }
+    None
+}
+
+#[cfg(not(windows))]
+pub fn distro_base_path(_name: &str) -> Option<PathBuf> {
+    None
+}
+
+/// Strip the `\\?\` extended-length path prefix WSL stores in BasePath.
+#[cfg(windows)]
+fn strip_extended_prefix(p: &str) -> PathBuf {
+    PathBuf::from(p.strip_prefix(r"\\?\").unwrap_or(p))
 }
 
 /// Best-effort query of the in-distro dockerd server version.

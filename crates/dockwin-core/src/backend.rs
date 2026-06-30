@@ -75,6 +75,11 @@ pub trait EngineBackend: Send + Sync {
         on_line: &mut dyn FnMut(&str),
     ) -> Result<bool>;
 
+    /// Reset a broken / dangling engine registration so it can be cleanly
+    /// reprovisioned (e.g. its disk image was deleted out from under it — the
+    /// [`EngineState::Broken`] case).
+    fn repair(&self) -> Result<()>;
+
     /// `docker compose up` (detached by default) for `file`.
     fn compose_up(
         &self,
@@ -141,6 +146,10 @@ impl EngineBackend for WslBackend {
         on_line: &mut dyn FnMut(&str),
     ) -> Result<bool> {
         ops::compose_run(file, action, on_line)
+    }
+
+    fn repair(&self) -> Result<()> {
+        ops::repair()
     }
 
     fn connection(&self) -> EngineConnection {

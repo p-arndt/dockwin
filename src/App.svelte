@@ -60,6 +60,7 @@
   let footer = $state("Ready.");
   let footerErr = $state(false);
   let engineBusy = $state(false);
+  let repairing = $state(false); // engine_repair (reset broken distro) in flight
 
   // Active sidebar view.
   let activeView = $state<View>("containers");
@@ -108,11 +109,17 @@
       label: "Engine: not provisioned",
       btn: "Set up",
     },
+    broken: {
+      dot: "dot-warn",
+      icon: TriangleAlert,
+      label: "Engine: broken",
+      btn: "Repair",
+    },
     unknown: { dot: "dot-unknown", icon: HelpCircle, label: "Engine: unknown", btn: "—" },
   };
   let engine = $derived(ENGINE[engineState] ?? ENGINE.unknown);
   let engineToggleDisabled = $derived(
-    engineBusy || working || engineState === "unknown"
+    engineBusy || working || repairing || engineState === "unknown"
   );
   let countLabel = $derived(
     containers.length ? `${containers.length} total` : ""
@@ -278,6 +285,7 @@
 
   // Header engine button dispatcher: set up when not provisioned, else start/stop.
   function onEngineButton() {
+    if (engineState === "broken") return repairEngine();
     if (engineToggleDisabled) return;
     if (engineState === "not-provisioned") return provisionEngine();
     return toggleEngine();
@@ -430,6 +438,29 @@
       errorMsg = `Teardown failed: ${api.errText(e)}`;
     } finally {
       working = false;
+      await refreshAll();
+    }
+  }
+
+  // Reset a broken engine: the 'dockwin' WSL distro is registered but its disk
+  // image is missing. Unregister the dangling distro so it can be reprovisioned.
+  async function repairEngine() {
+    if (repairing || working) return;
+    const note =
+      "Reset the broken dockwin engine? This unregisters the dangling WSL distro " +
+      "'dockwin' so you can set it up again from scratch.";
+    if (!confirm(note)) return;
+    repairing = true;
+    errorMsg = "";
+    setFooter("Resetting engine…");
+    try {
+      await api.engineRepair();
+      setFooter("Engine reset. You can set it up again.");
+    } catch (e) {
+      setFooter(`Repair failed: ${api.errText(e)}`, true);
+      errorMsg = `Repair failed: ${api.errText(e)}`;
+    } finally {
+      repairing = false;
       await refreshAll();
     }
   }
@@ -625,6 +656,29 @@
         >
           <DownloadCloud size={16} aria-hidden="true" />
           {working ? "Setting up…" : "Set up engine"}
+        </button>
+      </section>
+    {:else if engineState === "broken"}
+      <!-- Broken engine: distro registered but its disk image is missing. -->
+      <section
+        class="rounded-md border border-[#f8514966] bg-[#f851491a] p-5"
+      >
+        <div class="mb-2 flex items-center gap-2.5">
+          <TriangleAlert size={20} class="text-[#f85149]" aria-hidden="true" />
+          <h2 class="text-base font-semibold text-[#ff9b95]">Engine is broken</h2>
+        </div>
+        <p class="mb-3 max-w-prose text-[13px] leading-relaxed text-[#ffb3ae]">
+          The dockwin WSL distro is registered but its disk image is missing.
+          Reset it to unregister the dangling distro, then set the engine up again
+          to reprovision.
+        </p>
+        <button
+          class="flex items-center gap-2 rounded-md border border-[#f8514966] bg-[#f851491a] px-4 py-2 text-sm font-medium text-[#ff9b95] transition-colors hover:not-disabled:bg-[#f8514926] disabled:cursor-default disabled:opacity-60"
+          disabled={repairing || working}
+          onclick={repairEngine}
+        >
+          <Hammer size={16} aria-hidden="true" />
+          {repairing ? "Resetting…" : "Repair engine"}
         </button>
       </section>
     {/if}

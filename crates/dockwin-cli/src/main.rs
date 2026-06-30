@@ -69,6 +69,10 @@ enum Commands {
         terminate: bool,
     },
 
+    /// Reset a broken / dangling engine registration (`wsl --unregister` a distro
+    /// whose disk image is gone) so it can be cleanly reprovisioned with `install`.
+    Repair,
+
     /// Tear down the distro (`wsl --unregister`) and remove docker context(s).
     Uninstall {
         /// Export the distro to a .tar before unregistering.
@@ -148,6 +152,7 @@ fn main() -> ExitCode {
             dockwin_core::backend::detect()
                 .install(opts, &|p| dockwin_core::ops::print_progress(&p))
         }
+        Commands::Repair => dockwin_core::backend::detect().repair(),
         Commands::Start { timeout } => dockwin_core::backend::detect().start(timeout),
         Commands::Stop { terminate } => dockwin_core::backend::detect().stop(terminate),
         Commands::Uninstall {
