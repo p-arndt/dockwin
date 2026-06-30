@@ -461,16 +461,10 @@
   {/if}
 
   <!-- ===== tabs ===== -->
-  <Tabs.Root bind:value={activeTab}>
-    <Tabs.List
-      variant="line"
-      class="h-auto w-full justify-start gap-5 rounded-none border-b border-border bg-transparent px-5 pt-3 pb-0"
-    >
+  <Tabs.Root bind:value={activeTab} class="px-5 pt-1">
+    <Tabs.List>
       {#each TABS as t (t.key)}
-        <Tabs.Trigger
-          value={t.key}
-          class="flex-none px-0 pt-0 pb-[11px] text-[13px] font-medium group-data-[orientation=horizontal]/tabs:after:bottom-0 after:bg-[var(--primary)]"
-        >{t.label}</Tabs.Trigger>
+        <Tabs.Trigger value={t.key} class="data-active:bg-card dark:data-active:bg-foreground/10">{t.label}</Tabs.Trigger>
       {/each}
     </Tabs.List>
   </Tabs.Root>
@@ -493,7 +487,7 @@
           {:else}
             <div class="grid grid-cols-2 gap-[10px]">
               <!-- CPU — the one focused chart on this screen -->
-              <div class="relative overflow-hidden rounded-[9px] border border-border bg-card px-[14px] py-[13px] shadow-sm">
+              <div class="relative overflow-hidden rounded-[9px] border border-border bg-card px-[14px] py-[13px]">
                 <div class="flex items-center gap-[6px] text-[11px] font-medium text-muted-foreground"><Cpu class="size-[13px] text-muted-foreground/70" aria-hidden="true" />CPU</div>
                 <div class="mt-2 text-[21px] font-[680] tracking-[-0.5px] tabular-nums">{cpuRounded}<small class="ml-[2px] text-[12px] font-medium text-muted-foreground">%</small></div>
                 <div class="mt-[2px] text-[11px] tabular-nums text-muted-foreground/70">{stats.pids} PIDs</div>
@@ -512,7 +506,7 @@
               </div>
 
               <!-- Memory -->
-              <div class="relative overflow-hidden rounded-[9px] border border-border bg-card px-[14px] py-[13px] shadow-sm">
+              <div class="relative overflow-hidden rounded-[9px] border border-border bg-card px-[14px] py-[13px]">
                 <div class="flex items-center gap-[6px] text-[11px] font-medium text-muted-foreground"><MemoryStick class="size-[13px] text-muted-foreground/70" aria-hidden="true" />Memory</div>
                 <div class="mt-2 text-[21px] font-[680] tracking-[-0.5px] tabular-nums">{memRounded}<small class="ml-[2px] text-[12px] font-medium text-muted-foreground">%</small></div>
                 <div class="mt-[2px] text-[11px] tabular-nums text-muted-foreground/70">{humanBytes(stats.mem_usage)} / {humanBytes(stats.mem_limit)}</div>
@@ -520,7 +514,7 @@
               </div>
 
               <!-- Network I/O -->
-              <div class="relative overflow-hidden rounded-[9px] border border-border bg-card px-[14px] py-[13px] shadow-sm">
+              <div class="relative overflow-hidden rounded-[9px] border border-border bg-card px-[14px] py-[13px]">
                 <div class="flex items-center gap-[6px] text-[11px] font-medium text-muted-foreground"><Activity class="size-[13px] text-muted-foreground/70" aria-hidden="true" />Network I/O</div>
                 <div class="mt-2 flex flex-col gap-[5px]">
                   <span class="flex items-center gap-[7px] text-[12.5px] tabular-nums text-muted-foreground"><ArrowDown class="size-[12px] text-muted-foreground/70" aria-hidden="true" /><b class="font-[650] text-foreground">{humanBytes(stats.net_rx)}</b> rx</span>
@@ -529,7 +523,7 @@
               </div>
 
               <!-- Block I/O -->
-              <div class="relative overflow-hidden rounded-[9px] border border-border bg-card px-[14px] py-[13px] shadow-sm">
+              <div class="relative overflow-hidden rounded-[9px] border border-border bg-card px-[14px] py-[13px]">
                 <div class="flex items-center gap-[6px] text-[11px] font-medium text-muted-foreground"><HardDrive class="size-[13px] text-muted-foreground/70" aria-hidden="true" />Block I/O</div>
                 <div class="mt-2 flex flex-col gap-[5px]">
                   <span class="flex items-center gap-[7px] text-[12.5px] tabular-nums text-muted-foreground">R <b class="font-[650] text-foreground">{humanBytes(stats.blk_read)}</b></span>
@@ -544,13 +538,13 @@
         <!-- parsed details -->
         <div class="ov-details" class:ov-solo={full && !running}>
           <div class="flex flex-col">
-            <div class="pt-1 pb-[9px] text-[10.5px] font-[650] uppercase tracking-[0.7px] text-muted-foreground/70">Details</div>
+            <div class="pt-1 pb-[9px] text-[12px] font-semibold text-muted-foreground">Details</div>
             <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
               <span class="text-[12.5px] text-muted-foreground">Image</span>
               <span class="text-left text-[12.5px] break-words text-foreground">
                 <span class="font-mono">{image || "—"}</span>
                 {#if isOfficial}
-                  <span class="inline-flex items-center gap-1 rounded-[5px] border border-primary/30 bg-primary/10 px-[6px] py-px text-[10.5px] font-[650] text-primary"><Check class="size-[11px]" aria-hidden="true" />Official</span>
+                  <span class="inline-flex items-center gap-1 rounded-[5px] border border-border bg-muted px-[6px] py-px text-[10.5px] font-[650] text-muted-foreground"><Check class="size-[11px]" aria-hidden="true" />Official</span>
                 {/if}
               </span>
             </div>
@@ -650,7 +644,7 @@
             {/if}
           </div>
           {#if info}
-            <Button variant="link" size="sm" class="h-auto self-start p-0 text-[var(--primary)]" type="button" onclick={() => (showAdv = !showAdv)}>
+            <Button variant="ghost" size="sm" class="h-auto self-start gap-1 px-1.5 py-0.5 text-muted-foreground" type="button" onclick={() => (showAdv = !showAdv)}>
               <ChevronDown aria-hidden="true" style={showAdv ? "transform:rotate(180deg)" : undefined} />
               {showAdv ? "Hide advanced information" : "Show advanced information"}
             </Button>
