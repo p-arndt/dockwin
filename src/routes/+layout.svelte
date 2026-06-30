@@ -33,7 +33,16 @@
     goto(`/${view}`);
   }
 
-  onMount(() => app.mount());
+  onMount(() => {
+    app.mount();
+    // Hand off from the static app.html splash to the real shell now that
+    // Svelte has committed its first paint.
+    const splash = document.getElementById("initial-splash");
+    if (splash) {
+      splash.classList.add("is-hidden");
+      splash.addEventListener("transitionend", () => splash.remove(), { once: true });
+    }
+  });
 </script>
 
 {#if !app.engineReady}

@@ -15,8 +15,90 @@
       } catch (e) {}
     </script>
     %sveltekit.head%
+    <style>
+      /* Covers the gap between window creation and Svelte's first paint —
+         without it the WebView shows raw black/white for a beat. Removed by
+         +layout.svelte once the real shell has committed to the DOM. */
+      #initial-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background:
+          radial-gradient(1100px 520px at 88% -8%, rgba(166, 227, 91, var(--backdrop-glow)), transparent 60%),
+          linear-gradient(180deg, var(--backdrop-grad), var(--background) 40%);
+        transition: opacity 0.32s ease;
+      }
+      #initial-splash.is-hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #initial-splash .mark {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        background: var(--primary);
+        color: var(--primary-foreground);
+      }
+      #initial-splash .mark::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 14px;
+        background: var(--primary);
+        animation: initial-splash-halo 1.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+      }
+      #initial-splash .word {
+        font-family:
+          "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+        font-size: 15px;
+        font-weight: 680;
+        letter-spacing: -0.3px;
+        color: var(--foreground);
+      }
+      @keyframes initial-splash-halo {
+        0% {
+          transform: scale(0.85);
+          opacity: 0.55;
+        }
+        100% {
+          transform: scale(1.7);
+          opacity: 0;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="initial-splash" aria-hidden="true">
+      <span class="mark">
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M22 7.7c0-.6-.4-1.2-.8-1.5l-6.3-3.9a1.72 1.72 0 0 0-1.7 0l-10.3 6c-.5.2-.9.8-.9 1.4v6.6c0 .5.4 1.2.8 1.5l6.3 3.9a1.72 1.72 0 0 0 1.7 0l10.3-6c.5-.3.9-1 .9-1.5Z"
+          />
+          <path d="M10 21.9V14L2.1 9.1" />
+          <path d="m10 14 11.9-6.9" />
+          <path d="M14 19.8v-8.1" />
+          <path d="M18 17.5V9.4" />
+        </svg>
+      </span>
+      <span class="word">dockwin</span>
+    </div>
     <div id="app">%sveltekit.body%</div>
   </body>
 </html>
