@@ -31,6 +31,8 @@ export function mapEngineStatus(raw: unknown): EngineState {
       return "not-provisioned";
     case "broken":
       return "broken";
+    case "incomplete":
+      return "incomplete";
     case "unreachable":
     case "unknown":
       return "unknown";

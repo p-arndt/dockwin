@@ -42,6 +42,19 @@ if [ "$DISTRO_ID" != "ubuntu" ] && [ "$DISTRO_ID" != "debian" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# 0b. Recover from a previously interrupted run.
+#     If an earlier provisioning was killed mid-apt (the app closed, the machine
+#     slept, the user cancelled), dpkg can be left in an "interrupted" state and
+#     every subsequent apt call refuses to proceed until it is reconfigured.
+#     Because this script is idempotent and re-run by `dockwin install`, heal
+#     that state up front so a second attempt always completes instead of
+#     leaving the engine half-installed (no docker.service).
+# ---------------------------------------------------------------------------
+log "ensuring dpkg/apt state is consistent (recovers from an interrupted run)"
+dpkg --configure -a 2>/dev/null || true
+apt-get install -f -y 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
 # 1. Base packages + Docker apt repo (pinned).
 # ---------------------------------------------------------------------------
 log "updating apt and installing prerequisites"

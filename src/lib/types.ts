@@ -7,6 +7,7 @@ export type EngineState =
   | "stopped"
   | "not-provisioned"
   | "broken"
+  | "incomplete"
   | "unknown";
 
 // Raw status string as emitted by the backend EngineStatusDto.
@@ -14,6 +15,8 @@ export type RawEngineStatus =
   | "running"
   | "stopped"
   | "not_provisioned"
+  | "broken"
+  | "incomplete"
   | "unreachable";
 
 // Engine version info (all fields nullable).

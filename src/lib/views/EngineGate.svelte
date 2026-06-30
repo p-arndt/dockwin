@@ -204,6 +204,47 @@
         </Button>
       </div>
     </section>
+  {:else if engineState === "incomplete"}
+    <!-- Setup was interrupted before Docker finished installing. -->
+    <section
+      class="w-full max-w-[32rem] bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] p-[24px]"
+    >
+      <div class="flex items-center gap-[13px]">
+        <span
+          class="grid place-items-center shrink-0 size-[40px] rounded-[9px] bg-muted border border-border text-muted-foreground"
+        >
+          <DownloadCloud class="size-[20px]" aria-hidden="true" />
+        </span>
+        <div class="min-w-0">
+          <h2
+            class="text-[17px] font-[680] tracking-[-0.3px] leading-[1.2] text-foreground"
+          >
+            Finish setting up the engine
+          </h2>
+          <div class="flex items-center gap-[7px] mt-[4px] text-[12px]">
+            <StatusDot tone="warn" halo />
+            <span class="font-semibold text-muted-foreground">Setup incomplete</span>
+            <span class="text-muted-foreground/70">Docker not installed yet</span>
+          </div>
+        </div>
+      </div>
+
+      <Alert.Root class="mt-[13px]">
+        <TriangleAlert aria-hidden="true" />
+        <Alert.Description>
+          The engine distro was created, but setup was interrupted before Docker
+          finished installing. Nothing is broken — resuming setup picks up where
+          it left off (it's safe to re-run) and completes the install.
+        </Alert.Description>
+      </Alert.Root>
+
+      <div class="flex mt-[18px]">
+        <Button disabled={working} onclick={onProvision}>
+          <DownloadCloud aria-hidden="true" />
+          {working ? "Finishing setup…" : "Finish setup"}
+        </Button>
+      </div>
+    </section>
   {:else if engineState === "broken"}
     <!-- Broken engine: distro registered but its disk image is missing. -->
     <section

@@ -420,6 +420,10 @@ pub enum EngineState {
     /// Registered with WSL but unbootable — its backing `ext4.vhdx` is missing
     /// (e.g. the install dir was deleted). Needs a repair + reprovision.
     Broken,
+    /// Registered and bootable, but provisioning was interrupted before Docker
+    /// was installed (no `dockerd` binary). Re-running the idempotent provision
+    /// finishes it — distinct from `Stopped` (which expects a healthy engine).
+    Incomplete,
 }
 
 impl EngineState {
@@ -429,6 +433,7 @@ impl EngineState {
             EngineState::Stopped => "stopped",
             EngineState::Running => "running",
             EngineState::Broken => "broken",
+            EngineState::Incomplete => "incomplete",
         }
     }
 }
@@ -438,17 +443,26 @@ pub fn engine_state() -> Result<EngineState> {
     if !wsl::distro_exists(DISTRO)? {
         return Ok(EngineState::NotProvisioned);
     }
-    if wsl::distro_running(DISTRO)? && wsl::docker_server_version()?.is_some() {
-        return Ok(EngineState::Running);
-    }
-    // Registered but not confirmed running: distinguish a healthy stopped distro
-    // from a BROKEN one whose backing disk image is gone (e.g. the install dir
-    // was deleted). Only flag Broken when we positively located its vhdx path
-    // and the file is missing — if the path can't be read we stay Stopped, so
-    // there are no false positives for unusual setups.
+    // BROKEN: registered but its backing disk image is gone (e.g. the install
+    // dir was deleted). Only flag Broken when we positively located its vhdx
+    // path and the file is missing — if the path can't be read we don't guess,
+    // so there are no false positives for unusual setups.
     if let Some(base) = wsl::distro_base_path(DISTRO) {
         if !base.join("ext4.vhdx").exists() {
             return Ok(EngineState::Broken);
+        }
+    }
+    if wsl::distro_running(DISTRO)? {
+        if wsl::docker_server_version()?.is_some() {
+            return Ok(EngineState::Running);
+        }
+        // The distro is up but dockerd didn't answer. If Docker isn't even
+        // installed, a previous provisioning was interrupted before it finished
+        // — surface that as INCOMPLETE so callers offer "finish setup" (the
+        // provision is idempotent) rather than a start that can't succeed. The
+        // distro is already running here, so this probe never cold-boots it.
+        if !wsl::docker_installed().unwrap_or(true) {
+            return Ok(EngineState::Incomplete);
         }
     }
     Ok(EngineState::Stopped)
@@ -831,6 +845,17 @@ pub fn start(timeout_secs: u64) -> Result<()> {
         );
     }
     ok("distro is running.");
+
+    // Fast-fail an interrupted setup: if Docker was never installed, no amount
+    // of waiting will bring dockerd up. Tell the user to finish provisioning
+    // (which is idempotent and resumes safely) instead of timing out after 60s.
+    if !wsl::docker_installed().unwrap_or(true) {
+        bail!(
+            "the engine distro '{DISTRO}' is registered but Docker is not \
+             installed — a previous setup was interrupted. Re-run `dockwin \
+             install` (or the GUI's Set up engine) to finish; it resumes safely."
+        );
+    }
 
     step("Ensuring dockerd is started");
     let start_cmd = "if [ -d /run/systemd/system ]; then systemctl is-active --quiet docker || systemctl start docker; else service docker status >/dev/null 2>&1 || service docker start; fi";

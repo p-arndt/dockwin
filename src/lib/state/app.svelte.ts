@@ -86,7 +86,9 @@ export class AppController {
           ? "Engine not provisioned"
           : this.engineState === "broken"
             ? "Engine broken"
-            : "Engine unknown"
+            : this.engineState === "incomplete"
+              ? "Engine setup incomplete"
+              : "Engine unknown"
   );
   runningCount = $derived(this.containers.filter((c) => c.running).length);
   // Containers grouped into Docker Compose stacks (by project label).

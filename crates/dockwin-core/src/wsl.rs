@@ -274,6 +274,27 @@ fn strip_extended_prefix(p: &str) -> PathBuf {
     PathBuf::from(p.strip_prefix(r"\\?\").unwrap_or(p))
 }
 
+/// Whether the Docker Engine binary is installed inside the distro.
+///
+/// Distinguishes a fully-provisioned engine whose `dockerd` is merely *stopped*
+/// (binary present) from a distro whose provisioning was *interrupted* before
+/// Docker was installed (binary absent). Only call this when the distro is
+/// already running — it execs into it. Best-effort: any error is reported as
+/// "unknown" by the caller.
+pub fn docker_installed() -> Result<bool> {
+    let (ok, text) = capture(&[
+        "-d",
+        DISTRO,
+        "-u",
+        "root",
+        "--",
+        "bash",
+        "-lc",
+        "command -v dockerd >/dev/null 2>&1 && echo yes || echo no",
+    ])?;
+    Ok(ok && text.trim() == "yes")
+}
+
 /// Best-effort query of the in-distro dockerd server version.
 /// Returns `Ok(Some(version))` only when dockerd answered.
 pub fn docker_server_version() -> Result<Option<String>> {

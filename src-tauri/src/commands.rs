@@ -104,6 +104,17 @@ pub async fn engine_status(state: tauri::State<'_, AppState>) -> Result<EngineSt
         });
     }
 
+    if matches!(engine_state, dockwin_core::ops::EngineState::Incomplete) {
+        return Ok(EngineStatusDto {
+            status: "incomplete".to_string(),
+            version: None,
+            detail: Some(format!(
+                "WSL distro '{}' exists but its setup was interrupted before Docker was installed — finish setup to complete it",
+                dockwin_core::wsl::DISTRO
+            )),
+        });
+    }
+
     match state.get_client().await {
         Ok(client) => match client.version().await {
             Ok(version) => Ok(EngineStatusDto {
