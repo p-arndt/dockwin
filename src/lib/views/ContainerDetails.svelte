@@ -380,7 +380,7 @@
   ];
 </script>
 
-<aside class="flex min-w-0 flex-col overflow-auto bg-card {full ? '' : 'border-l border-border'}" aria-label="Container details">
+<aside class="flex min-w-0 flex-1 min-h-0 flex-col overflow-auto bg-card" aria-label="Container details">
   <!-- ===== header ===== -->
   <div class="border-b border-border px-5 pt-[18px] pb-4">
     <div class="flex items-center gap-3">
@@ -403,8 +403,8 @@
           size="icon-sm"
           type="button"
           onclick={onToggleFull}
-          title={full ? "Collapse to drawer" : "Expand to full page"}
-          aria-label={full ? "Collapse to drawer" : "Expand to full page"}
+          title={full ? "Narrow panel" : "Widen panel"}
+          aria-label={full ? "Narrow panel" : "Widen panel"}
         >
           {#if full}<Minimize2 aria-hidden="true" />{:else}<Maximize2 aria-hidden="true" />{/if}
         </Button>
@@ -472,12 +472,12 @@
   <!-- ===== body ===== -->
   <div class="flex flex-col gap-4 px-5 pt-4 pb-6" style:max-width={full ? "1120px" : undefined} style:width={full ? "100%" : undefined} style:margin={full ? "0 auto" : undefined}>
     {#if activeTab === "overview"}
-      <div class="ov" class:ov-full={full}>
-        <!-- live stat cards -->
+      <div class="ov" class:ov-full={full && running}>
+        <!-- live stat cards — only while running; a stopped container has no
+             stats, so we drop the section entirely and let Details be the content -->
+        {#if running}
         <div class="ov-stats">
-          {#if !running}
-            <div class="rounded-[10px] border border-border bg-muted/20 px-[18px] py-6 text-center text-[13px] text-muted-foreground">Container is not running — no live stats.</div>
-          {:else if statsError}
+          {#if statsError}
             <Alert.Root variant="destructive">
               <TriangleAlert aria-hidden="true" />
               <Alert.Description>{statsError}</Alert.Description>
@@ -533,9 +533,10 @@
             </div>
           {/if}
         </div>
+        {/if}
 
         <!-- parsed details -->
-        <div class="ov-details">
+        <div class="ov-details" class:ov-solo={full && !running}>
           <div class="flex flex-col">
             <div class="pt-1 pb-[9px] text-[10.5px] font-[650] uppercase tracking-[0.7px] text-muted-foreground/70">Details</div>
             <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
@@ -728,5 +729,13 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+  /* Expanded view of a stopped container: no stats column, so keep the lone
+     Details block at a comfortable reading width instead of stretching it
+     across the full page (which left a broken-looking half-empty grid). */
+  .ov-solo {
+    max-width: 560px;
+    margin-inline: auto;
+    width: 100%;
   }
 </style>
