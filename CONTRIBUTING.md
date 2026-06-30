@@ -87,27 +87,27 @@ dockwin/
 
 ## Build & run
 
+Common tasks are wrapped as [`just`](https://github.com/casey/just) recipes —
+see **[docs/development.md](docs/development.md)** for the full reference
+(dev, build, engine control, versioning, releases).
+
 ```powershell
-# Install frontend deps (once) — this project uses pnpm
-pnpm install
+winget install Casey.Just   # one-time (or: cargo install just); then `just` lists all recipes
 
-# Run the GUI in dev mode (hot-reloads the frontend, builds the Rust side)
-pnpm tauri dev
+just install                # frontend deps (once) — this project uses pnpm
+just dev                    # GUI in dev mode (hot-reloads frontend, builds Rust)
+just installer              # release GUI + NSIS installer -> target/release/bundle/nsis/
 
-# Production bundle
-pnpm tauri build
-
-# Provision / manage the engine (until a CLI binary lands, use the installer)
-./scripts/Install-Dockwin.ps1      # import + set up the dedicated WSL distro
-./scripts/Uninstall-Dockwin.ps1    # teardown (wsl --unregister, with confirm)
+# Provision / manage the engine via the CLI (same dockwin-core code as the GUI)
+just status                 # is the distro registered/running and dockerd reachable?
+just engine-install         # import + set up the dedicated WSL distro
+just engine-uninstall       # teardown (add --backup to export a .tar first)
 ```
 
-Lint & format before opening a PR (Rust side lives under `src-tauri/`):
+Lint & format before opening a PR:
 
 ```powershell
-cargo fmt --manifest-path src-tauri/Cargo.toml --all
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-cargo test --manifest-path src-tauri/Cargo.toml
+just ci                     # fmt-check + clippy + test + frontend check
 ```
 
 ---

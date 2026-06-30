@@ -208,6 +208,11 @@ cargo build --workspace
 cargo build -p dockwin-cli   # -> target/debug/dockwin.exe
 ```
 
+> Most tasks are wrapped as [`just`](https://github.com/casey/just) recipes
+> (`just dev`, `just installer`, `just release minor`, …). See
+> **[docs/development.md](docs/development.md)** for the full dev & release
+> workflow.
+
 > The `dockwin-core` brain, the thin `dockwin` CLI, and the `dockwin-gui` shell
 > now each live in their own crate and share one provisioning implementation —
 > the engine/Docker logic is in `crates/dockwin-core` + `src-tauri/src/docker.rs`,
