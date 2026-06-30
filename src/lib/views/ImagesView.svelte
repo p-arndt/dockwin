@@ -469,11 +469,11 @@
       <Table.Root class="table-fixed [&_td]:py-[13px]">
         <Table.Header>
           <Table.Row class="hover:bg-transparent">
-            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider" style="width:42%">Repository : Tag</Table.Head>
-            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider" style="width:19%">Image ID</Table.Head>
-            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider" style="width:14%">Size</Table.Head>
-            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider" style="width:17%">Created</Table.Head>
-            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider" style="width:8%"></Table.Head>
+            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider">Repository : Tag</Table.Head>
+            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider w-[150px]">Image ID</Table.Head>
+            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider w-[96px]">Size</Table.Head>
+            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider w-[136px]">Created</Table.Head>
+            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider w-[152px]"></Table.Head>
           </Table.Row>
         </Table.Header>
         <Table.Body>
