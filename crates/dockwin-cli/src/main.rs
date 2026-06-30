@@ -73,6 +73,10 @@ enum Commands {
     /// whose disk image is gone) so it can be cleanly reprovisioned with `install`.
     Repair,
 
+    /// Upgrade the in-distro Docker Engine packages to the latest in the pinned
+    /// apt repo and restart dockerd (in-place; does not re-import the distro).
+    Update,
+
     /// Tear down the distro (`wsl --unregister`) and remove docker context(s).
     Uninstall {
         /// Export the distro to a .tar before unregistering.
@@ -153,6 +157,8 @@ fn main() -> ExitCode {
                 .install(opts, &|p| dockwin_core::ops::print_progress(&p))
         }
         Commands::Repair => dockwin_core::backend::detect().repair(),
+        Commands::Update => dockwin_core::backend::detect()
+            .update(&|p| dockwin_core::ops::print_progress(&p)),
         Commands::Start { timeout } => dockwin_core::backend::detect().start(timeout),
         Commands::Stop { terminate } => dockwin_core::backend::detect().stop(terminate),
         Commands::Uninstall {

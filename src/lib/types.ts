@@ -32,6 +32,15 @@ export interface EngineStatusDto {
   detail: string | null;
 }
 
+// Result of the engine_update_check command: installed vs. available Docker
+// Engine apt versions inside the distro. Fields are null when unknown (engine
+// not running / apt couldn't answer); update_available is the backend's compare.
+export interface EngineUpdateDto {
+  installed: string | null;
+  candidate: string | null;
+  update_available: boolean;
+}
+
 // A line of container log output.
 export interface LogChunkDto {
   stream: string;

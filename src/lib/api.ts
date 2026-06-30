@@ -7,6 +7,7 @@ import type {
   ContainerDto,
   EngineState,
   EngineStatusDto,
+  EngineUpdateDto,
   ImageDto,
   LogChunkDto,
   NormalizedContainer,
@@ -70,11 +71,31 @@ export function engineRepair(): Promise<void> {
   return invoke("engine_repair");
 }
 
+// Check whether a newer Docker Engine is available in the pinned apt repo.
+// Cheap; returns empty fields when the engine isn't running (safe on launch).
+export function engineUpdateCheck(): Promise<EngineUpdateDto> {
+  return invoke<EngineUpdateDto>("engine_update_check");
+}
+
+// Upgrade the in-distro Docker Engine packages in place and restart dockerd.
+// Long-running; live progress arrives via the `engine://update` event.
+export function engineUpdate(): Promise<void> {
+  return invoke("engine_update");
+}
+
 // Subscribe to provisioning progress (the `engine://provision` event).
 export function onProvisionProgress(
   handler: (p: ProvisionProgress) => void
 ): Promise<UnlistenFn> {
   return listen<ProvisionProgress>("engine://provision", (ev) => handler(ev.payload));
+}
+
+// Subscribe to engine-update progress (the `engine://update` event). Same
+// ProvisionProgress shape as provisioning, reused for the update bar + log.
+export function onEngineUpdateProgress(
+  handler: (p: ProvisionProgress) => void
+): Promise<UnlistenFn> {
+  return listen<ProvisionProgress>("engine://update", (ev) => handler(ev.payload));
 }
 
 // --- Compose ---

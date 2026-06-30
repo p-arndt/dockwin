@@ -275,6 +275,93 @@ pub async fn engine_repair(state: tauri::State<'_, AppState>) -> Result<(), Stri
     Ok(())
 }
 
+/// Installed vs. available Docker Engine versions, for the GUI's "engine update
+/// available" badge. `update_available` is the backend's own comparison.
+#[derive(Debug, Clone, Serialize)]
+pub struct EngineUpdateDto {
+    pub installed: Option<String>,
+    pub candidate: Option<String>,
+    pub update_available: bool,
+}
+
+/// Check whether a newer Docker Engine is available in the pinned apt repo.
+/// Cheap and never installs; returns empty fields when the engine isn't running
+/// (so it's safe to call on app launch). See `ops::engine_update_check`.
+#[tauri::command]
+pub async fn engine_update_check() -> Result<EngineUpdateDto, String> {
+    let u = tokio::task::spawn_blocking(|| dockwin_core::backend::detect().update_check())
+        .await
+        .map_err(|e| format!("engine_update_check task failed: {e}"))?
+        .map_err(|e| format!("{e:#}"))?;
+    Ok(EngineUpdateDto {
+        update_available: u.update_available(),
+        installed: u.installed,
+        candidate: u.candidate,
+    })
+}
+
+/// Upgrade the in-distro Docker Engine packages in place and restart dockerd.
+/// Emits `engine://update` progress events (same shape as provisioning) so the
+/// GUI can show a live bar + log. Forces a reconnect afterwards.
+#[tauri::command]
+pub async fn engine_update(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let app2 = app.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        let report = move |p: dockwin_core::ops::Progress| {
+            let _ = app2.emit(
+                "engine://update",
+                ProvisionProgressDto {
+                    phase: p.phase.to_string(),
+                    message: p.message,
+                    pct: p.pct,
+                    level: p.level.to_string(),
+                    done: false,
+                    error: None,
+                },
+            );
+        };
+        dockwin_core::backend::detect().update(&report)
+    })
+    .await
+    .map_err(|e| format!("engine_update task failed: {e}"))?;
+
+    match result {
+        Ok(()) => {
+            let _ = app.emit(
+                "engine://update",
+                ProvisionProgressDto {
+                    phase: "done".into(),
+                    message: "Docker engine up to date.".into(),
+                    pct: 100.0,
+                    level: "step".into(),
+                    done: true,
+                    error: None,
+                },
+            );
+            state.reset().await;
+            Ok(())
+        }
+        Err(e) => {
+            let msg = format!("{e:#}");
+            let _ = app.emit(
+                "engine://update",
+                ProvisionProgressDto {
+                    phase: "error".into(),
+                    message: msg.clone(),
+                    pct: 100.0,
+                    level: "error".into(),
+                    done: true,
+                    error: Some(msg.clone()),
+                },
+            );
+            Err(msg)
+        }
+    }
+}
+
 /// Toggle the insecure loopback-TCP fallback at runtime.
 #[tauri::command]
 pub async fn set_tcp_fallback(

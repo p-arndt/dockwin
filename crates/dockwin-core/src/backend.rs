@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 
-use crate::ops::{self, EngineState, InstallOpts, Progress};
+use crate::ops::{self, EngineState, EngineUpdate, InstallOpts, Progress};
 
 /// How a local Docker client (bollard / `docker.exe`) should reach `dockerd`.
 ///
@@ -79,6 +79,15 @@ pub trait EngineBackend: Send + Sync {
     /// reprovisioned (e.g. its disk image was deleted out from under it — the
     /// [`EngineState::Broken`] case).
     fn repair(&self) -> Result<()>;
+
+    /// In-place upgrade of the Docker Engine packages, forwarding progress to
+    /// `report` (mirrors [`install`] but only moves the docker-* packages
+    /// forward — it never re-imports the distro).
+    fn update(&self, report: &dyn Fn(Progress)) -> Result<()>;
+
+    /// Installed vs. available Docker Engine versions, for an "update available"
+    /// indicator. Cheap; never installs. See [`ops::engine_update_check`].
+    fn update_check(&self) -> Result<EngineUpdate>;
 
     /// `docker compose up` (detached by default) for `file`.
     fn compose_up(
@@ -150,6 +159,14 @@ impl EngineBackend for WslBackend {
 
     fn repair(&self) -> Result<()> {
         ops::repair()
+    }
+
+    fn update(&self, report: &dyn Fn(Progress)) -> Result<()> {
+        ops::update_engine_reporting(report)
+    }
+
+    fn update_check(&self) -> Result<EngineUpdate> {
+        ops::engine_update_check()
     }
 
     fn connection(&self) -> EngineConnection {

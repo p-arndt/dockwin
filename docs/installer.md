@@ -250,6 +250,59 @@ CLI. Anti-bloat thesis preserved.
 
 ---
 
+## Auto-updates (in-app updater)
+
+dockwin updates **two independent things**, so there are two update paths. Both
+are **opt-in and notify-only**: a small toast appears on launch when an update
+exists, and nothing installs until the user clicks. No background service, no
+silent installs — consistent with the anti-bloat thesis.
+
+### 1. The dockwin app (GUI + bundled CLI + embedded `distro/` assets)
+
+Uses Tauri's official **`tauri-plugin-updater`**. On launch the frontend
+(`src/lib/updater.ts`) calls `check()` against the manifest endpoint configured
+in `src-tauri/tauri.conf.json` (`plugins.updater.endpoints`), which points at the
+GitHub release's `latest.json`. If a newer **signed** installer exists, the user
+can install it; the plugin downloads the new NSIS `-setup.exe`, verifies its
+Ed25519 signature against `plugins.updater.pubkey`, applies it, and relaunches.
+
+**Maintainer setup — REQUIRED for app updates to work:**
+
+1. Generate a signing keypair once: `pnpm tauri signer generate -w dockwin.key`
+   (a key *was* generated during initial setup; regenerate if you don't have the
+   private half). The public key is already in
+   `src-tauri/tauri.conf.json` → `plugins.updater.pubkey`.
+2. Add two repo **secrets** (Settings → Secrets and variables → Actions):
+   - `TAURI_SIGNING_PRIVATE_KEY` — the contents of the private key file.
+   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — the key's password (empty string if
+     the key has none).
+3. The release workflow (`.github/workflows/release.yml`) signs during
+   `pnpm tauri build` and publishes `latest.json` (assembled by
+   `scripts/make-latest-json.mjs`) alongside the installer. If the secrets are
+   unset the build still succeeds but produces **no** `.sig`/`latest.json`, so the
+   updater simply sees no update — releases stay publishable, just not
+   auto-updatable.
+
+> Losing the private key means you can't ship updates that existing installs will
+> accept (the pinned `pubkey` won't verify a new key's signatures). Keep it safe;
+> rotating it requires every user to reinstall manually once.
+
+### 2. The Docker Engine (inside the WSL distro)
+
+The app updater can't touch the engine — `dockerd` lives in the distro, installed
+from the pinned Docker apt repo. `dockwin-core::ops::update_engine_reporting`
+runs an in-place `apt-get install --only-upgrade docker-ce …` and restarts
+`dockerd`, streaming progress. Exposed three ways:
+
+- **CLI:** `dockwin update`.
+- **GUI command:** `engine_update` (progress via the `engine://update` event),
+  with `engine_update_check` for the "Docker Engine X → Y available" badge.
+- The launch toast surfaces it when the engine is running and apt reports a newer
+  candidate. The check is cheap (`apt-get update` + `apt-cache policy`) and never
+  boots a stopped distro, so it's safe on launch.
+
+---
+
 ## References
 
 - Tauri — Embedding External Binaries (sidecar / `externalBin`, `-$TARGET_TRIPLE`):

@@ -16,7 +16,9 @@
   "dependencies": {
     "@lucide/svelte": "^1.22.0",
     "@tauri-apps/api": "^2.0.0",
-    "@tauri-apps/plugin-dialog": "^2.0.0"
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-process": "^2.0.0",
+    "@tauri-apps/plugin-updater": "^2.0.0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.0",

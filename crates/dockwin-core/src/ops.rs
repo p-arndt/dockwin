@@ -922,3 +922,141 @@ pub fn repair() -> Result<()> {
     println!("Engine reset. Reprovision with `dockwin install` (or the GUI's Set up engine).");
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// update (in-place Docker Engine upgrade)
+// ---------------------------------------------------------------------------
+
+/// Installed vs. available Docker Engine versions inside the distro, used by the
+/// GUI's "engine update available" badge and the CLI `status`. Both are the apt
+/// version strings (e.g. `5:27.3.1-1~ubuntu.24.04~noble`); `None` means unknown
+/// (engine not provisioned/running, or apt couldn't answer).
+#[derive(Debug, Clone, Default)]
+pub struct EngineUpdate {
+    pub installed: Option<String>,
+    pub candidate: Option<String>,
+}
+
+impl EngineUpdate {
+    /// True when apt knows of a candidate that differs from what's installed.
+    pub fn update_available(&self) -> bool {
+        match (&self.installed, &self.candidate) {
+            (Some(i), Some(c)) => i != c,
+            _ => false,
+        }
+    }
+}
+
+/// Check whether a newer Docker Engine is available in the pinned apt repo.
+///
+/// Cheap and side-effect-free for the caller: it only refreshes apt metadata
+/// (`apt-get update`) and reads `apt-cache policy` — it never installs anything.
+/// To keep app launch snappy it does NOT boot a stopped distro; if the engine
+/// isn't running it returns an empty result (both fields `None`) rather than
+/// paying a cold-boot. Best-effort: any failure yields an empty result.
+pub fn engine_update_check() -> Result<EngineUpdate> {
+    if !wsl::distro_exists(DISTRO)? || !wsl::distro_running(DISTRO)? {
+        return Ok(EngineUpdate::default());
+    }
+    // Refresh the repo index quietly, then read the installed/candidate lines.
+    let script = "export DEBIAN_FRONTEND=noninteractive; \
+        apt-get update -qq >/dev/null 2>&1; \
+        apt-cache policy docker-ce 2>/dev/null";
+    let (ok, text) =
+        wsl::capture(&["-d", DISTRO, "-u", "root", "--", "bash", "-lc", script])?;
+    if !ok {
+        return Ok(EngineUpdate::default());
+    }
+    let mut out = EngineUpdate::default();
+    for line in text.lines() {
+        let l = line.trim();
+        if let Some(v) = l.strip_prefix("Installed:") {
+            let v = v.trim();
+            if v != "(none)" && !v.is_empty() {
+                out.installed = Some(v.to_string());
+            }
+        } else if let Some(v) = l.strip_prefix("Candidate:") {
+            let v = v.trim();
+            if v != "(none)" && !v.is_empty() {
+                out.candidate = Some(v.to_string());
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Upgrade the Docker Engine packages in the already-provisioned distro to the
+/// latest in the pinned Docker apt repo, then restart `dockerd`. Streams every
+/// progress update to `report` (the GUI forwards these as `engine://update`
+/// events; the CLI prints them). Idempotent — a no-op when already current.
+///
+/// This is the in-place engine updater: it upgrades only the docker-* packages
+/// (engine/cli/containerd/buildx/compose), never the whole distro, so it is far
+/// lighter than re-running [`install`].
+pub fn update_engine_reporting(report: &dyn Fn(Progress)) -> Result<()> {
+    if !wsl::distro_exists(DISTRO)? {
+        bail!("engine '{DISTRO}' is not provisioned. Set it up first (`dockwin install`).");
+    }
+    if matches!(engine_state()?, EngineState::Broken) {
+        bail!(
+            "engine '{DISTRO}' is broken (its disk image is missing). Run \
+             `dockwin repair`, then `dockwin install` before updating."
+        );
+    }
+
+    report(Progress::step("preflight", 1.0, "Booting distro"));
+    wsl::run_checked(&["-d", DISTRO, "-u", "root", "--", "true"])?;
+
+    // apt-get update + upgrade ONLY the docker packages. --only-upgrade leaves a
+    // package untouched if it isn't already installed, so this never pulls in new
+    // components — it just moves the existing ones forward.
+    report(Progress::step("update", 5.0, "Upgrading Docker Engine packages…"));
+    let script = "export DEBIAN_FRONTEND=noninteractive; \
+        apt-get update -y && \
+        apt-get install -y --only-upgrade --no-install-recommends \
+          docker-ce docker-ce-cli containerd.io \
+          docker-buildx-plugin docker-compose-plugin 2>&1";
+    let mut lines: u32 = 0;
+    let mut on_line = |line: &str| {
+        lines += 1;
+        // Duration is unknown; creep from 10 toward 85 as apt output arrives.
+        let pct = (10.0 + lines as f32 * 0.4).min(85.0);
+        report(Progress::info("update", pct, line.to_string()));
+    };
+    let upgraded = wsl::run_streaming(
+        &["-d", DISTRO, "-u", "root", "--", "bash", "-lc", script],
+        &mut on_line,
+    )
+    .context("docker package upgrade failed")?;
+    if !upgraded {
+        bail!("docker package upgrade exited with an error (see the log above)");
+    }
+
+    // Restart dockerd so a new daemon binary actually takes effect.
+    report(Progress::step("restart", 90.0, "Restarting dockerd"));
+    let restart = "if [ -d /run/systemd/system ]; then systemctl restart docker; \
+        else service docker restart; fi";
+    let _ = wsl::run(&["-d", DISTRO, "-u", "root", "--", "bash", "-lc", restart]);
+
+    report(Progress::step("verify", 95.0, "Verifying dockerd"));
+    match wsl::docker_server_version()? {
+        Some(v) => report(Progress::info(
+            "verify",
+            98.0,
+            format!("dockerd server version: {v}"),
+        )),
+        None => report(Progress::warn(
+            "verify",
+            98.0,
+            "could not confirm dockerd after the upgrade; check: \
+             wsl -d dockwin -u root -- journalctl -u docker",
+        )),
+    }
+    report(Progress::step("done", 100.0, "Docker engine up to date."));
+    Ok(())
+}
+
+/// Upgrade the engine, printing progress to stdout (the CLI path).
+pub fn update_engine() -> Result<()> {
+    update_engine_reporting(&|p| print_progress(&p))
+}

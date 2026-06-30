@@ -8,7 +8,9 @@
 //!   * installs a system tray icon with a show/hide/quit menu,
 //!   * keeps the app alive in the tray when the window is closed.
 //!
-//! Anti-bloat: no background service, no telemetry, no auto-updater.
+//! Anti-bloat: no background service, no telemetry. The in-app updater is
+//! opt-in and notify-only — it checks for a newer signed release on launch and
+//! when the user asks, but never installs silently in the background.
 
 // On Windows release builds, hide the console window that would otherwise pop up.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -100,6 +102,10 @@ fn main() {
         // Plugins declared in Cargo.toml.
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        // In-app updater: the frontend checks GitHub Releases for a newer signed
+        // dockwin installer and installs it on demand (notify-only on launch).
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
@@ -135,6 +141,8 @@ fn main() {
             commands::engine_provision,
             commands::engine_teardown,
             commands::engine_repair,
+            commands::engine_update,
+            commands::engine_update_check,
             commands::set_tcp_fallback,
             // Containers
             commands::container_list,

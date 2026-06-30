@@ -39,6 +39,7 @@
   import NetworksView from "./lib/NetworksView.svelte";
   import SystemView from "./lib/SystemView.svelte";
   import ContainerDetails from "./lib/ContainerDetails.svelte";
+  import UpdateBanner from "./lib/UpdateBanner.svelte";
 
   const POLL_MS = 3000;
 
@@ -779,6 +780,9 @@
     onChanged={refreshAll}
   />
 {/if}
+
+<!-- In-app update toast (app + engine). Fixed-position; checks on mount. -->
+<UpdateBanner />
 
 <footer
   class="flex-none border-t border-[#262b34] bg-[#171a21] px-4 py-1.5 text-xs"

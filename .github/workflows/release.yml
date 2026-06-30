@@ -56,6 +56,15 @@ jobs:
         run: cargo build -p dockwin-cli --release --target x86_64-pc-windows-msvc
 
       - name: Build GUI + NSIS installer
+        # Signing keys are needed so the updater artifacts (*-setup.exe.sig) are
+        # produced and verifiable by the in-app updater. Set these repo secrets:
+        #   TAURI_SIGNING_PRIVATE_KEY           (contents of the minisign key)
+        #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  (empty if the key has no password)
+        # Generate a keypair with `pnpm tauri signer generate` and put the PUBLIC
+        # key in src-tauri/tauri.conf.json (plugins.updater.pubkey).
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: pnpm tauri build
 
       - name: Stage release artifacts
@@ -67,6 +76,16 @@ jobs:
              "dist-release/dockwin-${V}-x86_64-pc-windows-msvc.exe"
           cp target/release/bundle/nsis/*-setup.exe dist-release/
           ls -l dist-release
+
+      - name: Generate updater manifest (latest.json)
+        # Assembles the manifest the in-app updater polls. Reads the *-setup.exe
+        # and its .sig from the NSIS bundle and points the download URL at this
+        # release's asset. No-ops with a warning if the .sig is missing (i.e. the
+        # signing secrets weren't set), so unsigned releases still publish.
+        shell: bash
+        env:
+          TAG: ${{ steps.get_tag.outputs.VERSION }}
+        run: node scripts/make-latest-json.mjs
 
       - name: Generate changelog
         uses: orhun/git-cliff-action@v4

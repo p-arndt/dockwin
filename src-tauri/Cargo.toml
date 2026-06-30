@@ -25,6 +25,9 @@ dockwin-core = { path = "../crates/dockwin-core" }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
+# In-app updater (signed GitHub-release updates) + relaunch after install.
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 
 # --- Docker Engine API client ---
 # bollard 0.18 ships current Docker API bindings and (on Windows) named-pipe transport.
