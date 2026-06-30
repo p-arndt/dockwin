@@ -5,7 +5,10 @@
   import Network from "@lucide/svelte/icons/network";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Plus from "@lucide/svelte/icons/plus";
-  import Link from "@lucide/svelte/icons/link";
+  import Search from "@lucide/svelte/icons/search";
+  import Braces from "@lucide/svelte/icons/braces";
+  import Eraser from "@lucide/svelte/icons/eraser";
+  import X from "@lucide/svelte/icons/x";
   import { errText } from "./api";
   import * as net from "./networksApi";
   import type { EngineState } from "./types";
@@ -35,6 +38,9 @@
 
   // Prune result line.
   let pruneMsg = $state("");
+
+  // Client-side name filter.
+  let query = $state("");
 
   let busy = false; // non-reactive guard against overlapping loads
 
@@ -165,197 +171,271 @@
     }
   }
 
-  const BTN_BASE =
-    "inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-[3px] text-xs transition-colors disabled:cursor-default disabled:opacity-45";
+  // Short id for the secondary line under the network name.
+  function shortId(id: string): string {
+    return (id ?? "").replace(/^sha256:/, "").slice(0, 12);
+  }
+
   const creating = $derived(pending.has("__create__"));
   const pruning = $derived(pending.has("__prune__"));
+  const filtered = $derived(
+    query.trim()
+      ? networks.filter((n) =>
+          (n.name ?? "").toLowerCase().includes(query.trim().toLowerCase())
+        )
+      : networks
+  );
+
+  const COLS = "minmax(200px,1.7fr) 0.9fr 0.8fr 0.8fr 0.7fr";
 </script>
 
-<section class="overflow-hidden rounded-md border border-[#262b34] bg-[#171a21]">
-  <div class="flex items-baseline gap-2.5 border-b border-[#262b34] px-3.5 py-3">
-    <h2 class="text-sm font-semibold">Networks</h2>
-    <span class="text-xs text-[#9aa3af]">
-      {networks.length ? `${networks.length} total` : ""}
-    </span>
-    <div class="ml-auto">
-      <button
-        class="{BTN_BASE} border-[#f8514980] text-[#f85149] hover:not-disabled:bg-[#f851491f]"
-        disabled={pruning || engineState !== "running"}
-        onclick={pruneNetworks}
-        ><Trash2 size={13} aria-hidden="true" />Prune unused</button
-      >
+<section class="page netview">
+  <div class="head">
+    <h1>Networks</h1>
+    <span class="chip"><b class="num">{networks.length}</b> total</span>
+    <span class="sp"></span>
+    <div class="search">
+      <Search aria-hidden="true" />
+      <input
+        type="text"
+        placeholder="Filter networks"
+        bind:value={query}
+        disabled={engineState !== "running"}
+        aria-label="Filter networks by name"
+      />
     </div>
+    <button
+      class="btn btn-danger"
+      disabled={pruning || engineState !== "running"}
+      onclick={pruneNetworks}
+      title="Remove all unused networks"
+    >
+      <Eraser aria-hidden="true" />
+      {pruning ? "Pruning…" : "Prune unused"}
+    </button>
   </div>
 
   {#if errorMsg}
-    <div
-      class="mx-3.5 mt-3 select-text rounded-md border border-[#f8514966] bg-[#f851491a] px-3 py-2 text-[13px] text-[#ff9b95]"
-    >
-      {errorMsg}
-    </div>
+    <div class="banner err">{errorMsg}</div>
   {/if}
 
   {#if pruneMsg}
-    <div
-      class="mx-3.5 mt-3 select-text rounded-md border border-[#262b34] bg-[#1b1f27] px-3 py-2 text-[13px] text-[#9aa3af]"
-    >
-      {pruneMsg}
-    </div>
+    <div class="banner">{pruneMsg}</div>
   {/if}
 
   <!-- Create network form -->
   {#if engineState === "running"}
-    <form
-      class="flex flex-wrap items-end gap-2.5 border-b border-[#262b34] px-3.5 py-3"
-      onsubmit={createNetwork}
-    >
-      <label class="flex flex-col gap-1 text-xs text-[#9aa3af]">
-        <span>Name</span>
-        <input
-          class="w-44 rounded-md border border-[#262b34] bg-[#0f1217] px-2 py-[5px] text-[13px] text-[#e6e8eb] outline-none focus:border-[#2f81f7]"
-          type="text"
-          placeholder="my_network"
-          bind:value={newName}
-        />
+    <form class="card card-pad createbar" onsubmit={createNetwork}>
+      <label class="fieldcol">
+        <span class="flabel">Name</span>
+        <span class="search inputwrap">
+          <input type="text" placeholder="my_network" bind:value={newName} />
+        </span>
       </label>
-      <label class="flex flex-col gap-1 text-xs text-[#9aa3af]">
-        <span>Driver</span>
-        <select
-          class="rounded-md border border-[#262b34] bg-[#0f1217] px-2 py-[5px] text-[13px] text-[#e6e8eb] outline-none focus:border-[#2f81f7]"
-          bind:value={newDriver}
-        >
-          <option value="bridge">bridge</option>
-          <option value="macvlan">macvlan</option>
-        </select>
+      <label class="fieldcol">
+        <span class="flabel">Driver</span>
+        <span class="search inputwrap selwrap">
+          <select bind:value={newDriver}>
+            <option value="bridge">bridge</option>
+            <option value="macvlan">macvlan</option>
+          </select>
+        </span>
       </label>
-      <label class="flex items-center gap-1.5 pb-[6px] text-[13px] text-[#e6e8eb]">
+      <label class="field internalbox">
         <input type="checkbox" bind:checked={newInternal} />
         <span>Internal</span>
       </label>
-      <button
-        class="{BTN_BASE} mb-[1px] border-[#2f81f7] text-[#2f81f7] hover:not-disabled:bg-[#2f81f71f]"
-        type="submit"
-        disabled={creating}
-        ><Plus size={13} aria-hidden="true" />Create network</button
-      >
+      <button class="btn btn-pri" type="submit" disabled={creating}>
+        <Plus aria-hidden="true" />
+        {creating ? "Creating…" : "Create network"}
+      </button>
     </form>
   {/if}
 
-  {#if networks.length === 0}
-    <div class="flex flex-col items-center gap-2 px-3.5 py-9 text-center text-[#9aa3af]">
-      <Network size={22} class="opacity-60" aria-hidden="true" />
-      <span>
+  {#if filtered.length === 0}
+    <div class="table">
+      <div class="empty">
         {#if loading}
           Loading networks…
-        {:else if engineState === "running"}
-          No networks.
-        {:else}
+        {:else if engineState !== "running"}
           Engine not running.
+        {:else if query.trim()}
+          No networks match “{query.trim()}”.
+        {:else}
+          No networks.
         {/if}
-      </span>
+      </div>
     </div>
   {:else}
-    <div class="overflow-x-auto">
-      <table class="w-full border-collapse text-[13px]">
-        <thead>
-          <tr>
-            <th
-              class="sticky top-0 whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-              >Name</th
-            >
-            <th
-              class="sticky top-0 whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-              >Driver</th
-            >
-            <th
-              class="sticky top-0 whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-              >Scope</th
-            >
-            <th
-              class="sticky top-0 whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-              >Internal</th
-            >
-            <th
-              class="sticky top-0 whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-              >#Containers</th
-            >
-            <th
-              class="sticky top-0 w-[1%] whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-              >Actions</th
-            >
-          </tr>
-        </thead>
-        <tbody>
-          {#each networks as n (n.id)}
-            {@const acting = pending.has(n.id)}
-            {@const inspecting = pending.has(`inspect:${n.id}`)}
-            {@const open = inspectId === n.id}
-            <tr class="hover:bg-[#1b1f27] {acting ? 'opacity-60' : ''}">
-              <td
-                class="border-b border-[#262b34] px-3 py-2.5 align-middle font-medium"
-                title={n.id}
-              >
-                {n.name}
+    <div class="table">
+      <div class="thead" style="--cols:{COLS}">
+        <span>Name</span>
+        <span>Driver</span>
+        <span>Scope</span>
+        <span>Internal</span>
+        <span>Containers</span>
+      </div>
+
+      {#each filtered as n (n.id)}
+        {@const acting = pending.has(n.id)}
+        {@const inspecting = pending.has(`inspect:${n.id}`)}
+        {@const open = inspectId === n.id}
+        <div
+          class="trow"
+          class:sel={open}
+          style="--cols:{COLS}; {acting ? 'opacity:.55' : ''}"
+        >
+          <div class="cell-name">
+            <span class="lamp" class:run={n.containers > 0}></span>
+            <span class="av"><Network aria-hidden="true" /></span>
+            <div style="min-width:0">
+              <div class="nm-line">
+                <span class="nm" title={n.name}>{n.name}</span>
                 {#if n.builtin}
-                  <span
-                    class="ml-1.5 rounded border border-[#262b34] px-1 py-px text-[10px] uppercase tracking-wide text-[#9aa3af]"
-                    >built-in</span
-                  >
+                  <span class="tag">built-in</span>
                 {/if}
-              </td>
-              <td
-                class="whitespace-nowrap border-b border-[#262b34] px-3 py-2.5 align-middle text-[#9aa3af]"
-                >{n.driver || "—"}</td
-              >
-              <td
-                class="whitespace-nowrap border-b border-[#262b34] px-3 py-2.5 align-middle text-[#9aa3af]"
-                >{n.scope || "—"}</td
-              >
-              <td
-                class="whitespace-nowrap border-b border-[#262b34] px-3 py-2.5 align-middle text-[#9aa3af]"
-                >{n.internal ? "yes" : "no"}</td
-              >
-              <td
-                class="whitespace-nowrap border-b border-[#262b34] px-3 py-2.5 align-middle text-[#9aa3af]"
-                >{n.containers}</td
-              >
-              <td class="border-b border-[#262b34] px-3 py-2.5 align-middle">
-                <div class="flex justify-end gap-1.5">
-                  <button
-                    class="{BTN_BASE} border-[#262b34] text-[#e6e8eb] hover:not-disabled:bg-[#21262d]"
-                    disabled={inspecting}
-                    onclick={() => toggleInspect(n)}
-                    ><Link size={13} aria-hidden="true" />{open
-                      ? "Hide"
-                      : "Inspect"}</button
-                  >
-                  <button
-                    class="{BTN_BASE} border-[#f8514980] text-[#f85149] hover:not-disabled:bg-[#f851491f]"
-                    disabled={acting || n.builtin}
-                    title={n.builtin
-                      ? "Built-in networks cannot be removed"
-                      : "Remove network"}
-                    onclick={() => removeNetwork(n)}
-                    ><Trash2 size={13} aria-hidden="true" />Remove</button
-                  >
-                </div>
-              </td>
-            </tr>
-            {#if open}
-              <tr>
-                <td colspan="6" class="border-b border-[#262b34] bg-[#0f1217] px-3 py-2.5">
-                  {#if inspecting}
-                    <div class="text-[13px] text-[#9aa3af]">Loading…</div>
-                  {:else}
-                    <pre
-                      class="font-mono-app max-h-80 select-text overflow-auto whitespace-pre text-xs text-[#9aa3af]">{inspectJson}</pre>
-                  {/if}
-                </td>
-              </tr>
+              </div>
+              <div class="id" title={n.id}>{shortId(n.id) || "—"}</div>
+            </div>
+          </div>
+
+          <span class="cell-text">{n.driver || "—"}</span>
+          <span class="cell-dim">{n.scope || "—"}</span>
+          <span>
+            {#if n.internal}
+              <span class="tag">yes</span>
+            {:else}
+              <span class="muted">no</span>
             {/if}
-          {/each}
-        </tbody>
-      </table>
+          </span>
+          <span class="num cell-text">{n.containers}</span>
+
+          <div class="rowact">
+            <button
+              title={open ? "Hide inspect" : "Inspect"}
+              disabled={inspecting}
+              onclick={() => toggleInspect(n)}
+            >
+              {#if open}<X aria-hidden="true" />{:else}<Braces aria-hidden="true" />{/if}
+            </button>
+            {#if !n.builtin}
+              <button
+                class="dng"
+                title="Remove network"
+                disabled={acting}
+                onclick={() => removeNetwork(n)}
+              >
+                <Trash2 aria-hidden="true" />
+              </button>
+            {/if}
+          </div>
+        </div>
+
+        {#if open}
+          <div class="inspect-pane">
+            <div class="outpane">
+              <div class="bar">
+                <Search aria-hidden="true" />
+                <span>Inspect · <span class="mono">{n.name}</span></span>
+              </div>
+              {#if inspecting}
+                <div class="body-out">Loading…</div>
+              {:else}
+                <pre class="body-out">{inspectJson}</pre>
+              {/if}
+            </div>
+          </div>
+        {/if}
+      {/each}
     </div>
   {/if}
 </section>
+
+<style>
+  /* Create bar: reuse foundation surfaces; only layout lives here. */
+  .createbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+  }
+  .fieldcol {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .flabel {
+    font-size: 10.5px;
+    font-weight: 650;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: var(--text-4);
+  }
+  /* Reuse .search chrome as a text/select input shell. */
+  .inputwrap {
+    width: 200px;
+    padding: 6px 11px;
+  }
+  .selwrap {
+    width: 150px;
+  }
+  .inputwrap select {
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 12.5px;
+    outline: none;
+    width: 100%;
+    cursor: pointer;
+  }
+  .inputwrap select option {
+    background: var(--s2);
+    color: var(--text);
+  }
+  .internalbox {
+    padding-bottom: 7px;
+  }
+  .createbar .btn-pri {
+    margin-left: auto;
+  }
+
+  /* Plain table cell text using tokens (no raw colors). */
+  .cell-text {
+    color: var(--text-2);
+    font-size: 13px;
+  }
+  .cell-dim {
+    color: var(--text-3);
+    font-size: 13px;
+  }
+
+  .nm-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .nm-line .nm {
+    min-width: 0;
+  }
+  .nm-line .tag {
+    flex: none;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-3);
+  }
+
+  /* Full-width inspect drawer sits between grid rows inside .table. */
+  .inspect-pane {
+    padding: 0 18px 14px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .inspect-pane .body-out {
+    white-space: pre;
+    max-height: 20rem;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+</style>

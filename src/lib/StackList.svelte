@@ -2,13 +2,16 @@
   // Docker Compose stacks: containers grouped by their compose project, with
   // start/stop/restart applied to the whole stack. Stateless view — all actions
   // bubble to the parent (App.svelte), which fans them out over the existing
-  // container commands.
+  // container commands. Presentation uses the v2 foundation classes/tokens.
   import Play from "@lucide/svelte/icons/play";
   import Square from "@lucide/svelte/icons/square";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
   import Package from "@lucide/svelte/icons/package";
+  import Box from "@lucide/svelte/icons/box";
   import ExternalLink from "@lucide/svelte/icons/external-link";
-  import type { Stack } from "./types";
+  import Pill from "./components/Pill.svelte";
+  import { openExternal } from "./openExternal";
+  import type { Stack, NormalizedContainer, NormalizedPort } from "./types";
 
   type StackAction = "start" | "stop" | "restart";
 
@@ -22,99 +25,212 @@
     onStackAction?: (action: StackAction, stack: Stack) => void;
   } = $props();
 
+  // Shared grid template for each stack's service table (header + rows).
+  const COLS =
+    "minmax(160px,1.5fr) minmax(120px,1.3fr) minmax(120px,1fr) minmax(150px,1.2fr)";
+
   function stackBusy(s: Stack): boolean {
     return s.containers.some((c) => pending.has(c.id));
   }
   function act(action: StackAction, s: Stack) {
     onStackAction?.(action, s);
   }
+
+  function stackTone(s: Stack): "ok" | "warn" | "neutral" {
+    if (s.running === 0) return "neutral";
+    return s.running === s.total ? "ok" : "warn";
+  }
+
+  // Loud status word for a service (running => "Running"; otherwise capitalise
+  // the raw docker state, falling back to "Stopped").
+  function stateWord(c: NormalizedContainer): string {
+    if (c.running) return "Running";
+    const st = (c.state || "").trim();
+    if (!st) return "Stopped";
+    return st.charAt(0).toUpperCase() + st.slice(1);
+  }
+
+  function portLabel(p: NormalizedPort): string {
+    return `${p.host}:${p.container}/${p.proto}`;
+  }
+  function portTitle(p: NormalizedPort): string {
+    if (p.url) return `Open ${p.url} (forwarded to Windows localhost)`;
+    if (p.wildcard) return portLabel(p);
+    return `Bound to ${p.ip} — NOT forwarded to Windows localhost`;
+  }
+  function openPort(p: NormalizedPort) {
+    const url = p.url ?? `http://localhost:${p.host}`;
+    void openExternal(url);
+  }
 </script>
 
 {#if stacks.length === 0}
-  <div class="px-3.5 py-6 text-center text-[13px] text-[#9aa3af]">
-    No Compose stacks. Containers started with
-    <code class="text-[#c7ccd4]">docker compose</code> appear here, grouped by project.
+  <div class="card card-pad">
+    <p class="prose" style="margin:0">
+      No Compose stacks. Containers started with
+      <code class="code">docker compose</code> appear here, grouped by project.
+    </p>
   </div>
 {:else}
-  <div class="flex flex-col gap-3">
+  <div class="stacks">
     {#each stacks as s (s.project)}
       {@const busy = stackBusy(s)}
       {@const allRunning = s.running === s.total}
-      <section class="overflow-hidden rounded-md border border-[#262b34] bg-[#171a21]">
-        <header
-          class="flex items-center gap-2.5 border-b border-[#262b34] px-3.5 py-2.5"
-        >
-          <Package size={16} class="text-[#2f81f7]" aria-hidden="true" />
-          <span class="text-sm font-semibold">{s.project}</span>
-          <span
-            class="rounded-full border border-[#262b34] bg-[#21262d] px-2 py-0.5 text-[11px] text-[#9aa3af]"
-          >
-            {s.running}/{s.total} running
-          </span>
-          <div class="ml-auto flex items-center gap-1.5">
+      <section class="table">
+        <header class="shead">
+          <span class="av"><Package aria-hidden="true" /></span>
+          <span class="nm" title={s.project}>{s.project}</span>
+          <Pill tone={stackTone(s)} dot={s.running > 0}>
+            <span class="num">{s.running}</span><span class="x">/</span><span
+              class="num">{s.total}</span
+            > running
+          </Pill>
+          <div class="shead-acts">
             <button
-              class="flex items-center gap-1 rounded-md border border-[#238636]/50 bg-[#2386361a] px-2.5 py-[5px] text-[12px] text-[#5ad17a] transition-colors hover:not-disabled:bg-[#23863626] disabled:cursor-default disabled:opacity-40"
+              class="btn btn-soft sm"
               disabled={busy || allRunning}
               onclick={() => act("start", s)}
+              title="Start the whole stack"
             >
-              <Play size={13} aria-hidden="true" /> Start
+              <Play aria-hidden="true" /> Start
             </button>
             <button
-              class="flex items-center gap-1 rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-[5px] text-[12px] text-[#e6e8eb] transition-colors hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-40"
+              class="btn btn-soft sm"
               disabled={busy || s.running === 0}
               onclick={() => act("stop", s)}
+              title="Stop the whole stack"
             >
-              <Square size={13} aria-hidden="true" /> Stop
+              <Square aria-hidden="true" /> Stop
             </button>
             <button
-              class="flex items-center gap-1 rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-[5px] text-[12px] text-[#e6e8eb] transition-colors hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-40"
+              class="btn btn-soft sm"
               disabled={busy || s.running === 0}
               onclick={() => act("restart", s)}
+              title="Restart the whole stack"
             >
-              <RotateCw size={13} aria-hidden="true" /> Restart
+              <RotateCw aria-hidden="true" /> Restart
             </button>
           </div>
         </header>
-        <ul class="divide-y divide-[#1f242c]">
-          {#each s.containers as c (c.id)}
-            <li class="flex items-center gap-2.5 px-3.5 py-2 text-[13px]">
-              <span
-                class="h-2 w-2 flex-none rounded-full {c.running
-                  ? 'bg-[#3fb950]'
-                  : 'bg-[#6e7681]'}"
-                title={c.state || 'unknown'}
-                aria-hidden="true"
-              ></span>
-              <span class="font-medium text-[#e6e8eb]" title={c.shortId}>{c.name}</span>
-              <span class="font-mono-app truncate text-[12px] text-[#9aa3af]" title={c.image}>
-                {c.image}
-              </span>
-              {#if c.ports.length}
-                <span class="ml-auto flex items-center gap-2 text-[12px]">
-                  {#each c.ports as p, i (i)}
-                    {#if p.url}
-                      <a
-                        class="flex items-center gap-1 text-[#2f81f7] hover:underline"
-                        href={p.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        title={`Open ${p.url}`}
-                      >
-                        {p.host}:{p.container}/{p.proto}
-                        <ExternalLink size={12} aria-hidden="true" />
-                      </a>
-                    {:else}
-                      <span class="text-[#9aa3af]">{p.host}:{p.container}/{p.proto}</span>
-                    {/if}
-                  {/each}
-                </span>
+
+        <div class="thead" style="--cols:{COLS}">
+          <span>Service</span><span>Image</span><span>Status</span><span
+            >Ports</span
+          >
+        </div>
+
+        {#each s.containers as c (c.id)}
+          <div
+            class="trow"
+            style="--cols:{COLS};cursor:default"
+            class:busy={pending.has(c.id)}
+          >
+            <div class="cell-name">
+              <span class="lamp" class:run={c.running}></span>
+              <span class="av"><Box aria-hidden="true" /></span>
+              <div style="min-width:0">
+                <div class="nm">{c.name}</div>
+                <div class="id">{c.shortId}</div>
+              </div>
+            </div>
+
+            <span class="img" title={c.image}>{c.image}</span>
+
+            <div class="st" class:run={c.running} class:exit={!c.running}>
+              <span class="l"><span class="d"></span>{stateWord(c)}</span>
+              {#if c.status}<span class="sub">{c.status}</span>{/if}
+            </div>
+
+            <div class="ports">
+              {#if c.ports.length === 0}
+                <span class="muted">—</span>
               {:else}
-                <span class="ml-auto text-[12px] text-[#6e7681]">{c.status || c.state}</span>
+                {#each c.ports as p, i (i)}
+                  {#if p.url}
+                    <button
+                      class="port port-link"
+                      onclick={() => openPort(p)}
+                      title={portTitle(p)}
+                    >
+                      {portLabel(p)}<ExternalLink aria-hidden="true" />
+                    </button>
+                  {:else}
+                    <span class="port" title={portTitle(p)}>{portLabel(p)}</span
+                    >
+                  {/if}
+                {/each}
               {/if}
-            </li>
-          {/each}
-        </ul>
+            </div>
+          </div>
+        {/each}
       </section>
     {/each}
   </div>
 {/if}
+
+<style>
+  .stacks {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Per-stack header strip: project identity + whole-stack actions. */
+  .shead {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--s2), transparent);
+  }
+  .shead .av {
+    width: 30px;
+    height: 30px;
+  }
+  .shead .nm {
+    font-weight: 650;
+    font-size: 14px;
+    letter-spacing: -0.2px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .shead-acts {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Quieten the count separator inside the pill. */
+  .x {
+    color: var(--text-4);
+    margin: 0 1px;
+  }
+
+  /* Service rows are read-only here (no detail routing). */
+  .trow.busy {
+    opacity: 0.55;
+  }
+
+  /* Clickable published-port chip — neutral, brightens on hover. */
+  .port-link {
+    font: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.13s var(--ease), border-color 0.13s var(--ease);
+  }
+  .port-link:hover {
+    color: var(--text);
+    border-color: var(--text-4);
+  }
+  .port-link :global(svg) {
+    width: 11px;
+    height: 11px;
+    color: var(--text-4);
+  }
+</style>

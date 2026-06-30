@@ -102,6 +102,9 @@ fn main() {
         // Plugins declared in Cargo.toml.
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        // Open published-container ports (http://localhost:<port>) and other
+        // URLs in the user's default browser, à la Docker Desktop.
+        .plugin(tauri_plugin_opener::init())
         // In-app updater: the frontend checks GitHub Releases for a newer signed
         // dockwin installer and installs it on demand (notify-only on launch).
         .plugin(tauri_plugin_updater::Builder::new().build())

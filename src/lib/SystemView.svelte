@@ -4,9 +4,15 @@
   // explicit refresh request from the parent. Talks to the backend only through
   // systemApi.ts.
   import HardDrive from "@lucide/svelte/icons/hard-drive";
-  import Info from "@lucide/svelte/icons/info";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import Layers from "@lucide/svelte/icons/layers";
+  import Boxes from "@lucide/svelte/icons/boxes";
+  import Database from "@lucide/svelte/icons/database";
+  import Server from "@lucide/svelte/icons/server";
   import Cpu from "@lucide/svelte/icons/cpu";
+  import MemoryStick from "@lucide/svelte/icons/memory-stick";
+  import CircleCheck from "@lucide/svelte/icons/circle-check";
+  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import {
     systemDf,
     systemInfo,
@@ -104,159 +110,325 @@
     }
   }
 
-  // Rows for the disk-usage table.
-  const dfRows = $derived(
+  const engineRunning = $derived(engineState === "running");
+
+  // Split a byte count into its numeric part and unit, so the unit can render
+  // as a quiet <small> next to a loud value.
+  function splitBytes(n: number): { v: string; u: string } {
+    const s = humanBytes(n);
+    const i = s.indexOf(" ");
+    return i === -1 ? { v: s, u: "" } : { v: s.slice(0, i), u: s.slice(i + 1) };
+  }
+
+  // Clamp a reclaimable/size ratio into a 0-100 bar width.
+  function reclaimPct(u: { size: number; reclaimable: number }): number {
+    if (!u.size || u.size <= 0) return 0;
+    return Math.max(0, Math.min(100, (u.reclaimable / u.size) * 100));
+  }
+
+  // Disk-usage stat cards. icon is a component reference.
+  const diskCards = $derived(
     df
       ? [
-          { label: "Images", u: df.images },
-          { label: "Containers", u: df.containers },
-          { label: "Volumes", u: df.volumes },
-          { label: "Build cache", u: df.build_cache },
+          { label: "Images", icon: Layers, u: df.images },
+          { label: "Containers", icon: Boxes, u: df.containers },
+          { label: "Volumes", icon: Database, u: df.volumes },
+          { label: "Build cache", icon: HardDrive, u: df.build_cache },
         ]
       : [],
   );
 
-  // Key/value rows for the engine-info card.
+  // Total reclaimable across all categories (chip in the header).
+  const totalReclaimable = $derived(
+    df
+      ? df.images.reclaimable +
+          df.containers.reclaimable +
+          df.volumes.reclaimable +
+          df.build_cache.reclaimable
+      : 0,
+  );
+
+  // The ONE focused (accent) card: whichever category has the most reclaimable
+  // space — the actionable one. Falls back to none when nothing is reclaimable.
+  const focusLabel = $derived.by(() => {
+    if (!diskCards.length) return "";
+    let best = diskCards[0];
+    for (const c of diskCards) if (c.u.reclaimable > best.u.reclaimable) best = c;
+    return best.u.reclaimable > 0 ? best.label : "";
+  });
+
+  // Key/value rows for the engine-info card. cls drives value typography:
+  // "mono" for technical strings, "num" for counts/sizes, "" for prose.
   const infoRows = $derived(
     info
       ? [
-          { k: "Server version", v: info.server_version ?? "—" },
-          { k: "OS", v: info.os ?? "—" },
-          { k: "OS type", v: info.os_type ?? "—" },
-          { k: "Kernel", v: info.kernel_version ?? "—" },
-          { k: "Architecture", v: info.architecture ?? "—" },
-          { k: "CPUs", v: info.ncpu != null ? String(info.ncpu) : "—" },
-          { k: "Memory", v: info.mem_total != null ? humanBytes(info.mem_total) : "—" },
-          { k: "Storage driver", v: info.storage_driver ?? "—" },
+          { k: "Server version", v: info.server_version ?? "—", cls: "mono" },
+          { k: "OS", v: info.os ?? "—", cls: "" },
+          { k: "OS type", v: info.os_type ?? "—", cls: "" },
+          { k: "Kernel", v: info.kernel_version ?? "—", cls: "mono" },
+          { k: "Architecture", v: info.architecture ?? "—", cls: "mono" },
+          { k: "CPUs", v: info.ncpu != null ? String(info.ncpu) : "—", cls: "num" },
+          { k: "Memory", v: info.mem_total != null ? humanBytes(info.mem_total) : "—", cls: "num" },
+          { k: "Storage driver", v: info.storage_driver ?? "—", cls: "mono" },
           {
             k: "Containers",
             v:
               info.containers != null
                 ? `${info.containers} (${info.containers_running ?? 0} running)`
                 : "—",
+            cls: "num",
           },
-          { k: "Images", v: info.images != null ? String(info.images) : "—" },
+          { k: "Images", v: info.images != null ? String(info.images) : "—", cls: "num" },
         ]
       : [],
   );
+
+  // Human label for the engine state shown in the header chip when not running.
+  const stateLabel = $derived(
+    engineState === "stopped"
+      ? "Engine stopped"
+      : engineState === "not-provisioned"
+        ? "Engine not provisioned"
+        : engineState === "broken"
+          ? "Engine broken"
+          : "Engine unknown",
+  );
 </script>
 
-<div class="flex flex-col gap-4">
+<div class="page">
+  <!-- Page header -->
+  <div class="head">
+    <h1>System</h1>
+    {#if engineRunning}
+      <span class="chip">
+        <span class="d"></span>Engine running
+        {#if info?.server_version}<span class="x">·</span><b class="mono">{info.server_version}</b>{/if}
+      </span>
+    {:else}
+      <span class="chip"><span class="dot-off"></span>{stateLabel}</span>
+    {/if}
+    {#if df && totalReclaimable > 0}
+      <span class="chip"><b class="num">{humanBytes(totalReclaimable)}</b> reclaimable</span>
+    {/if}
+    {#if loading}<span class="chip">Loading…</span>{/if}
+    <span class="sp"></span>
+  </div>
+
   {#if errorMsg}
-    <div
-      class="select-text rounded-md border border-[#f8514966] bg-[#f851491a] px-3 py-2 text-[13px] text-[#ff9b95]"
-    >
-      {errorMsg}
+    <div class="banner err">
+      <TriangleAlert aria-hidden="true" />
+      <span>{errorMsg}</span>
     </div>
   {/if}
 
-  <!-- (a) Disk usage -->
-  <section class="overflow-hidden rounded-md border border-[#262b34] bg-[#171a21]">
-    <div class="flex items-center gap-2 border-b border-[#262b34] px-3.5 py-3">
-      <HardDrive size={16} class="text-[#9aa3af]" aria-hidden="true" />
-      <h2 class="text-sm font-semibold">Disk usage</h2>
-      {#if loading}
-        <span class="text-xs text-[#9aa3af]">Loading…</span>
-      {/if}
-    </div>
-
-    {#if dfRows.length === 0}
-      <div class="px-3.5 py-7 text-center text-[#9aa3af]">
-        {#if loading}Loading…{:else if engineState === "running"}No data.{:else}Engine not running.{/if}
+  <!-- Disk usage -->
+  <section class="sec-block">
+    <div class="section-title">Disk usage</div>
+    {#if diskCards.length === 0}
+      <div class="card card-pad muted-note">
+        {#if loading}Loading…{:else if engineRunning}No data.{:else}Engine not running.{/if}
       </div>
     {:else}
-      <table class="w-full border-collapse text-[13px]">
-        <thead>
-          <tr>
-            <th class="border-b border-[#262b34] px-3.5 py-2.5 text-left font-medium text-[#9aa3af]">Type</th>
-            <th class="border-b border-[#262b34] px-3.5 py-2.5 text-right font-medium text-[#9aa3af]">Count</th>
-            <th class="border-b border-[#262b34] px-3.5 py-2.5 text-right font-medium text-[#9aa3af]">Size</th>
-            <th class="border-b border-[#262b34] px-3.5 py-2.5 text-right font-medium text-[#9aa3af]">Reclaimable</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each dfRows as row (row.label)}
-            <tr class="hover:bg-[#1b1f27]">
-              <td class="border-b border-[#262b34] px-3.5 py-2.5 align-middle font-medium">{row.label}</td>
-              <td class="font-mono-app border-b border-[#262b34] px-3.5 py-2.5 text-right align-middle text-[#9aa3af]">{row.u.count}</td>
-              <td class="font-mono-app border-b border-[#262b34] px-3.5 py-2.5 text-right align-middle text-[#9aa3af]">{humanBytes(row.u.size)}</td>
-              <td class="font-mono-app border-b border-[#262b34] px-3.5 py-2.5 text-right align-middle text-[#9aa3af]">{humanBytes(row.u.reclaimable)}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-  </section>
-
-  <!-- (b) Reclaim space -->
-  <section class="overflow-hidden rounded-md border border-[#262b34] bg-[#171a21]">
-    <div class="flex items-center gap-2 border-b border-[#262b34] px-3.5 py-3">
-      <Trash2 size={16} class="text-[#9aa3af]" aria-hidden="true" />
-      <h2 class="text-sm font-semibold">Reclaim space</h2>
-    </div>
-    <div class="flex flex-col gap-3 px-3.5 py-3.5">
-      <p class="text-[13px] text-[#9aa3af]">
-        Removes stopped containers, unused images, and unused networks.
-      </p>
-      <label class="flex cursor-pointer items-center gap-2 text-[13px] text-[#e6e8eb]">
-        <input
-          type="checkbox"
-          class="accent-[#2f81f7]"
-          bind:checked={allImages}
-          disabled={pruning || engineState !== "running"}
-        />
-        Remove ALL unused images, not just dangling
-      </label>
-      <label class="flex cursor-pointer items-center gap-2 text-[13px] text-[#e6e8eb]">
-        <input
-          type="checkbox"
-          class="accent-[#2f81f7]"
-          bind:checked={pruneVolumes}
-          disabled={pruning || engineState !== "running"}
-        />
-        Also remove unused volumes
-      </label>
-      <div class="flex items-center gap-3">
-        <button
-          class="flex items-center gap-1.5 rounded-md border border-[#2f81f7]/50 bg-[#2f81f71a] px-3 py-[6px] text-[13px] text-[#2f81f7] transition-colors hover:not-disabled:bg-[#2f81f726] disabled:cursor-default disabled:opacity-40"
-          disabled={pruning || engineState !== "running"}
-          onclick={runPrune}
-        >
-          <Trash2 size={14} aria-hidden="true" />
-          {pruning ? "Pruning…" : "Prune unused"}
-        </button>
-        {#if pruneResult}
-          <span class="text-[13px] text-[#5ad17a]">{pruneResult}</span>
-        {/if}
-      </div>
-    </div>
-  </section>
-
-  <!-- (c) Engine info -->
-  <section class="overflow-hidden rounded-md border border-[#262b34] bg-[#171a21]">
-    <div class="flex items-center gap-2 border-b border-[#262b34] px-3.5 py-3">
-      <Info size={16} class="text-[#9aa3af]" aria-hidden="true" />
-      <h2 class="text-sm font-semibold">Engine info</h2>
-      {#if info?.name}
-        <span class="flex items-center gap-1 text-xs text-[#9aa3af]">
-          <Cpu size={12} aria-hidden="true" />{info.name}
-        </span>
-      {/if}
-    </div>
-
-    {#if infoRows.length === 0}
-      <div class="px-3.5 py-7 text-center text-[#9aa3af]">
-        {#if loading}Loading…{:else if engineState === "running"}No data.{:else}Engine not running.{/if}
-      </div>
-    {:else}
-      <dl class="divide-y divide-[#262b34]">
-        {#each infoRows as row (row.k)}
-          <div class="flex items-baseline gap-3 px-3.5 py-2">
-            <dt class="w-36 shrink-0 text-[13px] text-[#9aa3af]">{row.k}</dt>
-            <dd class="font-mono-app select-text text-[13px] text-[#e6e8eb]">{row.v}</dd>
+      <div class="statgrid wide">
+        {#each diskCards as c (c.label)}
+          {@const s = splitBytes(c.u.size)}
+          {@const Icon = c.icon}
+          <div class="stat" class:focus={c.label === focusLabel}>
+            <div class="k"><Icon aria-hidden="true" />{c.label}</div>
+            <div class="big num">{s.v}<small>{s.u}</small></div>
+            <div class="sub2">
+              {c.u.count} item{c.u.count === 1 ? "" : "s"} · {humanBytes(c.u.reclaimable)} reclaimable
+            </div>
+            <div class="mbar"><i style="width:{reclaimPct(c.u)}%"></i></div>
           </div>
         {/each}
-      </dl>
+      </div>
     {/if}
   </section>
+
+  <!-- Reclaim space -->
+  <section class="card card-pad reclaim">
+    <div class="reclaim-head">
+      <span class="ic"><Trash2 aria-hidden="true" /></span>
+      <div>
+        <div class="section-title">Reclaim space</div>
+        <p class="prose">Removes stopped containers, unused images, and unused networks.</p>
+      </div>
+    </div>
+
+    <label class="field">
+      <input
+        type="checkbox"
+        bind:checked={allImages}
+        disabled={pruning || !engineRunning}
+      />
+      Remove ALL unused images, not just dangling
+    </label>
+    <label class="field">
+      <input
+        type="checkbox"
+        bind:checked={pruneVolumes}
+        disabled={pruning || !engineRunning}
+      />
+      Also remove unused volumes
+    </label>
+
+    <div class="reclaim-acts">
+      <button
+        class="btn btn-pri"
+        disabled={pruning || !engineRunning}
+        onclick={runPrune}
+      >
+        <Trash2 aria-hidden="true" />
+        {pruning ? "Pruning…" : "Prune unused"}
+      </button>
+      {#if pruneResult}
+        <span class="prune-ok"><CircleCheck aria-hidden="true" />{pruneResult}</span>
+      {/if}
+    </div>
+  </section>
+
+  <!-- Engine info -->
+  <section class="card card-pad">
+    <div class="kv">
+      <div class="sec engine-sec">
+        <span class="ic-sm"><Server aria-hidden="true" /></span>
+        Engine info
+        {#if info?.name}
+          <span class="engine-name"><Cpu aria-hidden="true" />{info.name}</span>
+        {/if}
+      </div>
+      {#if infoRows.length === 0}
+        <div class="muted-note plain">
+          {#if loading}Loading…{:else if engineRunning}No data.{:else}Engine not running.{/if}
+        </div>
+      {:else}
+        {#each infoRows as row (row.k)}
+          <div class="r">
+            <span class="k">{row.k}</span>
+            <span class="v {row.cls}">{row.v}</span>
+          </div>
+        {/each}
+      {/if}
+    </div>
+  </section>
 </div>
+
+<style>
+  .sec-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .muted-note {
+    color: var(--text-3);
+    text-align: center;
+    padding-top: 26px;
+    padding-bottom: 26px;
+  }
+  .muted-note.plain {
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    padding: 18px 0 8px;
+  }
+
+  /* Reclaim card layout */
+  .reclaim {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .reclaim-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+  }
+  .reclaim-head .prose {
+    margin-top: 4px;
+  }
+  .ic {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(180deg, var(--s3), var(--s2));
+    border: 1px solid var(--line);
+    color: var(--text-3);
+    box-shadow: inset 0 1px 0 var(--hi);
+  }
+  .ic :global(svg) {
+    width: 15px;
+    height: 15px;
+  }
+  .reclaim-acts {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+  }
+  .prune-ok {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    color: var(--ok);
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  .prune-ok :global(svg) {
+    width: 14px;
+    height: 14px;
+    flex: none;
+  }
+
+  /* Engine-info section header */
+  .engine-sec {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ic-sm {
+    display: inline-flex;
+    color: var(--text-4);
+  }
+  .ic-sm :global(svg) {
+    width: 14px;
+    height: 14px;
+  }
+  .engine-name {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text-3);
+    font-family: var(--mono);
+  }
+  .engine-name :global(svg) {
+    width: 12px;
+    height: 12px;
+    color: var(--text-4);
+  }
+
+  /* value typography helpers (kv .v already supplies base styling) */
+  .v.num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* quiet off-dot for non-running header chip */
+  .dot-off {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--off);
+    flex: none;
+  }
+</style>

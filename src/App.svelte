@@ -1,6 +1,7 @@
 <script lang="ts">
-  // Top-level view: full-width engine header + left sidebar nav + main content.
-  // Talks to dockwin-core only through src/lib/api.ts. No raw invoke here.
+  // Top-level shell: branded sidebar (Workloads / Resources + counts + active
+  // rail + engine pod) and a slim top ctx bar (engine status, theme + accent
+  // toggles). Talks to dockwin-core only through src/lib/api.ts. No raw invoke.
   import { onMount, type Component } from "svelte";
   import Container from "@lucide/svelte/icons/container";
   import Boxes from "@lucide/svelte/icons/boxes";
@@ -22,8 +23,12 @@
   import Hammer from "@lucide/svelte/icons/hammer";
   import Download from "@lucide/svelte/icons/download";
   import ScrollText from "@lucide/svelte/icons/scroll-text";
+  import Moon from "@lucide/svelte/icons/moon";
+  import Sun from "@lucide/svelte/icons/sun";
+  import Search from "@lucide/svelte/icons/search";
   import { open } from "@tauri-apps/plugin-dialog";
   import * as api from "./lib/api";
+  import { theme, ACCENT_SHADES } from "./lib/theme.svelte";
   import type {
     EngineState,
     NormalizedContainer,
@@ -83,8 +88,10 @@
   let composeOpen = $state(false); // show the compose output panel
   let lastComposeFile = $state<string | null>(null);
 
-  // Container details drawer (inspect / stats / top / rename / pause).
+  // Container details: selected container + whether it's shown as the full-width
+  // page (true) or the right-side drawer (false). FULL-DETAIL routing.
   let selectedContainer = $state<NormalizedContainer | null>(null);
+  let detailFull = $state(false);
 
   let busy = false; // non-reactive guard against overlapping refreshes
   let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -121,27 +128,38 @@
   let engineToggleDisabled = $derived(
     engineBusy || working || repairing || engineState === "unknown"
   );
-  let countLabel = $derived(
-    containers.length ? `${containers.length} total` : ""
+  // Tone for the quiet status dots (ctx bar + engine pod).
+  let engineTone = $derived(
+    engineState === "running" ? "live" : engineState === "stopped" ? "off" : "warn"
   );
+  let runningCount = $derived(containers.filter((c) => c.running).length);
   // Containers grouped into Docker Compose stacks (by project label).
   let stacks = $derived(api.groupStacks(containers));
 
-  // Sidebar nav model.
+  // Sidebar nav model (grouped into Workloads / Resources sections).
+  type NavSection = "Workloads" | "Resources";
   interface NavItem {
     id: View;
     label: string;
     icon: Component;
+    section: NavSection;
   }
   const NAV: NavItem[] = [
-    { id: "containers", label: "Containers", icon: Boxes },
-    { id: "stacks", label: "Stacks", icon: Network },
-    { id: "images", label: "Images", icon: Layers },
-    { id: "volumes", label: "Volumes", icon: HardDrive },
-    { id: "networks", label: "Networks", icon: Waypoints },
-    { id: "system", label: "System", icon: Gauge },
-    { id: "settings", label: "Settings", icon: Settings },
+    { id: "containers", label: "Containers", icon: Boxes, section: "Workloads" },
+    { id: "stacks", label: "Stacks", icon: Network, section: "Workloads" },
+    { id: "images", label: "Images", icon: Layers, section: "Workloads" },
+    { id: "volumes", label: "Volumes", icon: HardDrive, section: "Resources" },
+    { id: "networks", label: "Networks", icon: Waypoints, section: "Resources" },
+    { id: "system", label: "System", icon: Gauge, section: "Resources" },
   ];
+  const NAV_SECTIONS: NavSection[] = ["Workloads", "Resources"];
+
+  // Counts shown on the rail (null = not tracked here).
+  function navCount(id: View): number | null {
+    if (id === "containers") return containers.length;
+    if (id === "stacks") return stacks.length;
+    return null;
+  }
 
   function setView(view: View) {
     activeView = view;
@@ -150,6 +168,19 @@
   function setFooter(msg: string, isError = false) {
     footer = msg;
     footerErr = isError;
+  }
+
+  // --- container details routing ---
+  function selectContainer(c: NormalizedContainer) {
+    selectedContainer = c;
+    detailFull = false; // a fresh selection always opens as the drawer
+  }
+  function closeDetail() {
+    selectedContainer = null;
+    detailFull = false;
+  }
+  function toggleDetailFull() {
+    detailFull = !detailFull;
   }
 
   // --- data flow ---
@@ -534,258 +565,345 @@
   });
 
   const EngineIcon = $derived(engine.icon);
+  // "Engine: running" → "Engine running" for the compact status lines.
+  let engineLine = $derived(engine.label.replace(": ", " "));
 </script>
 
-<!-- Full-width header: brand + engine status + start/stop + refresh -->
-<header
-  class="flex flex-none items-center justify-between border-b border-[#262b34] bg-[#171a21] px-4 py-2.5"
->
-  <div class="flex items-center gap-2.5">
-    <Container size={20} class="text-[#2f81f7]" aria-hidden="true" />
-    <span class="text-base font-semibold tracking-wide">dockwin</span>
-  </div>
-  <div class="flex items-center gap-2.5">
-    <span class="dot {engine.dot}" aria-hidden="true"></span>
-    <span class="flex items-center gap-1.5 text-[13px] text-[#9aa3af]">
-      <EngineIcon size={15} aria-hidden="true" />
-      {engine.label}
-    </span>
-    {#if engineState === "running"}
-      <!-- The gate owns set-up / start / repair; the header only stops a running engine. -->
-      <button
-        class="min-w-[78px] cursor-pointer rounded-md border border-[#262b34] bg-[#21262d] px-3 py-[5px] text-[13px] text-[#e6e8eb] transition-colors hover:not-disabled:border-[#3a414b] hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-45"
-        disabled={engineToggleDisabled}
-        onclick={toggleEngine}>Stop</button
-      >
-    {/if}
+{#snippet themeControls()}
+  <div class="seg" aria-label="Theme">
     <button
-      class="flex cursor-pointer items-center rounded-md border border-transparent bg-transparent px-2.5 py-[5px] text-[#e6e8eb] transition-colors hover:bg-[#21262d] disabled:opacity-45"
-      title="Refresh"
-      disabled={working}
-      onclick={manualRefresh}
+      aria-pressed={theme.theme === "dark"}
+      onclick={() => theme.setTheme("dark")}
     >
-      <RefreshCw size={15} aria-hidden="true" />
+      <Moon aria-hidden="true" />Dark
+    </button>
+    <button
+      aria-pressed={theme.theme === "light"}
+      onclick={() => theme.setTheme("light")}
+    >
+      <Sun aria-hidden="true" />Light
     </button>
   </div>
-</header>
-
-<!-- Body: until the engine is running, a full-window gate owns the engine
-     lifecycle. Once running, the management shell (sidebar + views) mounts. -->
-{#if !engineReady}
-  <EngineGate
-    {engineState}
-    {working}
-    {provision}
-    {engineBusy}
-    {repairing}
-    bind:enableTcp
-    onProvision={provisionEngine}
-    onStart={toggleEngine}
-    onRepair={repairEngine}
-    onRetry={manualRefresh}
-  />
-{:else}
-<div class="flex min-h-0 flex-1">
-  <nav
-    class="flex w-[188px] flex-none flex-col gap-1 border-r border-[#262b34] bg-[#171a21] p-2"
-    aria-label="Primary"
-  >
-    {#each NAV as item (item.id)}
-      {@const ItemIcon = item.icon}
-      {@const active = activeView === item.id}
+  <div class="sw" title="Accent shade">
+    {#each ACCENT_SHADES as _shade, i (i)}
       <button
-        class="flex cursor-pointer items-center gap-2.5 rounded-md border border-transparent px-3 py-2 text-left text-[13px] transition-colors {active
-          ? 'bg-[#1f6feb1a] text-[#e6e8eb] border-[#2f81f74d]'
-          : 'text-[#9aa3af] hover:bg-[#21262d] hover:text-[#e6e8eb]'}"
-        aria-current={active ? "page" : undefined}
-        onclick={() => setView(item.id)}
-      >
-        <ItemIcon size={16} aria-hidden="true" />
-        <span class="font-medium">{item.label}</span>
-      </button>
+        class={"l" + (i + 1)}
+        class:a={theme.accent === i}
+        aria-label={`Accent shade ${i + 1}`}
+        onclick={() => theme.setAccent(i)}
+      ></button>
     {/each}
-  </nav>
+  </div>
+{/snippet}
 
-  <main class="flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-4">
-    {#if activeView === "containers"}
-      <!-- Containers -->
-      <section
-        class="overflow-hidden rounded-md border border-[#262b34] bg-[#171a21]"
+{#if !engineReady}
+  <!-- Engine lifecycle: a slim branded bar (so theme is still toggleable) + the
+       full-window EngineGate, which owns set-up / progress / start / unreachable. -->
+  <div class="solo">
+    <div class="ctx">
+      <span class="brand" style="padding:0;gap:9px">
+        <span class="logo" style="width:26px;height:26px;border-radius:8px">
+          <Container size={15} aria-hidden="true" />
+        </span>
+        <span class="bt" style="font-size:14px">dockwin</span>
+      </span>
+      <span class="sep"></span>
+      <span class="live {engineTone}"><span class="d"></span>{engineLine}</span>
+      <span class="sp"></span>
+      {@render themeControls()}
+      <span class="sep"></span>
+      <button
+        class="btn btn-icon"
+        title="Refresh"
+        disabled={working}
+        onclick={manualRefresh}
       >
-        <div
-          class="flex items-baseline gap-2.5 border-b border-[#262b34] px-3.5 py-3"
-        >
-          <h2 class="text-sm font-semibold">Containers</h2>
-          <span class="text-xs text-[#9aa3af]">{countLabel}</span>
+        <RefreshCw aria-hidden="true" />
+      </button>
+    </div>
+    <EngineGate
+      {engineState}
+      {working}
+      {provision}
+      {engineBusy}
+      {repairing}
+      bind:enableTcp
+      onProvision={provisionEngine}
+      onStart={toggleEngine}
+      onRepair={repairEngine}
+      onRetry={manualRefresh}
+    />
+  </div>
+{:else}
+  <div class="app">
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="side">
+      <div class="brand">
+        <span class="logo"><Container size={19} aria-hidden="true" /></span>
+        <div>
+          <div class="bt">dockwin</div>
+          <div class="bs">Docker workspace</div>
         </div>
-        {#if errorMsg}
-          <div
-            class="mx-3.5 mt-3 select-text rounded-md border border-[#f8514966] bg-[#f851491a] px-3 py-2 text-[13px] text-[#ff9b95]"
+      </div>
+
+      {#each NAV_SECTIONS as section (section)}
+        <div class="navsec">{section}</div>
+        <nav class="nav" aria-label={section}>
+          {#each NAV.filter((n) => n.section === section) as item (item.id)}
+            {@const ItemIcon = item.icon}
+            {@const count = navCount(item.id)}
+            <button
+              class:on={activeView === item.id}
+              aria-current={activeView === item.id ? "page" : undefined}
+              onclick={() => setView(item.id)}
+            >
+              <ItemIcon aria-hidden="true" />
+              {item.label}
+              {#if count !== null}<span class="ct">{count}</span>{/if}
+            </button>
+          {/each}
+        </nav>
+      {/each}
+
+      <div class="eng">
+        <div class="row">
+          <span class="dot {engineTone}"></span>
+          <div>
+            <div class="et">{engineLine}</div>
+            <div class="es">WSL2 backend</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ===== MAIN ===== -->
+    <main class="main">
+      <!-- slim ctx bar -->
+      <div class="ctx">
+        <span class="live {engineTone}"><span class="d"></span>{engineLine}</span>
+        <span class="sep"></span>
+        <span class="num">{containers.length} containers</span>
+        <span class="sep"></span>
+        <span>WSL2 backend</span>
+        <span class="sp"></span>
+        {@render themeControls()}
+        <span class="sep"></span>
+        <button
+          class="btn btn-icon"
+          class:on={activeView === "settings"}
+          title="Settings"
+          onclick={() => setView("settings")}
+        >
+          <Settings aria-hidden="true" />
+        </button>
+        <button
+          class="btn btn-icon"
+          title="Refresh"
+          disabled={working}
+          onclick={manualRefresh}
+        >
+          <RefreshCw aria-hidden="true" />
+        </button>
+        {#if engineState === "running" || engineState === "stopped"}
+          <button
+            class="btn btn-soft"
+            style="min-width:74px;justify-content:center"
+            disabled={engineToggleDisabled}
+            onclick={toggleEngine}
           >
-            {errorMsg}
+            {#if engineState === "running"}
+              <CircleStop aria-hidden="true" />{engineBusy ? "Stopping…" : "Stop"}
+            {:else}
+              <PlayCircle aria-hidden="true" />{engineBusy ? "Starting…" : "Start"}
+            {/if}
+          </button>
+        {/if}
+      </div>
+
+      {#if activeView === "containers"}
+        {#if selectedContainer && detailFull}
+          <!-- FULL-DETAIL: the list is hidden, ContainerDetails fills the pane. -->
+          <div class="detail-full">
+            <ContainerDetails
+              container={selectedContainer}
+              full={true}
+              onClose={closeDetail}
+              onToggleFull={toggleDetailFull}
+            />
+          </div>
+        {:else}
+          <div class="head">
+            <h1>Containers</h1>
+            <span class="chip">
+              <span class="d"></span><b class="num">{runningCount}</b> running
+              <span class="x">·</span><b class="num">{containers.length}</b> total
+            </span>
+            <span class="sp"></span>
+            <div class="search" aria-hidden="true">
+              <Search aria-hidden="true" /><span>Search</span><kbd>Ctrl K</kbd>
+            </div>
+          </div>
+          <div class="body" class:split={!!selectedContainer}>
+            <div class="list">
+              {#if errorMsg}
+                <div class="banner err" style="margin-bottom:14px">
+                  <TriangleAlert aria-hidden="true" />{errorMsg}
+                </div>
+              {/if}
+              <ContainerList
+                {containers}
+                {pending}
+                onAction={handleAction}
+                onSelect={selectContainer}
+              />
+            </div>
+            {#if selectedContainer}
+              <ContainerDetails
+                container={selectedContainer}
+                full={false}
+                onClose={closeDetail}
+                onToggleFull={toggleDetailFull}
+              />
+            {/if}
           </div>
         {/if}
-        <ContainerList
-          {containers}
-          {pending}
-          onAction={handleAction}
-          onSelect={(c) => (selectedContainer = c)}
-        />
-      </section>
-    {:else if activeView === "stacks"}
-      <!-- Compose stacks (containers grouped by project) -->
-      <div class="flex items-center gap-2.5 px-0.5">
-        <h2 class="text-sm font-semibold">Stacks</h2>
-        <span class="text-xs text-[#9aa3af]">
-          {stacks.length ? `${stacks.length} project${stacks.length > 1 ? "s" : ""}` : ""}
-        </span>
-        <div class="ml-auto flex items-center gap-1.5">
+      {:else if activeView === "stacks"}
+        <div class="head">
+          <h1>Stacks</h1>
+          <span class="chip">
+            <b class="num">{stacks.length}</b>
+            {stacks.length === 1 ? "project" : "projects"}
+          </span>
+          <span class="sp"></span>
+          <span class="btn-split">
+            <button
+              class="btn btn-pri"
+              title="Pick a docker-compose.yml and run it on the dockwin engine"
+              disabled={composeBusy || engineState !== "running"}
+              onclick={composeUp}
+            >
+              <FileUp aria-hidden="true" />
+              {composeBusy ? "Working…" : "Compose up"}
+            </button>
+          </span>
           <button
-            class="flex items-center gap-1.5 rounded-md border border-[#238636]/60 bg-[#2386361a] px-2.5 py-[5px] text-[12px] text-[#5ad17a] transition-colors hover:not-disabled:bg-[#23863626] disabled:cursor-default disabled:opacity-40"
-            title="Pick a docker-compose.yml and run it on the dockwin engine"
-            disabled={composeBusy || engineState !== "running"}
-            onclick={composeUp}
-          >
-            <FileUp size={14} aria-hidden="true" />
-            {composeBusy ? "Working…" : "Compose up…"}
-          </button>
-          <button
-            class="flex items-center gap-1.5 rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-[5px] text-[12px] text-[#e6e8eb] transition-colors hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-40"
-            title="docker compose down for a compose file"
+            class="btn btn-soft"
+            title="docker compose down"
             disabled={composeBusy || engineState !== "running"}
             onclick={composeDown}
           >
-            <FileDown size={14} aria-hidden="true" />
-            Down…
+            <FileDown aria-hidden="true" />Down
           </button>
           <button
-            class="flex items-center gap-1.5 rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-[5px] text-[12px] text-[#e6e8eb] transition-colors hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-40"
+            class="btn btn-soft"
             title="docker compose pull"
             disabled={composeBusy || engineState !== "running"}
             onclick={() => runComposeExtra("pull", api.composePull)}
           >
-            <Download size={14} aria-hidden="true" /> Pull
+            <Download aria-hidden="true" />Pull
           </button>
           <button
-            class="flex items-center gap-1.5 rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-[5px] text-[12px] text-[#e6e8eb] transition-colors hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-40"
+            class="btn btn-soft"
             title="docker compose build"
             disabled={composeBusy || engineState !== "running"}
             onclick={() => runComposeExtra("build", api.composeBuild)}
           >
-            <Hammer size={14} aria-hidden="true" /> Build
+            <Hammer aria-hidden="true" />Build
           </button>
           <button
-            class="flex items-center gap-1.5 rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-[5px] text-[12px] text-[#e6e8eb] transition-colors hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-40"
+            class="btn btn-soft"
             title="docker compose logs (tail)"
             disabled={composeBusy || engineState !== "running"}
             onclick={() => runComposeExtra("logs", (f) => api.composeLogs(f))}
           >
-            <ScrollText size={14} aria-hidden="true" /> Logs
+            <ScrollText aria-hidden="true" />Logs
           </button>
         </div>
-      </div>
-      {#if engineState === "running"}
-        <p class="px-0.5 text-xs text-[#6e7681]">
-          Tip: in a terminal you can also run
-          <code class="text-[#9aa3af]">dockwin up</code> from a folder with a
-          <code class="text-[#9aa3af]">docker-compose.yml</code> (use this instead of
-          <code class="text-[#9aa3af]">docker compose</code>, which targets Docker Desktop).
-        </p>
-      {/if}
-      {#if errorMsg}
-        <div
-          class="select-text rounded-md border border-[#f8514966] bg-[#f851491a] px-3 py-2 text-[13px] text-[#ff9b95]"
-        >
-          {errorMsg}
-        </div>
-      {/if}
-      {#if composeOpen && composeLog.length}
-        <section class="overflow-hidden rounded-md border border-[#262b34] bg-[#171a21]">
-          <div class="flex items-center gap-2 border-b border-[#262b34] px-3 py-2">
-            <Terminal size={14} class="text-[#9aa3af]" aria-hidden="true" />
-            <span class="text-[12px] font-semibold">Compose output</span>
-            {#if lastComposeFile}
-              <span class="truncate font-mono-app text-[11px] text-[#6e7681]" title={lastComposeFile}>
-                {lastComposeFile}
-              </span>
+        <div class="body">
+          <div class="page" style="padding-top:0">
+            {#if engineState === "running"}
+              <p class="prose">
+                Tip: in a terminal you can also run
+                <code class="code">dockwin up</code> from a folder with a
+                <code class="code">docker-compose.yml</code> (use this instead of
+                <code class="code">docker compose</code>, which targets Docker Desktop).
+              </p>
             {/if}
-            <button
-              class="ml-auto cursor-pointer rounded px-1.5 py-0.5 text-[11px] text-[#9aa3af] hover:bg-[#21262d]"
-              onclick={() => (composeOpen = false)}
-            >
-              Hide
-            </button>
+            {#if errorMsg}
+              <div class="banner err"><TriangleAlert aria-hidden="true" />{errorMsg}</div>
+            {/if}
+            {#if composeOpen && composeLog.length}
+              <div class="outpane">
+                <div class="bar">
+                  <Terminal aria-hidden="true" />
+                  <span style="font-weight:600;color:var(--text)">Compose output</span>
+                  {#if lastComposeFile}
+                    <span class="mono" style="font-size:11px;color:var(--text-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title={lastComposeFile}>
+                      {lastComposeFile}
+                    </span>
+                  {/if}
+                  <button
+                    class="btn btn-soft sm"
+                    style="margin-left:auto"
+                    onclick={() => (composeOpen = false)}
+                  >
+                    Hide
+                  </button>
+                </div>
+                <div class="body-out">
+                  {#each composeLog as line, i (i)}
+                    <div style="white-space:pre-wrap;word-break:break-all">{line}</div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+            <StackList {stacks} {pending} onStackAction={handleStackAction} />
           </div>
-          <div
-            class="max-h-56 select-text overflow-auto bg-[#0d1117] p-2.5 font-mono-app text-[11.5px] leading-relaxed text-[#9aa3af]"
-          >
-            {#each composeLog as line, i (i)}
-              <div class="whitespace-pre-wrap break-all">{line}</div>
-            {/each}
+        </div>
+      {:else if activeView === "images"}
+        <div class="body"><ImagesView {engineState} refreshKey={imageRefreshKey} /></div>
+      {:else if activeView === "volumes"}
+        <div class="body"><VolumesView {engineState} refreshKey={imageRefreshKey} /></div>
+      {:else if activeView === "networks"}
+        <div class="body"><NetworksView {engineState} refreshKey={imageRefreshKey} /></div>
+      {:else if activeView === "system"}
+        <div class="body"><SystemView {engineState} refreshKey={imageRefreshKey} /></div>
+      {:else if activeView === "settings"}
+        <div class="head"><h1>Settings</h1></div>
+        <div class="body">
+          <div class="page">
+            <div class="card card-pad" style="max-width:60ch">
+              <div class="section-title" style="margin-bottom:12px">Engine</div>
+              <div style="display:flex;flex-direction:column;gap:14px">
+                <p class="prose" style="margin:0">
+                  The engine listens on the Windows named pipe by default. The
+                  insecure loopback-TCP endpoint (127.0.0.1:2375) is only enabled
+                  if you opted in during setup — it is not recommended for normal
+                  use.
+                </p>
+                <label class="field">
+                  <input type="checkbox" bind:checked={withBackup} />
+                  Export a <code class="code">.tar</code> backup before removing
+                </label>
+                <div>
+                  <button
+                    class="btn btn-danger"
+                    disabled={working}
+                    onclick={teardownEngine}
+                  >
+                    <Trash2 aria-hidden="true" />Remove engine
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </section>
+        </div>
       {/if}
-      <StackList {stacks} {pending} onStackAction={handleStackAction} />
-    {:else if activeView === "images"}
-      <!-- Images (pull / remove / prune / tag / history / inspect) -->
-      <ImagesView {engineState} refreshKey={imageRefreshKey} />
-    {:else if activeView === "volumes"}
-      <VolumesView {engineState} refreshKey={imageRefreshKey} />
-    {:else if activeView === "networks"}
-      <NetworksView {engineState} refreshKey={imageRefreshKey} />
-    {:else if activeView === "system"}
-      <SystemView {engineState} refreshKey={imageRefreshKey} />
-    {:else if activeView === "settings"}
-      <!-- Settings / teardown -->
-      <section class="rounded-md border border-[#262b34] bg-[#171a21] p-3.5">
-        <div class="mb-2 flex items-center gap-2">
-          <Settings size={16} class="text-[#9aa3af]" aria-hidden="true" />
-          <h2 class="text-sm font-semibold">Settings</h2>
-        </div>
-        <div class="flex flex-col gap-3">
-          <p class="max-w-prose text-[13px] leading-relaxed text-[#9aa3af]">
-            The engine listens on the Windows named pipe by default. The insecure
-            loopback-TCP endpoint (127.0.0.1:2375) is only enabled if you opted in
-            during setup — it is not recommended for normal use.
-          </p>
-          <label class="flex items-center gap-2 text-[13px] text-[#c7ccd4]">
-            <input type="checkbox" bind:checked={withBackup} />
-            Export a <code class="text-[#9aa3af]">.tar</code> backup before removing
-          </label>
-          <div class="flex items-center gap-3">
-            <button
-              class="flex items-center gap-1.5 rounded-md border border-[#f8514966] bg-[#f851491a] px-3 py-[6px] text-[13px] text-[#ff9b95] transition-colors hover:not-disabled:bg-[#f8514926] disabled:cursor-default disabled:opacity-45"
-              disabled={working}
-              onclick={teardownEngine}
-            >
-              <Trash2 size={15} aria-hidden="true" />
-              Remove engine
-            </button>
-          </div>
-        </div>
-      </section>
-    {/if}
-  </main>
-</div>
-{/if}
 
-<!-- Container details drawer (fixed; self-positioned). Open via a name click. -->
-{#if selectedContainer}
-  <ContainerDetails
-    id={selectedContainer.id}
-    name={selectedContainer.name}
-    running={selectedContainer.running}
-    {engineState}
-    onClose={() => (selectedContainer = null)}
-    onChanged={refreshAll}
-  />
+      <div class="statusbar" class:err={footerErr}>{footer}</div>
+    </main>
+  </div>
 {/if}
 
 <!-- In-app update toast (app + engine). Fixed-position; checks on mount. -->
 <UpdateBanner />
-
-<footer
-  class="flex-none border-t border-[#262b34] bg-[#171a21] px-4 py-1.5 text-xs"
->
-  <span class={footerErr ? "text-[#f85149]" : "text-[#9aa3af]"}>{footer}</span>
-</footer>

@@ -28,6 +28,8 @@ tauri-plugin-dialog = "2"
 # In-app updater (signed GitHub-release updates) + relaunch after install.
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+# Open published-container ports / URLs in the OS default browser.
+tauri-plugin-opener = "2"
 
 # --- Docker Engine API client ---
 # bollard 0.18 ships current Docker API bindings and (on Windows) named-pipe transport.

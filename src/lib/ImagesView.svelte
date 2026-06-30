@@ -3,6 +3,10 @@
   // tag, history, inspect) plus a prune control. Owns its own fetch lifecycle
   // (loads on mount, when the engine becomes running, and on a parent refresh
   // token). Talks to the backend only through imagesApi.ts.
+  //
+  // Presentation: crafted v2 language (foundation contract) — layered surfaces,
+  // a single lime primary (Pull), quiet status, a right-hand detail drawer with
+  // Overview / History / Inspect tabs. No raw hex; tokens + component classes.
   import { onMount } from "svelte";
   import Layers from "@lucide/svelte/icons/layers";
   import Download from "@lucide/svelte/icons/download";
@@ -12,6 +16,9 @@
   import Search from "@lucide/svelte/icons/search";
   import Info from "@lucide/svelte/icons/info";
   import X from "@lucide/svelte/icons/x";
+  import Check from "@lucide/svelte/icons/check";
+  import Copy from "@lucide/svelte/icons/copy";
+  import Boxes from "@lucide/svelte/icons/boxes";
   import * as imagesApi from "./imagesApi";
   import type { ImageLayer } from "./imagesApi";
   import type { EngineState, ImageDto } from "./types";
@@ -40,10 +47,10 @@
   // --- per-row action state ---
   let pending = $state<Set<string>>(new Set()); // image ids with an in-flight action
 
-  // --- expandable detail (one row at a time): tag editor, history, inspect ---
-  type DetailMode = "tag" | "history" | "inspect";
-  let detailId = $state<string | null>(null);
-  let detailMode = $state<DetailMode | null>(null);
+  // --- detail drawer (one image at a time): overview / history / inspect ---
+  type DetailTab = "overview" | "history" | "inspect";
+  let selectedId = $state<string | null>(null);
+  let detailTab = $state<DetailTab>("overview");
   let detailLoading = $state(false);
   let detailError = $state("");
   let historyData = $state<ImageLayer[]>([]);
@@ -70,6 +77,17 @@
     }
     return list;
   });
+
+  // The currently selected image object (or null when nothing/gone).
+  let selected = $derived(
+    selectedId ? (images.find((i) => i.id === selectedId) ?? null) : null
+  );
+
+  // Total on-disk size across all images (informational; may double-count
+  // shared layers, same as `docker images` reports).
+  let totalSize = $derived(
+    images.reduce((sum, img) => sum + (img.size || 0), 0)
+  );
 
   async function load() {
     if (engineState !== "running") {
@@ -173,12 +191,14 @@
     errorMsg = "";
     try {
       await imagesApi.imageRemove(img.id, false);
+      if (selectedId === img.id) closeDetail();
       await load();
     } catch (e) {
       // Likely in use or has multiple tags — offer a force removal.
       if (confirm(`Remove failed: ${imagesApi.errText(e)}\n\nForce remove "${label}"?`)) {
         try {
           await imagesApi.imageRemove(img.id, true);
+          if (selectedId === img.id) closeDetail();
           await load();
         } catch (e2) {
           errorMsg = `Force remove failed: ${imagesApi.errText(e2)}`;
@@ -189,21 +209,20 @@
     }
   }
 
-  // --- expandable detail toggles ---
+  // --- detail drawer ---
   function closeDetail() {
-    detailId = null;
-    detailMode = null;
+    selectedId = null;
+    detailTab = "overview";
     detailError = "";
     historyData = [];
     inspectData = "";
   }
 
-  function openTag(img: ImageDto) {
-    if (detailId === img.id && detailMode === "tag") return closeDetail();
-    detailId = img.id;
-    detailMode = "tag";
+  // Select an image and open the drawer on a given tab (loading lazily).
+  function selectImage(img: ImageDto, tab: DetailTab = "overview") {
+    selectedId = img.id;
     detailError = "";
-    // Seed from the first tag if present.
+    // Seed the tag editor from the first tag if present.
     const first = (img.tags ?? []).find((t) => t && t !== "<none>:<none>");
     if (first && first.includes(":")) {
       const idx = first.lastIndexOf(":");
@@ -213,10 +232,49 @@
       tagRepo = first ?? "";
       tagTag = "latest";
     }
+    setTab(tab);
+  }
+
+  function setTab(tab: DetailTab) {
+    detailTab = tab;
+    detailError = "";
+    if (!selectedId) return;
+    if (tab === "history") void loadHistory();
+    else if (tab === "inspect") void loadInspect();
+  }
+
+  async function loadHistory() {
+    const id = selectedId;
+    if (!id) return;
+    historyData = [];
+    detailLoading = true;
+    detailError = "";
+    try {
+      historyData = await imagesApi.imageHistory(id);
+    } catch (e) {
+      detailError = imagesApi.errText(e);
+    } finally {
+      detailLoading = false;
+    }
+  }
+
+  async function loadInspect() {
+    const id = selectedId;
+    if (!id) return;
+    inspectData = "";
+    detailLoading = true;
+    detailError = "";
+    try {
+      inspectData = await imagesApi.imageInspect(id);
+    } catch (e) {
+      detailError = imagesApi.errText(e);
+    } finally {
+      detailLoading = false;
+    }
   }
 
   async function applyTag() {
-    if (!detailId) return;
+    if (!selectedId) return;
     const repo = tagRepo.trim();
     const tag = tagTag.trim() || "latest";
     if (!repo) {
@@ -226,41 +284,8 @@
     detailLoading = true;
     detailError = "";
     try {
-      await imagesApi.imageTag(detailId, repo, tag);
-      closeDetail();
+      await imagesApi.imageTag(selectedId, repo, tag);
       await load();
-    } catch (e) {
-      detailError = imagesApi.errText(e);
-    } finally {
-      detailLoading = false;
-    }
-  }
-
-  async function openHistory(img: ImageDto) {
-    if (detailId === img.id && detailMode === "history") return closeDetail();
-    detailId = img.id;
-    detailMode = "history";
-    detailError = "";
-    historyData = [];
-    detailLoading = true;
-    try {
-      historyData = await imagesApi.imageHistory(img.id);
-    } catch (e) {
-      detailError = imagesApi.errText(e);
-    } finally {
-      detailLoading = false;
-    }
-  }
-
-  async function openInspect(img: ImageDto) {
-    if (detailId === img.id && detailMode === "inspect") return closeDetail();
-    detailId = img.id;
-    detailMode = "inspect";
-    detailError = "";
-    inspectData = "";
-    detailLoading = true;
-    try {
-      inspectData = await imagesApi.imageInspect(img.id);
     } catch (e) {
       detailError = imagesApi.errText(e);
     } finally {
@@ -292,316 +317,466 @@
   }
 
   // --- pure formatting helpers ---
+  function cleanTags(img: ImageDto): string[] {
+    return (img.tags ?? []).filter((t) => t && t !== "<none>:<none>");
+  }
+
   function repoTag(img: ImageDto): string {
-    const tags = (img.tags ?? []).filter((t) => t && t !== "<none>:<none>");
+    const tags = cleanTags(img);
     return tags.length ? tags.join(", ") : "<none>";
   }
 
-  const COL = 5; // table column count, for full-width detail rows
+  // The first usable tag, used as the loud row/detail name.
+  function primaryTag(img: ImageDto): string {
+    const tags = cleanTags(img);
+    return tags.length ? tags[0] : "<none>";
+  }
+
+  function isDangling(img: ImageDto): boolean {
+    return cleanTags(img).length === 0;
+  }
+
+  // Heuristic: Docker Library "official" images have a single-segment repo with
+  // no registry host or user namespace (e.g. nginx, redis:7) — purely a label.
+  function isOfficial(img: ImageDto): boolean {
+    const first = cleanTags(img)[0];
+    if (!first) return false;
+    const repo = first.slice(0, first.lastIndexOf(":") >= 0 ? first.lastIndexOf(":") : first.length);
+    return repo.length > 0 && !repo.includes("/") && !repo.includes(".");
+  }
+
+  async function copyText(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      /* ignore — clipboard may be unavailable */
+    }
+  }
+
+  // Image table column template (shared by header + rows).
+  const COLS = "minmax(220px,2.4fr) 1.1fr 0.8fr 1fr";
 </script>
 
-<section class="overflow-hidden rounded-md border border-[#262b34] bg-[#171a21]">
-  <!-- Header -->
-  <div class="flex items-baseline gap-2.5 border-b border-[#262b34] px-3.5 py-3">
-    <h2 class="text-sm font-semibold">Images</h2>
-    <span class="text-xs text-[#9aa3af]">
-      {images.length ? `${images.length} total` : ""}
+<div class="page">
+  <!-- ===== Page header ===== -->
+  <div class="head">
+    <h1>Images</h1>
+    <span class="chip">
+      <b class="num">{images.length}</b> images
+      {#if totalSize > 0}
+        <span class="x">·</span>
+        <b class="num">{imagesApi.humanBytes(totalSize)}</b>
+      {/if}
     </span>
-    <div class="ml-auto flex items-center gap-1.5">
-      <div
-        class="flex items-center gap-1.5 rounded-md border border-[#262b34] bg-[#0d1117] px-2 py-[3px]"
-      >
-        <Search size={13} class="text-[#6e7681]" aria-hidden="true" />
-        <input
-          class="w-36 bg-transparent text-[12px] text-[#e6e8eb] placeholder-[#6e7681] outline-none"
-          placeholder="Filter…"
-          bind:value={filter}
-        />
-      </div>
-    </div>
+    <span class="sp"></span>
+    <label class="search">
+      <Search aria-hidden="true" />
+      <input placeholder="Filter images…" bind:value={filter} />
+    </label>
   </div>
 
-  <!-- Pull bar -->
-  <div class="border-b border-[#262b34] px-3.5 py-3">
-    <div class="flex items-center gap-2">
-      <div
-        class="flex flex-1 items-center gap-1.5 rounded-md border border-[#262b34] bg-[#0d1117] px-2.5 py-[5px]"
-      >
-        <Download size={14} class="text-[#6e7681]" aria-hidden="true" />
-        <input
-          class="w-full bg-transparent text-[13px] text-[#e6e8eb] placeholder-[#6e7681] outline-none"
-          placeholder="Pull an image, e.g. nginx:latest"
-          bind:value={pullRef}
-          disabled={pulling || engineState !== "running"}
-          onkeydown={onPullKeydown}
-        />
-      </div>
-      <button
-        class="flex items-center gap-1.5 rounded-md border border-[#2f81f7] bg-[#1f6feb] px-3.5 py-[6px] text-[13px] font-medium text-white transition-colors hover:not-disabled:bg-[#2f81f7] disabled:cursor-default disabled:opacity-50"
-        disabled={pulling || engineState !== "running" || !pullRef.trim()}
-        onclick={doPull}
-      >
-        <Download size={14} aria-hidden="true" />
-        {pulling ? "Pulling…" : "Pull"}
-      </button>
-    </div>
-
-    {#if pulling || pullStatus}
-      <div class="mt-2.5">
-        {#if pulling}
-          <!-- Indeterminate progress bar (driven by the streamed status text). -->
-          <div class="h-2 w-full overflow-hidden rounded-full bg-[#21262d]">
-            <div
-              class="provision-bar h-full w-full animate-pulse rounded-full bg-[#1f6feb]"
-            ></div>
-          </div>
-        {/if}
-        <p class="mt-1.5 truncate text-[12px] text-[#c7ccd4]" title={pullStatus}>
-          {pullStatus}{pullProgress ? `  ${pullProgress}` : ""}
-        </p>
-      </div>
-    {/if}
-  </div>
-
-  <!-- Prune row -->
-  <div
-    class="flex flex-wrap items-center gap-3 border-b border-[#262b34] px-3.5 py-2.5"
-  >
+  <!-- ===== Toolbar: pull (primary) + prune ===== -->
+  <div class="img-toolbar">
+    <label class="search img-pull">
+      <Download aria-hidden="true" />
+      <input
+        placeholder="Pull an image, e.g. nginx:latest"
+        bind:value={pullRef}
+        disabled={pulling || engineState !== "running"}
+        onkeydown={onPullKeydown}
+      />
+    </label>
     <button
-      class="flex items-center gap-1.5 rounded-md border border-[#f8514966] bg-[#f851491a] px-2.5 py-[5px] text-[12px] text-[#ff9b95] transition-colors hover:not-disabled:bg-[#f8514926] disabled:cursor-default disabled:opacity-45"
+      class="btn btn-pri"
+      disabled={pulling || engineState !== "running" || !pullRef.trim()}
+      onclick={doPull}
+    >
+      <Download aria-hidden="true" />
+      {pulling ? "Pulling…" : "Pull"}
+    </button>
+
+    <span class="sp"></span>
+
+    <label class="field">
+      <input type="checkbox" bind:checked={pruneAll} disabled={pruning} />
+      All unused
+    </label>
+    <button
+      class="btn btn-danger"
       disabled={pruning || engineState !== "running"}
       onclick={doPrune}
     >
-      <Trash2 size={14} aria-hidden="true" />
+      <Trash2 aria-hidden="true" />
       {pruning ? "Pruning…" : "Prune"}
     </button>
-    <label class="flex items-center gap-1.5 text-[12px] text-[#c7ccd4]">
-      <input type="checkbox" bind:checked={pruneAll} disabled={pruning} />
-      All unused, not just dangling
-    </label>
-    {#if pruneResult}
-      <span class="text-[12px] text-[#9aa3af]">{pruneResult}</span>
-    {/if}
   </div>
 
-  <!-- Inline error panel -->
+  <!-- Pull progress / status -->
+  {#if pulling || pullStatus}
+    <div class="pull-feed">
+      {#if pulling}
+        <div class="progress"><i style="width:100%"></i></div>
+      {/if}
+      <p class="pull-status mono" title={pullStatus}>
+        {pullStatus}{pullProgress ? `  ${pullProgress}` : ""}
+      </p>
+    </div>
+  {/if}
+
+  {#if pruneResult}
+    <p class="pull-status">{pruneResult}</p>
+  {/if}
+
   {#if errorMsg}
-    <div
-      class="mx-3.5 mt-3 select-text rounded-md border border-[#f8514966] bg-[#f851491a] px-3 py-2 text-[13px] text-[#ff9b95]"
-    >
-      {errorMsg}
+    <div class="banner err">
+      <Info aria-hidden="true" />
+      <span>{errorMsg}</span>
     </div>
   {/if}
 
-  <!-- Table / empty state -->
-  {#if shown.length === 0}
-    <div
-      class="flex flex-col items-center gap-2 px-3.5 py-9 text-center text-[#9aa3af]"
-    >
-      <Layers size={22} class="opacity-60" aria-hidden="true" />
-      <span>
-        {#if loading}
-          Loading images…
-        {:else if engineState === "running"}
-          {filter.trim() ? "No images match the filter." : "No images."}
-        {:else}
-          Engine not running.
-        {/if}
-      </span>
-    </div>
-  {:else}
-    <div class="overflow-x-auto">
-      <table class="w-full border-collapse text-[13px]">
-        <thead>
-          <tr>
-            <th
-              class="sticky top-0 whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-              >Repository:Tag</th
-            >
-            <th
-              class="sticky top-0 whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-              >Image ID</th
-            >
-            <th
-              class="sticky top-0 whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-              >Size</th
-            >
-            <th
-              class="sticky top-0 whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-              >Created</th
-            >
-            <th
-              class="sticky top-0 w-[1%] whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-              >Actions</th
-            >
-          </tr>
-        </thead>
-        <tbody>
-          {#each shown as img (img.id)}
-            {@const acting = pending.has(img.id)}
-            {@const open = detailId === img.id}
-            <tr class="hover:bg-[#1b1f27] {acting ? 'opacity-60' : ''}">
-              <td
-                class="max-w-[320px] overflow-hidden text-ellipsis whitespace-nowrap border-b border-[#262b34] px-3 py-2.5 align-middle font-medium"
-                title={repoTag(img)}>{repoTag(img)}</td
-              >
-              <td
-                class="font-mono-app border-b border-[#262b34] px-3 py-2.5 align-middle text-xs text-[#9aa3af]"
-                title={img.id}>{imagesApi.shortId(img.id)}</td
-              >
-              <td
-                class="whitespace-nowrap border-b border-[#262b34] px-3 py-2.5 align-middle text-[#9aa3af]"
-                >{imagesApi.humanBytes(img.size)}</td
-              >
-              <td
-                class="whitespace-nowrap border-b border-[#262b34] px-3 py-2.5 align-middle text-[#9aa3af]"
-                title={imagesApi.fullDate(img.created)}
-                >{imagesApi.relativeTime(img.created)}</td
-              >
-              <td class="border-b border-[#262b34] px-3 py-2.5 align-middle">
-                <div class="flex justify-end gap-1.5">
-                  <button
-                    class="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-[3px] text-xs transition-colors disabled:cursor-default disabled:opacity-45 {open &&
-                    detailMode === 'tag'
-                      ? 'border-[#2f81f7] bg-[#1f6feb1a] text-[#2f81f7]'
-                      : 'border-[#262b34] text-[#e6e8eb] hover:not-disabled:bg-[#21262d]'}"
-                    disabled={acting}
-                    onclick={() => openTag(img)}
-                    ><Tag size={13} aria-hidden="true" />Tag</button
-                  >
-                  <button
-                    class="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-[3px] text-xs transition-colors disabled:cursor-default disabled:opacity-45 {open &&
-                    detailMode === 'history'
-                      ? 'border-[#2f81f7] bg-[#1f6feb1a] text-[#2f81f7]'
-                      : 'border-[#262b34] text-[#e6e8eb] hover:not-disabled:bg-[#21262d]'}"
-                    disabled={acting}
-                    onclick={() => openHistory(img)}
-                    ><History size={13} aria-hidden="true" />History</button
-                  >
-                  <button
-                    class="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-[3px] text-xs transition-colors disabled:cursor-default disabled:opacity-45 {open &&
-                    detailMode === 'inspect'
-                      ? 'border-[#2f81f7] bg-[#1f6feb1a] text-[#2f81f7]'
-                      : 'border-[#262b34] text-[#e6e8eb] hover:not-disabled:bg-[#21262d]'}"
-                    disabled={acting}
-                    onclick={() => openInspect(img)}
-                    ><Info size={13} aria-hidden="true" />Inspect</button
-                  >
-                  <button
-                    class="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[#f8514980] px-2 py-[3px] text-xs text-[#f85149] transition-colors hover:not-disabled:bg-[#f851491f] disabled:cursor-default disabled:opacity-45"
-                    disabled={acting}
-                    onclick={() => doRemove(img)}
-                    ><Trash2 size={13} aria-hidden="true" />Remove</button
-                  >
+  <!-- ===== List + detail drawer ===== -->
+  <div class="img-split" class:has-detail={selected}>
+    <div class="table">
+      <div class="thead" style="--cols:{COLS}">
+        <span>Repository : Tag</span>
+        <span>Image ID</span>
+        <span>Size</span>
+        <span>Created</span>
+      </div>
+
+      {#if shown.length === 0}
+        <div class="empty">
+          {#if loading}
+            Loading images…
+          {:else if engineState === "running"}
+            {filter.trim() ? "No images match the filter." : "No images yet — pull one to get started."}
+          {:else}
+            Engine not running.
+          {/if}
+        </div>
+      {:else}
+        {#each shown as img (img.id)}
+          {@const acting = pending.has(img.id)}
+          {@const dangling = isDangling(img)}
+          <div
+            class="trow"
+            class:sel={selectedId === img.id}
+            style="--cols:{COLS}; {acting ? 'opacity:.55' : ''}"
+            role="button"
+            tabindex="0"
+            onclick={() => selectImage(img)}
+            onkeydown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                selectImage(img);
+              }
+            }}
+          >
+            <div class="cell-name">
+              <span class="av"><Layers aria-hidden="true" /></span>
+              <div style="min-width:0">
+                <div class="nm-row">
+                  <span class="nm" title={repoTag(img)}>{primaryTag(img)}</span>
+                  {#if isOfficial(img)}
+                    <span class="official"><Check aria-hidden="true" />Official</span>
+                  {/if}
+                  {#if dangling}
+                    <span class="pill warn"><span class="d"></span>Untagged</span>
+                  {/if}
                 </div>
-              </td>
-            </tr>
+                {#if cleanTags(img).length > 1}
+                  <div class="id">+{cleanTags(img).length - 1} more tag{cleanTags(img).length - 1 === 1 ? "" : "s"}</div>
+                {/if}
+              </div>
+            </div>
 
-            <!-- Expandable detail row -->
-            {#if open && detailMode}
-              <tr>
-                <td colspan={COL} class="border-b border-[#262b34] bg-[#0d1117] p-0">
-                  <div class="px-3.5 py-3">
-                    <div class="mb-2 flex items-center gap-2">
-                      <span class="text-[12px] font-semibold text-[#c7ccd4]">
-                        {#if detailMode === "tag"}Tag image
-                        {:else if detailMode === "history"}History
-                        {:else}Inspect{/if}
-                      </span>
-                      <span
-                        class="font-mono-app text-[11px] text-[#6e7681]"
-                        title={img.id}>{imagesApi.shortId(img.id)}</span
-                      >
-                      <button
-                        class="ml-auto cursor-pointer rounded p-0.5 text-[#9aa3af] hover:bg-[#21262d]"
-                        title="Close"
-                        onclick={closeDetail}
-                      >
-                        <X size={14} aria-hidden="true" />
-                      </button>
-                    </div>
+            <span class="id" title={img.id}>{imagesApi.shortId(img.id)}</span>
+            <span class="num muted">{imagesApi.humanBytes(img.size)}</span>
+            <span class="muted num" title={imagesApi.fullDate(img.created)}
+              >{imagesApi.relativeTime(img.created)}</span
+            >
 
-                    {#if detailError}
-                      <div
-                        class="mb-2 select-text rounded-md border border-[#f8514966] bg-[#f851491a] px-2.5 py-1.5 text-[12px] text-[#ff9b95]"
-                      >
-                        {detailError}
-                      </div>
-                    {/if}
-
-                    {#if detailMode === "tag"}
-                      <div class="flex flex-wrap items-center gap-2">
-                        <input
-                          class="min-w-[200px] flex-1 rounded-md border border-[#262b34] bg-[#171a21] px-2.5 py-[5px] text-[13px] text-[#e6e8eb] placeholder-[#6e7681] outline-none focus:border-[#2f81f7]"
-                          placeholder="repository (e.g. myrepo/app)"
-                          bind:value={tagRepo}
-                        />
-                        <span class="text-[#6e7681]">:</span>
-                        <input
-                          class="w-32 rounded-md border border-[#262b34] bg-[#171a21] px-2.5 py-[5px] text-[13px] text-[#e6e8eb] placeholder-[#6e7681] outline-none focus:border-[#2f81f7]"
-                          placeholder="tag"
-                          bind:value={tagTag}
-                        />
-                        <button
-                          class="rounded-md border border-[#2f81f7] bg-[#1f6feb] px-3 py-[5px] text-[12px] font-medium text-white transition-colors hover:not-disabled:bg-[#2f81f7] disabled:cursor-default disabled:opacity-50"
-                          disabled={detailLoading || !tagRepo.trim()}
-                          onclick={applyTag}
-                        >
-                          {detailLoading ? "Tagging…" : "Apply tag"}
-                        </button>
-                        <button
-                          class="rounded-md border border-[#262b34] bg-[#21262d] px-3 py-[5px] text-[12px] text-[#e6e8eb] transition-colors hover:bg-[#2b3138]"
-                          onclick={closeDetail}>Cancel</button
-                        >
-                      </div>
-                    {:else if detailMode === "history"}
-                      {#if detailLoading}
-                        <p class="text-[12px] text-[#9aa3af]">Loading history…</p>
-                      {:else if historyData.length === 0}
-                        <p class="text-[12px] text-[#9aa3af]">No history.</p>
-                      {:else}
-                        <div
-                          class="max-h-72 select-text overflow-auto rounded-md border border-[#262b34]"
-                        >
-                          <table class="w-full border-collapse text-[12px]">
-                            <tbody>
-                              {#each historyData as layer, i (i)}
-                                <tr class="align-top">
-                                  <td
-                                    class="whitespace-nowrap border-b border-[#262b34] px-2.5 py-1.5 text-[#9aa3af]"
-                                    >{imagesApi.relativeTime(layer.created)}</td
-                                  >
-                                  <td
-                                    class="whitespace-nowrap border-b border-[#262b34] px-2.5 py-1.5 text-right text-[#9aa3af]"
-                                    >{imagesApi.humanBytes(layer.size)}</td
-                                  >
-                                  <td
-                                    class="font-mono-app w-full border-b border-[#262b34] px-2.5 py-1.5 break-all text-[#c7ccd4]"
-                                    >{layer.created_by}{layer.comment
-                                      ? `  (${layer.comment})`
-                                      : ""}</td
-                                  >
-                                </tr>
-                              {/each}
-                            </tbody>
-                          </table>
-                        </div>
-                      {/if}
-                    {:else if detailMode === "inspect"}
-                      {#if detailLoading}
-                        <p class="text-[12px] text-[#9aa3af]">Loading…</p>
-                      {:else}
-                        <pre
-                          class="font-mono-app max-h-96 select-text overflow-auto rounded-md border border-[#262b34] bg-[#171a21] p-2.5 text-[11.5px] leading-relaxed text-[#c7ccd4] whitespace-pre">{inspectData}</pre>
-                      {/if}
-                    {/if}
-                  </div>
-                </td>
-              </tr>
-            {/if}
-          {/each}
-        </tbody>
-      </table>
+            <div class="rowact">
+              <button
+                title="Tag"
+                disabled={acting}
+                onclick={(e) => { e.stopPropagation(); selectImage(img, "overview"); }}
+              ><Tag aria-hidden="true" /></button>
+              <button
+                title="History"
+                disabled={acting}
+                onclick={(e) => { e.stopPropagation(); selectImage(img, "history"); }}
+              ><History aria-hidden="true" /></button>
+              <button
+                title="Inspect"
+                disabled={acting}
+                onclick={(e) => { e.stopPropagation(); selectImage(img, "inspect"); }}
+              ><Info aria-hidden="true" /></button>
+              <button
+                class="dng"
+                title="Remove"
+                disabled={acting}
+                onclick={(e) => { e.stopPropagation(); doRemove(img); }}
+              ><Trash2 aria-hidden="true" /></button>
+            </div>
+          </div>
+        {/each}
+      {/if}
     </div>
-  {/if}
-</section>
+
+    <!-- ===== Detail drawer ===== -->
+    {#if selected}
+      {@const sel = selected}
+      <aside class="detail img-detail">
+        <div class="dt-head">
+          <div class="dt-top">
+            <span class="dt-av"><Layers aria-hidden="true" /></span>
+            <div style="min-width:0">
+              <div class="dt-name" title={repoTag(sel)}>{primaryTag(sel)}</div>
+              <div class="dt-sub">
+                {#if isOfficial(sel)}
+                  <span class="official"><Check aria-hidden="true" />Official</span>
+                {:else if isDangling(sel)}
+                  <span class="pill warn"><span class="d"></span>Untagged</span>
+                {/if}
+                <span class="mono">{imagesApi.shortId(sel.id)}</span>
+                <span>·</span>
+                <span class="num">{imagesApi.humanBytes(sel.size)}</span>
+              </div>
+            </div>
+            <div class="dt-head-acts">
+              <button class="dt-x" title="Close" onclick={closeDetail}>
+                <X aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+          <div class="dt-acts">
+            <button
+              class="btn dng"
+              disabled={pending.has(sel.id)}
+              onclick={() => doRemove(sel)}
+            >
+              <Trash2 aria-hidden="true" />Remove
+            </button>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class:on={detailTab === "overview"} onclick={() => setTab("overview")}>Overview</button>
+          <button class:on={detailTab === "history"} onclick={() => setTab("history")}>History</button>
+          <button class:on={detailTab === "inspect"} onclick={() => setTab("inspect")}>Inspect</button>
+        </div>
+
+        <div class="dt-body">
+          {#if detailError}
+            <div class="banner err">
+              <Info aria-hidden="true" />
+              <span>{detailError}</span>
+            </div>
+          {/if}
+
+          {#if detailTab === "overview"}
+            <div class="kv">
+              <div class="sec">Details</div>
+              <div class="r">
+                <span class="k">Image ID</span>
+                <span class="v copy mono"
+                  >{imagesApi.shortId(sel.id)}<button
+                    class="copy-btn"
+                    title="Copy full ID"
+                    onclick={() => copyText(sel.id)}><Copy aria-hidden="true" /></button
+                  ></span
+                >
+              </div>
+              <div class="r">
+                <span class="k">Size</span>
+                <span class="v num">{imagesApi.humanBytes(sel.size)}</span>
+              </div>
+              <div class="r">
+                <span class="k">Created</span>
+                <span class="v num" title={imagesApi.fullDate(sel.created)}
+                  >{imagesApi.relativeTime(sel.created)}</span
+                >
+              </div>
+              <div class="r">
+                <span class="k">Tags</span>
+                <span class="v">
+                  {#if cleanTags(sel).length}
+                    <span class="chips">
+                      {#each cleanTags(sel) as t (t)}
+                        <span class="tag mono">{t}</span>
+                      {/each}
+                    </span>
+                  {:else}
+                    <span class="muted">&lt;none&gt;</span>
+                  {/if}
+                </span>
+              </div>
+            </div>
+
+            <div class="kv">
+              <div class="sec">Tag image</div>
+              <div class="tag-form">
+                <input
+                  class="inp"
+                  placeholder="repository (e.g. myrepo/app)"
+                  bind:value={tagRepo}
+                />
+                <span class="tag-sep">:</span>
+                <input class="inp inp-tag" placeholder="tag" bind:value={tagTag} />
+                <button
+                  class="btn btn-soft"
+                  disabled={detailLoading || !tagRepo.trim()}
+                  onclick={applyTag}
+                >
+                  <Tag aria-hidden="true" />
+                  {detailLoading ? "Tagging…" : "Apply"}
+                </button>
+              </div>
+            </div>
+          {:else if detailTab === "history"}
+            {#if detailLoading}
+              <p class="pull-status">Loading history…</p>
+            {:else if historyData.length === 0}
+              <p class="pull-status">No history.</p>
+            {:else}
+              <div class="layers">
+                {#each historyData as layer, i (i)}
+                  <div class="layer">
+                    <span class="cmd" title={layer.created_by}
+                      >{layer.created_by}{layer.comment ? `  (${layer.comment})` : ""}</span
+                    >
+                    <span class="size num">{imagesApi.humanBytes(layer.size)}</span>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          {:else if detailTab === "inspect"}
+            {#if detailLoading}
+              <p class="pull-status">Loading…</p>
+            {:else}
+              <div class="outpane">
+                <div class="bar">
+                  <Boxes aria-hidden="true" />
+                  <span>Inspect</span>
+                  <span style="flex:1"></span>
+                  <button class="copy-btn" title="Copy JSON" onclick={() => copyText(inspectData)}>
+                    <Copy aria-hidden="true" />
+                  </button>
+                </div>
+                <pre class="body-out">{inspectData}</pre>
+              </div>
+            {/if}
+          {/if}
+        </div>
+      </aside>
+    {/if}
+  </div>
+</div>
+
+<style>
+  /* Layout-only helpers (tokens only — no raw colours). */
+  .img-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .img-pull {
+    flex: 1;
+    min-width: 240px;
+    max-width: 520px;
+  }
+
+  .pull-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .pull-status {
+    font-size: 12px;
+    color: var(--text-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .img-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+    min-width: 0;
+  }
+  .img-split.has-detail {
+    grid-template-columns: minmax(0, 1fr) clamp(340px, 34%, 392px);
+  }
+  .img-detail {
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow), inset 0 1px 0 var(--hi);
+    max-height: calc(100vh - 210px);
+    position: sticky;
+    top: 0;
+  }
+
+  /* loud name + inline badges */
+  .nm-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  /* tag editor inputs */
+  .tag-form {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .inp {
+    flex: 1;
+    min-width: 150px;
+    background: var(--s2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: var(--text);
+    font: inherit;
+    font-size: 12.5px;
+    outline: none;
+    box-shadow: inset 0 1px 0 var(--hi);
+  }
+  .inp-tag {
+    flex: 0 0 96px;
+    min-width: 72px;
+  }
+  .inp:focus {
+    border-color: var(--text-4);
+  }
+  .inp::placeholder {
+    color: var(--text-3);
+  }
+  .tag-sep {
+    color: var(--text-4);
+  }
+
+  /* small inline copy button (reuses kv .copy svg sizing) */
+  .copy-btn {
+    display: inline-grid;
+    place-items: center;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    color: var(--text-4);
+  }
+  .copy-btn:hover {
+    color: var(--text-2);
+  }
+  .copy-btn :global(svg) {
+    width: 13px;
+    height: 13px;
+  }
+</style>

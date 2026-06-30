@@ -1,11 +1,15 @@
 <script lang="ts">
-  // Stateless view: renders containers + action buttons. All logic lives in the
-  // parent (App.svelte) / api.ts. Svelte 5 runes API.
+  // Stateless view: renders the containers table in the crafted v2 language. All
+  // engine logic lives in the parent (App.svelte) / api.ts — this component only
+  // renders rows + surfaces actions and the per-row "select" affordance. Svelte 5
+  // runes API.
+  import Box from "@lucide/svelte/icons/box";
   import Play from "@lucide/svelte/icons/play";
   import Square from "@lucide/svelte/icons/square";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import ExternalLink from "@lucide/svelte/icons/external-link";
+  import { openExternal } from "./openExternal";
   import type { NormalizedContainer, NormalizedPort } from "./types";
 
   type Action = "start" | "stop" | "restart" | "remove";
@@ -24,8 +28,42 @@
     onSelect,
   }: Props = $props();
 
-  function act(action: Action, c: NormalizedContainer) {
+  // Shared grid template (Name · Image · Status · Ports · actions gutter).
+  const COLS =
+    "minmax(190px,1.7fr) minmax(120px,1.2fr) minmax(112px,1fr) minmax(120px,1.3fr) 96px";
+
+  function act(e: MouseEvent, action: Action, c: NormalizedContainer) {
+    e.stopPropagation();
     onAction?.(action, c);
+  }
+
+  // Quiet status descriptor: a tone (drives the dot + word colour) + the lamp
+  // class for the name-cell indicator + a single word.
+  interface StatusView {
+    tone: "run" | "warn" | "err" | "exit";
+    lamp: "run" | "warn" | "err" | "";
+    word: string;
+  }
+  function statusOf(c: NormalizedContainer): StatusView {
+    if (c.running) return { tone: "run", lamp: "run", word: "Running" };
+    switch (c.state) {
+      case "paused":
+        return { tone: "warn", lamp: "warn", word: "Paused" };
+      case "restarting":
+        return { tone: "warn", lamp: "warn", word: "Restarting" };
+      case "created":
+        return { tone: "exit", lamp: "", word: "Created" };
+      case "dead":
+        return { tone: "err", lamp: "err", word: "Dead" };
+      case "exited":
+        return { tone: "exit", lamp: "", word: "Exited" };
+      default:
+        return {
+          tone: "exit",
+          lamp: "",
+          word: c.state ? c.state[0].toUpperCase() + c.state.slice(1) : "Unknown",
+        };
+    }
   }
 
   function portTitle(p: NormalizedPort): string {
@@ -33,131 +71,121 @@
     return `Bound to ${p.ip} — NOT forwarded to Windows localhost`;
   }
 
-  const BTN_BASE =
-    "inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-[3px] text-xs transition-colors disabled:cursor-default disabled:opacity-45";
+  function openPort(e: MouseEvent, url: string) {
+    e.stopPropagation();
+    openExternal(url);
+  }
 </script>
 
-{#if containers.length === 0}
-  <div class="px-3.5 py-7 text-center text-[#9aa3af]">No containers.</div>
-{:else}
-  <div class="overflow-x-auto">
-    <table class="w-full border-collapse text-[13px]">
-      <thead>
-        <tr>
-          <th
-            class="sticky top-0 w-[22px] whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-          ></th>
-          <th
-            class="sticky top-0 whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-            >Name</th
-          >
-          <th
-            class="sticky top-0 whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-            >Image</th
-          >
-          <th
-            class="sticky top-0 whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-            >Status</th
-          >
-          <th
-            class="sticky top-0 whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-            >Ports</th
-          >
-          <th
-            class="sticky top-0 w-[1%] whitespace-nowrap border-b border-[#262b34] bg-[#171a21] px-3 py-2.5 text-left font-medium text-[#9aa3af]"
-            >Actions</th
-          >
-        </tr>
-      </thead>
-      <tbody>
-        {#each containers as c (c.id)}
-          {@const acting = pending.has(c.id)}
-          <tr class="hover:bg-[#1b1f27] {acting ? 'opacity-60' : ''}">
-            <td class="w-[22px] border-b border-[#262b34] px-3 py-2.5 align-middle">
-              <span
-                class="cdot {c.running ? 'cdot-on' : 'cdot-off'}"
-                title={c.state || "unknown"}
-              ></span>
-            </td>
-            <td
-              class="border-b border-[#262b34] px-3 py-2.5 align-middle font-medium"
-            >
-              <button
-                class="cursor-pointer text-left font-medium text-[#e6e8eb] hover:text-[#2f81f7] hover:underline"
-                title={`${c.shortId} — open details (stats, inspect, top)`}
-                onclick={() => onSelect?.(c)}>{c.name}</button
-              >
-            </td>
-            <td
-              class="font-mono-app max-w-[240px] overflow-hidden text-ellipsis whitespace-nowrap border-b border-[#262b34] px-3 py-2.5 align-middle text-xs text-[#9aa3af]"
-              title={c.image}>{c.image}</td
-            >
-            <td
-              class="whitespace-nowrap border-b border-[#262b34] px-3 py-2.5 align-middle text-[#9aa3af]"
-              >{c.status || c.state}</td
-            >
-            <td
-              class="font-mono-app border-b border-[#262b34] px-3 py-2.5 align-middle text-xs"
-            >
-              {#if c.ports.length === 0}
-                &mdash;
-              {:else}
-                {#each c.ports as p, i (i)}
-                  {#if i > 0}{" "}{/if}
-                  {#if p.url}
-                    <a
-                      class="inline-flex items-center gap-0.5 text-[#2f81f7] no-underline hover:underline"
-                      href={p.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      title={`Open ${p.url} (forwarded to Windows localhost)`}
-                      >{p.host}:{p.container}/{p.proto}<ExternalLink
-                        size={11}
-                        aria-hidden="true"
-                      /></a
-                    >
-                  {:else}
-                    <span class="text-[#9aa3af]" title={portTitle(p)}
-                      >{p.host}:{p.container}/{p.proto}</span
-                    >
-                  {/if}
-                {/each}
-              {/if}
-            </td>
-            <td class="border-b border-[#262b34] px-3 py-2.5 align-middle">
-              <div class="flex justify-end gap-1.5">
-                {#if c.running}
-                  <button
-                    class="{BTN_BASE} border-[#d2992280] text-[#d29922] hover:not-disabled:bg-[#d299221f]"
-                    disabled={acting}
-                    onclick={() => act("stop", c)}
-                    ><Square size={13} aria-hidden="true" />Stop</button
-                  >
-                  <button
-                    class="{BTN_BASE} border-[#262b34] text-[#e6e8eb] hover:not-disabled:bg-[#21262d]"
-                    disabled={acting}
-                    onclick={() => act("restart", c)}
-                    ><RotateCw size={13} aria-hidden="true" />Restart</button
-                  >
-                {:else}
-                  <button
-                    class="{BTN_BASE} border-[#3fb95080] text-[#3fb950] hover:not-disabled:bg-[#3fb9501f]"
-                    disabled={acting}
-                    onclick={() => act("start", c)}
-                    ><Play size={13} aria-hidden="true" />Start</button
-                  >
-                {/if}
-                <button
-                  class="{BTN_BASE} border-[#f8514980] text-[#f85149] hover:not-disabled:bg-[#f851491f]"
-                  disabled={acting}
-                  onclick={() => act("remove", c)}
-                  ><Trash2 size={13} aria-hidden="true" />Remove</button
-                >
-              </div>
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+<div class="table">
+  <div class="thead" style="--cols:{COLS}">
+    <span>Name</span>
+    <span>Image</span>
+    <span>Status</span>
+    <span>Ports</span>
+    <span></span>
   </div>
-{/if}
+
+  {#if containers.length === 0}
+    <div class="empty">No containers.</div>
+  {:else}
+    {#each containers as c (c.id)}
+      {@const acting = pending.has(c.id)}
+      {@const st = statusOf(c)}
+      <div
+        class="trow"
+        style="--cols:{COLS}"
+        style:opacity={acting ? 0.55 : undefined}
+        role="button"
+        tabindex="0"
+        aria-busy={acting}
+        onclick={() => onSelect?.(c)}
+        onkeydown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelect?.(c);
+          }
+        }}
+      >
+        <div class="cell-name">
+          <span class="lamp {st.lamp}"></span>
+          <span class="av"><Box aria-hidden="true" /></span>
+          <div style="min-width:0">
+            <div class="nm" title={c.name}>{c.name}</div>
+            <div class="id" title={c.id}>{c.shortId}</div>
+          </div>
+        </div>
+
+        <span class="img" title={c.image}>{c.image}</span>
+
+        <div class="st {st.tone}">
+          <span class="l"><span class="d"></span>{st.word}</span>
+          {#if c.status}<span class="sub">{c.status}</span>{/if}
+        </div>
+
+        <div class="ports">
+          {#if c.ports.length === 0}
+            <span class="muted">—</span>
+          {:else}
+            {#each c.ports as p, i (i)}
+              {#if p.url}
+                <button
+                  class="port"
+                  type="button"
+                  style="cursor:pointer"
+                  title={`Open ${p.url} (forwarded to Windows localhost)`}
+                  onclick={(e) => openPort(e, p.url!)}
+                >
+                  :{p.host}<ExternalLink aria-hidden="true" />
+                </button>
+              {:else}
+                <span class="port" title={portTitle(p)}
+                  >{p.host}:{p.container}/{p.proto}</span
+                >
+              {/if}
+            {/each}
+          {/if}
+        </div>
+
+        <div class="rowact">
+          {#if c.running}
+            <button
+              type="button"
+              title="Stop"
+              disabled={acting}
+              onclick={(e) => act(e, "stop", c)}
+            >
+              <Square aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              title="Restart"
+              disabled={acting}
+              onclick={(e) => act(e, "restart", c)}
+            >
+              <RotateCw aria-hidden="true" />
+            </button>
+          {:else}
+            <button
+              type="button"
+              title="Start"
+              disabled={acting}
+              onclick={(e) => act(e, "start", c)}
+            >
+              <Play aria-hidden="true" />
+            </button>
+          {/if}
+          <button
+            class="dng"
+            type="button"
+            title="Remove"
+            disabled={acting}
+            onclick={(e) => act(e, "remove", c)}
+          >
+            <Trash2 aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+    {/each}
+  {/if}
+</div>

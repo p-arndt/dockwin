@@ -1,17 +1,30 @@
 <script lang="ts">
-  // Right-side drawer showing details for a single container: a live resource
-  // "Stats" snapshot (polled), the full "Inspect" JSON, and the in-container
-  // process "Top" table, plus pause/unpause + rename actions. Stateless toward
-  // its parent: all engine calls go through containersApi; results bubble back
-  // via onChanged so the parent can refresh its list. Svelte 5 runes.
+  // Container detail surface in the crafted v2 language. Renders either as a
+  // right-side drawer (full=false) or a full-width two-column page (full=true).
+  // Tabs: Overview (live stat cards polled every 2s + parsed details), Inspect
+  // (raw JSON), Top (in-container processes). Engine calls go through
+  // containersApi; the parent polls every 3s, so the list stays fresh without an
+  // onChanged callback. Svelte 5 runes.
   import X from "@lucide/svelte/icons/x";
-  import Activity from "@lucide/svelte/icons/activity";
-  import FileText from "@lucide/svelte/icons/file-text";
-  import List from "@lucide/svelte/icons/list";
+  import Maximize2 from "@lucide/svelte/icons/maximize-2";
+  import Minimize2 from "@lucide/svelte/icons/minimize-2";
+  import Box from "@lucide/svelte/icons/box";
   import Pause from "@lucide/svelte/icons/pause";
   import Play from "@lucide/svelte/icons/play";
   import Pencil from "@lucide/svelte/icons/pencil";
-  import type { EngineState } from "./types";
+  import Cpu from "@lucide/svelte/icons/cpu";
+  import MemoryStick from "@lucide/svelte/icons/memory-stick";
+  import Activity from "@lucide/svelte/icons/activity";
+  import HardDrive from "@lucide/svelte/icons/hard-drive";
+  import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import ArrowDown from "@lucide/svelte/icons/arrow-down";
+  import Copy from "@lucide/svelte/icons/copy";
+  import Check from "@lucide/svelte/icons/check";
+  import ExternalLink from "@lucide/svelte/icons/external-link";
+  import Network from "@lucide/svelte/icons/network";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import type { NormalizedContainer, NormalizedPort } from "./types";
+  import { openExternal } from "./openExternal";
   import {
     containerInspect,
     containerRename,
@@ -25,70 +38,96 @@
   } from "./containersApi";
 
   interface Props {
-    id: string;
-    name: string;
-    running: boolean;
-    engineState: EngineState;
+    container: NormalizedContainer;
+    full: boolean;
     onClose: () => void;
-    onChanged?: () => void;
+    onToggleFull: () => void;
   }
 
-  let { id, name, running, engineState, onClose, onChanged }: Props = $props();
+  let { container, full, onClose, onToggleFull }: Props = $props();
 
-  type Tab = "stats" | "inspect" | "top";
-  let activeTab = $state<Tab>("stats");
+  // Convenience reads off the live container object.
+  const id = $derived(container.id);
+  const shortId = $derived(container.shortId);
+  const image = $derived(container.image);
+  const status = $derived(container.status);
+  const running = $derived(container.running);
 
-  const shortId = $derived(id.slice(0, 12));
-  const engineReady = $derived(engineState === "running");
+  type Tab = "overview" | "inspect" | "top";
+  let activeTab = $state<Tab>("overview");
 
-  // Refined from the inspect payload (a container can be running-but-paused).
+  // Locally-tracked name so a rename shows immediately (the parent's selected
+  // snapshot only updates on its next poll).
+  let localName = $state("");
+  const name = $derived(localName || container.name);
+
+  // Heuristic: an "official" image has no registry/namespace prefix (e.g. nginx,
+  // postgres) — surfaces the small accent badge. Anything user/registry-scoped
+  // ("me/app", "ghcr.io/...") is not.
+  const isOfficial = $derived.by(() => {
+    if (!image) return false;
+    return !image.split(":")[0].includes("/");
+  });
+
+  // A container can be running-but-paused (refined from the inspect payload).
   let paused = $state(false);
 
   // Action row (pause/unpause/rename).
   let actionError = $state<string | null>(null);
   let busyAction = $state(false);
   let renaming = $state(false);
-  // Seeded from `name` by the id-change effect below (kept out of the initializer
-  // so it doesn't capture only the first prop value).
   let renameValue = $state("");
 
-  // Stats tab.
+  // Live stats (Overview).
   let stats = $state<ContainerStatsDto | null>(null);
   let statsError = $state<string | null>(null);
+  // Small CPU history buffer feeding the one focused chart on this screen.
+  let cpuHistory = $state<number[]>([]);
 
-  // Inspect tab.
+  // Inspect (raw JSON + parsed detail fields).
   let inspectText = $state<string | null>(null);
   let inspectError = $state<string | null>(null);
   let inspectLoading = $state(false);
 
-  // Top tab.
+  // Top (process table).
   let top = $state<ContainerTopDto | null>(null);
   let topError = $state<string | null>(null);
   let topLoading = $state(false);
 
-  // Reset cached per-container state when the selected container changes. Starts
-  // empty so the effect also runs once on mount to seed renameValue from `name`.
+  // Show-advanced disclosure in the details list.
+  let showAdv = $state(false);
+
+  // Copy-to-clipboard feedback.
+  let copied = $state(false);
+
+  // Reset cached per-container state when the selection changes. Starts empty so
+  // the effect also runs once on mount to seed localName from the container.
   let lastId = $state("");
   $effect(() => {
     if (id !== lastId) {
       lastId = id;
       stats = null;
       statsError = null;
+      cpuHistory = [];
       inspectText = null;
       inspectError = null;
       top = null;
       topError = null;
       paused = false;
       renaming = false;
-      renameValue = name;
+      renameValue = container.name;
+      localName = container.name;
       actionError = null;
+      showAdv = false;
+      copied = false;
     }
   });
 
-  // Load inspect once per container: feeds the Inspect tab AND tells us whether
-  // the container is currently paused (so the action button shows correctly).
+  // Load inspect once per container: feeds the Inspect tab, the parsed Details
+  // block, AND the paused flag.
   $effect(() => {
-    if (engineReady) loadInspect(id);
+    void id;
+    loadInspect(id);
   });
 
   async function loadInspect(cid: string) {
@@ -111,12 +150,70 @@
     }
   }
 
-  // Stats polling: only while the Stats tab is open, the container is running,
-  // and the engine is reachable. The interval is torn down in the cleanup.
-  $effect(() => {
-    if (activeTab !== "stats" || !running || !engineReady) {
-      return;
+  // Parsed inspect fields for the Details block (defensive — fields vary).
+  interface ParsedInfo {
+    created: string | null;
+    command: string | null;
+    entrypoint: string | null;
+    workingDir: string | null;
+    restart: string | null;
+    networks: string[];
+    mounts: { name: string; dest: string }[];
+    envCount: number;
+  }
+  const info = $derived.by<ParsedInfo | null>(() => {
+    if (!inspectText) return null;
+    let p: any;
+    try {
+      p = JSON.parse(inspectText);
+    } catch {
+      return null;
     }
+    const created = typeof p?.Created === "string" ? p.Created : null;
+    const cmd = Array.isArray(p?.Config?.Cmd) ? p.Config.Cmd.join(" ") : null;
+    const pathCmd =
+      typeof p?.Path === "string"
+        ? [p.Path, ...(Array.isArray(p?.Args) ? p.Args : [])].join(" ")
+        : null;
+    const ep = Array.isArray(p?.Config?.Entrypoint)
+      ? p.Config.Entrypoint.join(" ")
+      : typeof p?.Config?.Entrypoint === "string"
+        ? p.Config.Entrypoint
+        : null;
+    const networks =
+      p?.NetworkSettings?.Networks &&
+      typeof p.NetworkSettings.Networks === "object"
+        ? Object.keys(p.NetworkSettings.Networks)
+        : [];
+    const mounts = Array.isArray(p?.Mounts)
+      ? p.Mounts.map((m: any) => ({
+          name: String(m?.Name ?? m?.Source ?? "volume"),
+          dest: String(m?.Destination ?? ""),
+        }))
+      : [];
+    const restart =
+      typeof p?.HostConfig?.RestartPolicy?.Name === "string" &&
+      p.HostConfig.RestartPolicy.Name
+        ? p.HostConfig.RestartPolicy.Name
+        : null;
+    return {
+      created,
+      command: pathCmd || cmd,
+      entrypoint: ep,
+      workingDir:
+        typeof p?.Config?.WorkingDir === "string" && p.Config.WorkingDir
+          ? p.Config.WorkingDir
+          : null,
+      restart,
+      networks,
+      mounts,
+      envCount: Array.isArray(p?.Config?.Env) ? p.Config.Env.length : 0,
+    };
+  });
+
+  // Stats polling: only while Overview is open and the container is running.
+  $effect(() => {
+    if (activeTab !== "overview" || !running) return;
     const cid = id;
     let cancelled = false;
     const load = async () => {
@@ -125,6 +222,8 @@
         if (!cancelled && cid === id) {
           stats = s;
           statsError = null;
+          const v = Number.isFinite(s.cpu_pct) ? s.cpu_pct : 0;
+          cpuHistory = [...cpuHistory, v].slice(-32);
         }
       } catch (e) {
         if (!cancelled && cid === id) statsError = String(e);
@@ -140,13 +239,7 @@
 
   // Lazily load the process table when the Top tab is opened.
   $effect(() => {
-    if (
-      activeTab === "top" &&
-      top === null &&
-      !topLoading &&
-      running &&
-      engineReady
-    ) {
+    if (activeTab === "top" && top === null && !topLoading && running) {
       loadTop(id);
     }
   });
@@ -175,7 +268,6 @@
         await containerPause(id);
         paused = true;
       }
-      onChanged?.();
     } catch (e) {
       actionError = String(e);
     } finally {
@@ -199,8 +291,8 @@
     actionError = null;
     try {
       await containerRename(id, next);
+      localName = next;
       renaming = false;
-      onChanged?.();
     } catch (e) {
       actionError = String(e);
     } finally {
@@ -218,298 +310,453 @@
     }
   }
 
-  const TABS: { key: Tab; label: string; icon: typeof Activity }[] = [
-    { key: "stats", label: "Stats", icon: Activity },
-    { key: "inspect", label: "Inspect", icon: FileText },
-    { key: "top", label: "Top", icon: List },
-  ];
+  async function copyId() {
+    try {
+      await navigator.clipboard?.writeText(id);
+      copied = true;
+      setTimeout(() => (copied = false), 1200);
+    } catch {
+      // Clipboard unavailable — ignore.
+    }
+  }
+
+  function openPort(url: string) {
+    openExternal(url);
+  }
+
+  function portLabel(p: NormalizedPort): string {
+    return p.container != null
+      ? `:${p.host}→${p.container}`
+      : `:${p.host}`;
+  }
+  function portTitle(p: NormalizedPort): string {
+    if (p.url) return `Open ${p.url} (forwarded to Windows localhost)`;
+    if (p.wildcard) return `${p.host}:${p.container}/${p.proto}`;
+    return `Bound to ${p.ip} — NOT forwarded to Windows localhost`;
+  }
 
   const clampPct = (n: number) => Math.max(0, Math.min(100, n));
-  const fmtPct = (n: number) =>
-    Number.isFinite(n) ? `${n.toFixed(1)}%` : "0.0%";
+  const fmtPct = (n: number) => (Number.isFinite(n) ? `${n.toFixed(1)}%` : "0.0%");
+  const cpuRounded = $derived(stats ? Math.round(clampPct(stats.cpu_pct)) : 0);
+  const memRounded = $derived(stats ? Math.round(clampPct(stats.mem_pct)) : 0);
+
+  function fmtCreated(iso: string | null): string | null {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString();
+  }
+
+  // Build the focused-chart spark paths (the one accent chart on this screen).
+  const SPARK_W = 120;
+  const SPARK_H = 34;
+  const spark = $derived.by(() => {
+    const vals = cpuHistory;
+    if (vals.length < 2) return { line: "", fill: "" };
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const span = max - min || 1;
+    const stepX = SPARK_W / (vals.length - 1);
+    const coords = vals.map((v, i) => {
+      const x = i * stepX;
+      const y = SPARK_H - ((v - min) / span) * (SPARK_H - 4) - 2;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    const line = "M" + coords.join(" L");
+    return { line, fill: `${line} L${SPARK_W},${SPARK_H} L0,${SPARK_H} Z` };
+  });
+
+  const TABS: { key: Tab; label: string }[] = [
+    { key: "overview", label: "Overview" },
+    { key: "inspect", label: "Inspect" },
+    { key: "top", label: "Top" },
+  ];
 </script>
 
-<!-- Backdrop -->
-<div
-  class="fixed inset-0 z-40 bg-black/40"
-  onclick={onClose}
-  role="presentation"
-></div>
-
-<!-- Drawer -->
-<aside
-  class="fixed right-0 top-0 z-50 flex h-full w-[460px] flex-col border-l border-[#262b34] bg-[#171a21] text-[#e6e8eb] shadow-2xl"
-  aria-label="Container details"
->
-  <!-- Header -->
-  <header
-    class="flex items-center gap-2.5 border-b border-[#262b34] px-4 py-3"
-  >
-    <div class="min-w-0 flex-1">
-      <div class="truncate text-sm font-semibold" title={name}>{name}</div>
-      <div class="font-mono-app text-[11px] text-[#9aa3af]" title={id}>
-        {shortId}
+<aside class="detail" class:full aria-label="Container details">
+  <!-- ===== header ===== -->
+  <div class="dt-head">
+    <div class="dt-top">
+      <span class="dt-av"><Box aria-hidden="true" /></span>
+      <div style="min-width:0">
+        <div class="dt-name" title={name}>{name}</div>
+        <div class="dt-sub">
+          {#if running}
+            <span class="run"><span class="d"></span>{paused ? "Paused" : "Running"}</span>
+          {:else}
+            <span class="off"><span class="d"></span>Stopped</span>
+          {/if}
+          {#if status}<span>·</span><span>{status}</span>{/if}
+          <span class="mono" title={id}>{shortId}</span>
+        </div>
+      </div>
+      <div class="dt-head-acts">
+        <button
+          class="dt-x"
+          type="button"
+          onclick={onToggleFull}
+          title={full ? "Collapse to drawer" : "Expand to full page"}
+          aria-label={full ? "Collapse to drawer" : "Expand to full page"}
+        >
+          {#if full}<Minimize2 aria-hidden="true" />{:else}<Maximize2 aria-hidden="true" />{/if}
+        </button>
+        <button class="dt-x" type="button" onclick={onClose} title="Close" aria-label="Close">
+          <X aria-hidden="true" />
+        </button>
       </div>
     </div>
-    <button
-      class="flex cursor-pointer items-center justify-center rounded-md border border-[#262b34] p-1.5 text-[#9aa3af] transition-colors hover:bg-[#21262d] hover:text-[#e6e8eb]"
-      onclick={onClose}
-      aria-label="Close"
-      title="Close"
-    >
-      <X size={16} aria-hidden="true" />
-    </button>
-  </header>
 
-  <!-- Action row -->
-  <div
-    class="flex flex-wrap items-center gap-2 border-b border-[#262b34] px-4 py-2.5"
-  >
+    <!-- action row (pause/unpause + rename) -->
     {#if renaming}
-      <input
-        class="font-mono-app min-w-0 flex-1 rounded-md border border-[#262b34] bg-[#0e1116] px-2 py-1 text-[13px] text-[#e6e8eb] outline-none focus:border-[#2f81f7]"
-        bind:value={renameValue}
-        onkeydown={onRenameKey}
-        disabled={busyAction}
-        placeholder="new-name"
-        spellcheck="false"
-        autocomplete="off"
-      />
-      <button
-        class="cursor-pointer rounded-md border border-[#2f81f7]/60 bg-[#2f81f71a] px-2.5 py-1 text-[12px] text-[#2f81f7] transition-colors hover:not-disabled:bg-[#2f81f726] disabled:cursor-default disabled:opacity-40"
-        onclick={commitRename}
-        disabled={busyAction}
-      >
-        Save
-      </button>
-      <button
-        class="cursor-pointer rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-1 text-[12px] text-[#9aa3af] transition-colors hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-40"
-        onclick={() => (renaming = false)}
-        disabled={busyAction}
-      >
-        Cancel
-      </button>
+      <div class="dt-acts">
+        <input
+          class="rename-input mono"
+          bind:value={renameValue}
+          onkeydown={onRenameKey}
+          disabled={busyAction}
+          placeholder="new-name"
+          spellcheck="false"
+          autocomplete="off"
+        />
+        <button class="btn" type="button" onclick={commitRename} disabled={busyAction}>
+          Save
+        </button>
+        <button class="btn" type="button" onclick={() => (renaming = false)} disabled={busyAction}>
+          Cancel
+        </button>
+      </div>
     {:else}
-      <button
-        class="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-1 text-[12px] text-[#e6e8eb] transition-colors hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-40"
-        onclick={togglePause}
-        disabled={busyAction || !engineReady || (!running && !paused)}
-        title={paused ? "Resume container" : "Pause container"}
-      >
-        {#if paused}
-          <Play size={13} aria-hidden="true" /> Unpause
-        {:else}
-          <Pause size={13} aria-hidden="true" /> Pause
-        {/if}
-      </button>
-      <button
-        class="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-1 text-[12px] text-[#e6e8eb] transition-colors hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-40"
-        onclick={startRename}
-        disabled={busyAction || !engineReady}
-        title="Rename container"
-      >
-        <Pencil size={13} aria-hidden="true" /> Rename
-      </button>
-      {#if paused}
-        <span
-          class="ml-auto rounded-full border border-[#d2992280] bg-[#d299221a] px-2 py-0.5 text-[11px] text-[#d29922]"
-          >paused</span
+      <div class="dt-acts">
+        <button
+          class="btn"
+          type="button"
+          onclick={togglePause}
+          disabled={busyAction || (!running && !paused)}
+          title={paused ? "Resume container" : "Pause container"}
         >
-      {/if}
+          {#if paused}<Play aria-hidden="true" />Unpause{:else}<Pause aria-hidden="true" />Pause{/if}
+        </button>
+        <button class="btn" type="button" onclick={startRename} disabled={busyAction} title="Rename container">
+          <Pencil aria-hidden="true" />Rename
+        </button>
+      </div>
     {/if}
   </div>
 
   {#if actionError}
-    <div
-      class="mx-4 mt-2.5 rounded-md border border-[#f8514980] bg-[#f851491a] px-3 py-2 text-[12px] text-[#f85149]"
-    >
-      {actionError}
-    </div>
+    <div class="banner err" style="margin:12px 20px 0">{actionError}</div>
   {/if}
 
-  <!-- Tabs -->
-  <nav class="flex gap-1 border-b border-[#262b34] px-3 pt-2">
+  <!-- ===== tabs ===== -->
+  <div class="tabs">
     {#each TABS as t (t.key)}
-      {@const Icon = t.icon}
-      <button
-        class="inline-flex cursor-pointer items-center gap-1.5 rounded-t-md border-b-2 px-3 py-1.5 text-[13px] transition-colors {activeTab ===
-        t.key
-          ? 'border-[#2f81f7] text-[#e6e8eb]'
-          : 'border-transparent text-[#9aa3af] hover:text-[#e6e8eb]'}"
-        onclick={() => (activeTab = t.key)}
-      >
-        <Icon size={14} aria-hidden="true" />
+      <button class:on={activeTab === t.key} type="button" onclick={() => (activeTab = t.key)}>
         {t.label}
       </button>
     {/each}
-  </nav>
+  </div>
 
-  <!-- Body -->
-  <div class="min-h-0 flex-1 overflow-auto">
-    {#if activeTab === "stats"}
-      <div class="p-4">
-        {#if !running}
-          <div class="py-6 text-center text-[13px] text-[#9aa3af]">
-            Container is not running — no live stats.
-          </div>
-        {:else if statsError}
-          <div
-            class="rounded-md border border-[#f8514980] bg-[#f851491a] px-3 py-2 text-[12px] text-[#f85149]"
-          >
-            {statsError}
-          </div>
-        {:else if !stats}
-          <div class="py-6 text-center text-[13px] text-[#9aa3af]">
-            Loading stats…
-          </div>
-        {:else}
-          <div class="flex flex-col gap-3">
-            <!-- CPU -->
-            <div class="rounded-md border border-[#262b34] bg-[#0e1116] p-3">
-              <div class="flex items-baseline justify-between">
-                <span class="text-[12px] text-[#9aa3af]">CPU</span>
-                <span class="font-mono-app text-[13px] text-[#e6e8eb]"
-                  >{fmtPct(stats.cpu_pct)}</span
-                >
+  <!-- ===== body ===== -->
+  <div class="dt-body" style:max-width={full ? "1120px" : undefined} style:width={full ? "100%" : undefined} style:margin={full ? "0 auto" : undefined}>
+    {#if activeTab === "overview"}
+      <div class="ov" class:ov-full={full}>
+        <!-- live stat cards -->
+        <div class="ov-stats">
+          {#if !running}
+            <div class="empty">Container is not running — no live stats.</div>
+          {:else if statsError}
+            <div class="banner err">{statsError}</div>
+          {:else if !stats}
+            <div class="empty">Loading stats…</div>
+          {:else}
+            <div class="statgrid">
+              <!-- CPU — the one focused chart on this screen -->
+              <div class="stat focus">
+                <div class="k"><Cpu aria-hidden="true" />CPU</div>
+                <div class="big num">{cpuRounded}<small>%</small></div>
+                <div class="sub2">{stats.pids} PIDs</div>
+                {#if spark.line}
+                  <svg class="spark" viewBox="0 0 {SPARK_W} {SPARK_H}" preserveAspectRatio="none" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="cpuspark" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="var(--lime)" stop-opacity="0.35" />
+                        <stop offset="1" stop-color="var(--lime)" stop-opacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <path d={spark.fill} fill="url(#cpuspark)" />
+                    <path d={spark.line} fill="none" stroke="var(--lime)" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+                  </svg>
+                {/if}
               </div>
-              <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-[#21262d]">
-                <div
-                  class="h-full rounded-full bg-[#2f81f7] transition-all"
-                  style="width: {clampPct(stats.cpu_pct)}%"
-                ></div>
-              </div>
-            </div>
 
-            <!-- Memory -->
-            <div class="rounded-md border border-[#262b34] bg-[#0e1116] p-3">
-              <div class="flex items-baseline justify-between">
-                <span class="text-[12px] text-[#9aa3af]">Memory</span>
-                <span class="font-mono-app text-[13px] text-[#e6e8eb]"
-                  >{fmtPct(stats.mem_pct)}</span
-                >
+              <!-- Memory -->
+              <div class="stat">
+                <div class="k"><MemoryStick aria-hidden="true" />Memory</div>
+                <div class="big num">{memRounded}<small>%</small></div>
+                <div class="sub2">{humanBytes(stats.mem_usage)} / {humanBytes(stats.mem_limit)}</div>
+                <div class="mbar"><i style="width:{clampPct(stats.mem_pct)}%"></i></div>
               </div>
-              <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-[#21262d]">
-                <div
-                  class="h-full rounded-full bg-[#3fb950] transition-all"
-                  style="width: {clampPct(stats.mem_pct)}%"
-                ></div>
-              </div>
-              <div class="font-mono-app mt-1.5 text-[11px] text-[#9aa3af]">
-                {humanBytes(stats.mem_usage)} / {humanBytes(stats.mem_limit)}
-              </div>
-            </div>
 
-            <!-- Net / Block / PIDs -->
-            <div class="grid grid-cols-2 gap-3">
-              <div class="rounded-md border border-[#262b34] bg-[#0e1116] p-3">
-                <div class="text-[12px] text-[#9aa3af]">Net I/O</div>
-                <div class="font-mono-app mt-1 text-[13px] text-[#e6e8eb]">
-                  ↓ {humanBytes(stats.net_rx)}
-                </div>
-                <div class="font-mono-app text-[13px] text-[#e6e8eb]">
-                  ↑ {humanBytes(stats.net_tx)}
+              <!-- Network I/O -->
+              <div class="stat">
+                <div class="k"><Activity aria-hidden="true" />Network I/O</div>
+                <div class="pair">
+                  <span><ArrowDown aria-hidden="true" /><b>{humanBytes(stats.net_rx)}</b> rx</span>
+                  <span><ArrowUp aria-hidden="true" /><b>{humanBytes(stats.net_tx)}</b> tx</span>
                 </div>
               </div>
-              <div class="rounded-md border border-[#262b34] bg-[#0e1116] p-3">
-                <div class="text-[12px] text-[#9aa3af]">Block I/O</div>
-                <div class="font-mono-app mt-1 text-[13px] text-[#e6e8eb]">
-                  R {humanBytes(stats.blk_read)}
-                </div>
-                <div class="font-mono-app text-[13px] text-[#e6e8eb]">
-                  W {humanBytes(stats.blk_write)}
+
+              <!-- Block I/O -->
+              <div class="stat">
+                <div class="k"><HardDrive aria-hidden="true" />Block I/O</div>
+                <div class="pair">
+                  <span>R <b>{humanBytes(stats.blk_read)}</b></span>
+                  <span>W <b>{humanBytes(stats.blk_write)}</b></span>
                 </div>
               </div>
             </div>
-            <div class="rounded-md border border-[#262b34] bg-[#0e1116] p-3">
-              <div class="flex items-baseline justify-between">
-                <span class="text-[12px] text-[#9aa3af]">PIDs</span>
-                <span class="font-mono-app text-[13px] text-[#e6e8eb]"
-                  >{stats.pids}</span
-                >
-              </div>
+          {/if}
+        </div>
+
+        <!-- parsed details -->
+        <div class="ov-details">
+          <div class="kv">
+            <div class="sec">Details</div>
+            <div class="r">
+              <span class="k">Image</span>
+              <span class="v">
+                <span class="mono">{image || "—"}</span>
+                {#if isOfficial}
+                  <span class="official"><Check aria-hidden="true" />Official</span>
+                {/if}
+              </span>
             </div>
+            <div class="r">
+              <span class="k">Container ID</span>
+              <span class="v">
+                <button class="copy mono" type="button" onclick={copyId} title="Copy full ID">
+                  {id.slice(0, 16)}
+                  {#if copied}<Check aria-hidden="true" />{:else}<Copy aria-hidden="true" />{/if}
+                </button>
+              </span>
+            </div>
+            <div class="r">
+              <span class="k">Status</span>
+              <span class="v">{status || "—"}</span>
+            </div>
+            <div class="r">
+              <span class="k">Created</span>
+              <span class="v num">{fmtCreated(info?.created ?? null) ?? "—"}</span>
+            </div>
+            <div class="r">
+              <span class="k">Command</span>
+              <span class="v mono">{info?.command || "—"}</span>
+            </div>
+            <div class="r">
+              <span class="k">Ports</span>
+              <span class="v">
+                {#if container.ports.length === 0}
+                  <span class="muted">—</span>
+                {:else}
+                  <span class="chips">
+                    {#each container.ports as p, i (i)}
+                      {#if p.url}
+                        <button class="port" type="button" style="cursor:pointer" title={portTitle(p)} onclick={() => openPort(p.url!)}>
+                          {portLabel(p)}<ExternalLink aria-hidden="true" />
+                        </button>
+                      {:else}
+                        <span class="port" title={portTitle(p)}>{portLabel(p)}</span>
+                      {/if}
+                    {/each}
+                  </span>
+                {/if}
+              </span>
+            </div>
+            <div class="r">
+              <span class="k">Networks</span>
+              <span class="v">
+                {#if info && info.networks.length}
+                  <span class="chips">
+                    {#each info.networks as n (n)}
+                      <span class="net"><Network aria-hidden="true" />{n}</span>
+                    {/each}
+                  </span>
+                {:else}
+                  <span class="muted">—</span>
+                {/if}
+              </span>
+            </div>
+            <div class="r">
+              <span class="k">Volumes</span>
+              <span class="v">
+                {#if info && info.mounts.length}
+                  <span class="chips">
+                    {#each info.mounts as m, i (i)}
+                      <span class="net" title={m.dest}>{m.name}</span>
+                    {/each}
+                  </span>
+                {:else}
+                  <span class="muted">—</span>
+                {/if}
+              </span>
+            </div>
+            {#if container.composeProject}
+              <div class="r">
+                <span class="k">Compose</span>
+                <span class="v mono">{container.composeProject}</span>
+              </div>
+            {/if}
+
+            {#if showAdv && info}
+              <div class="r">
+                <span class="k">Entrypoint</span>
+                <span class="v mono">{info.entrypoint || "—"}</span>
+              </div>
+              <div class="r">
+                <span class="k">Working dir</span>
+                <span class="v mono">{info.workingDir || "—"}</span>
+              </div>
+              <div class="r">
+                <span class="k">Restart policy</span>
+                <span class="v">{info.restart || "no"}</span>
+              </div>
+              <div class="r">
+                <span class="k">Env vars</span>
+                <span class="v num">{info.envCount}</span>
+              </div>
+            {/if}
           </div>
-        {/if}
+          {#if info}
+            <button class="show-adv" type="button" onclick={() => (showAdv = !showAdv)}>
+              <ChevronDown aria-hidden="true" style={showAdv ? "transform:rotate(180deg)" : undefined} />
+              {showAdv ? "Hide advanced information" : "Show advanced information"}
+            </button>
+          {/if}
+        </div>
       </div>
     {:else if activeTab === "inspect"}
-      <div class="flex h-full flex-col p-4">
-        {#if inspectLoading && inspectText === null}
-          <div class="py-6 text-center text-[13px] text-[#9aa3af]">
-            Loading inspect…
-          </div>
-        {:else if inspectError}
-          <div
-            class="rounded-md border border-[#f8514980] bg-[#f851491a] px-3 py-2 text-[12px] text-[#f85149]"
-          >
-            {inspectError}
-          </div>
-          <button
-            class="mt-3 self-start cursor-pointer rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-1 text-[12px] text-[#e6e8eb] hover:bg-[#2b3138]"
-            onclick={() => loadInspect(id)}
-          >
-            Retry
-          </button>
-        {:else if inspectText !== null}
-          <pre
-            class="font-mono-app m-0 flex-1 overflow-auto rounded-md border border-[#262b34] bg-[#0e1116] p-3 text-[11px] leading-relaxed text-[#c7ccd4] select-text whitespace-pre">{inspectText}</pre>
-        {:else}
-          <button
-            class="self-start cursor-pointer rounded-md border border-[#262b34] bg-[#21262d] px-2.5 py-1 text-[12px] text-[#e6e8eb] hover:bg-[#2b3138]"
-            onclick={() => loadInspect(id)}
-          >
-            Load inspect
-          </button>
-        {/if}
-      </div>
+      {#if inspectLoading && inspectText === null}
+        <div class="empty">Loading inspect…</div>
+      {:else if inspectError}
+        <div class="banner err">{inspectError}</div>
+        <button class="btn btn-soft sm" type="button" style="align-self:flex-start" onclick={() => loadInspect(id)}>
+          Retry
+        </button>
+      {:else if inspectText !== null}
+        <pre class="inspect-pre mono">{inspectText}</pre>
+      {:else}
+        <button class="btn btn-soft sm" type="button" style="align-self:flex-start" onclick={() => loadInspect(id)}>
+          Load inspect
+        </button>
+      {/if}
     {:else if activeTab === "top"}
-      <div class="p-4">
-        {#if !running}
-          <div class="py-6 text-center text-[13px] text-[#9aa3af]">
-            Container is not running — no processes.
+      {#if !running}
+        <div class="empty">Container is not running — no processes.</div>
+      {:else if topLoading && top === null}
+        <div class="empty">Loading processes…</div>
+      {:else if topError}
+        <div class="banner err">{topError}</div>
+      {:else if top && top.processes.length > 0}
+        <div class="table">
+          <div class="thead" style="--cols:repeat({top.titles.length},minmax(0,1fr))">
+            {#each top.titles as title, i (i)}
+              <span>{title}</span>
+            {/each}
           </div>
-        {:else if topLoading && top === null}
-          <div class="py-6 text-center text-[13px] text-[#9aa3af]">
-            Loading processes…
-          </div>
-        {:else if topError}
-          <div
-            class="rounded-md border border-[#f8514980] bg-[#f851491a] px-3 py-2 text-[12px] text-[#f85149]"
-          >
-            {topError}
-          </div>
-        {:else if top && top.processes.length > 0}
-          <div class="overflow-x-auto">
-            <table class="font-mono-app w-full border-collapse text-[11px]">
-              <thead>
-                <tr>
-                  {#each top.titles as title, i (i)}
-                    <th
-                      class="whitespace-nowrap border-b border-[#262b34] px-2 py-1.5 text-left font-medium text-[#9aa3af]"
-                      >{title}</th
-                    >
-                  {/each}
-                </tr>
-              </thead>
-              <tbody>
-                {#each top.processes as row, ri (ri)}
-                  <tr class="hover:bg-[#1b1f27]">
-                    {#each row as cell, ci (ci)}
-                      <td
-                        class="whitespace-nowrap border-b border-[#1f242c] px-2 py-1.5 align-top text-[#c7ccd4]"
-                        >{cell}</td
-                      >
-                    {/each}
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        {:else}
-          <div class="py-6 text-center text-[13px] text-[#9aa3af]">
-            No processes reported.
-          </div>
-        {/if}
-      </div>
+          {#each top.processes as row, ri (ri)}
+            <div class="toprow" style="--cols:repeat({top.titles.length},minmax(0,1fr))">
+              {#each row as cell, ci (ci)}
+                <span class="mono">{cell}</span>
+              {/each}
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <div class="empty">No processes reported.</div>
+      {/if}
     {/if}
   </div>
 </aside>
+
+<style>
+  /* Local-only layout glue — colours/surfaces all come from app.css tokens. */
+  .ov {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  /* full page: stats + details side by side */
+  .ov-full {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  .ov-stats,
+  .ov-details {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .rename-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--s2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    padding: 7px 10px;
+    color: var(--text);
+    font-size: 12.5px;
+    box-shadow: inset 0 1px 0 var(--hi);
+    outline: none;
+  }
+  .rename-input:focus {
+    border-color: var(--lime-line);
+  }
+
+  /* copy button styled as the kv copy affordance */
+  .copy {
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .inspect-pre {
+    margin: 0;
+    flex: 1;
+    overflow: auto;
+    background: var(--s1);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 12px;
+    font-size: 11px;
+    line-height: 1.55;
+    color: var(--text-2);
+    white-space: pre;
+    user-select: text;
+    box-shadow: inset 0 1px 0 var(--hi);
+  }
+
+  /* process table rows (Top) reuse the table chrome from app.css */
+  .toprow {
+    display: grid;
+    grid-template-columns: var(--cols);
+    gap: 10px;
+    align-items: center;
+    padding: 8px 18px;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 11px;
+    color: var(--text-2);
+  }
+  .toprow:last-child {
+    border-bottom: 0;
+  }
+  .toprow span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>
