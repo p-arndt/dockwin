@@ -8,12 +8,12 @@
   import Download from "@lucide/svelte/icons/download";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import X from "@lucide/svelte/icons/x";
-  import * as api from "./api";
+  import * as api from "../api";
   import {
     checkAppUpdate,
     installAppUpdate,
     type AppUpdateInfo,
-  } from "./updater";
+  } from "../api/updater";
 
   // --- app (GUI) update state ---
   let appUpdate = $state<AppUpdateInfo | null>(null);

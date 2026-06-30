@@ -9,8 +9,8 @@
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import ExternalLink from "@lucide/svelte/icons/external-link";
-  import { openExternal } from "./openExternal";
-  import type { NormalizedContainer, NormalizedPort } from "./types";
+  import { openExternal } from "../api/external";
+  import type { NormalizedContainer, NormalizedPort } from "../types";
 
   type Action = "start" | "stop" | "restart" | "remove";
 

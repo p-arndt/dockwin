@@ -28,7 +28,7 @@
   import Search from "@lucide/svelte/icons/search";
   import { open } from "@tauri-apps/plugin-dialog";
   import * as api from "./lib/api";
-  import { theme, ACCENT_SHADES } from "./lib/theme.svelte";
+  import { theme, ACCENT_SHADES } from "./lib/state/theme.svelte";
   import type {
     EngineState,
     NormalizedContainer,
@@ -36,15 +36,15 @@
     ProvisionUi,
     Stack,
   } from "./lib/types";
-  import EngineGate from "./lib/EngineGate.svelte";
-  import ContainerList from "./lib/ContainerList.svelte";
-  import ImagesView from "./lib/ImagesView.svelte";
-  import StackList from "./lib/StackList.svelte";
-  import VolumesView from "./lib/VolumesView.svelte";
-  import NetworksView from "./lib/NetworksView.svelte";
-  import SystemView from "./lib/SystemView.svelte";
-  import ContainerDetails from "./lib/ContainerDetails.svelte";
-  import UpdateBanner from "./lib/UpdateBanner.svelte";
+  import EngineGate from "./lib/views/EngineGate.svelte";
+  import ContainerList from "./lib/views/ContainerList.svelte";
+  import ImagesView from "./lib/views/ImagesView.svelte";
+  import StackList from "./lib/views/StackList.svelte";
+  import VolumesView from "./lib/views/VolumesView.svelte";
+  import NetworksView from "./lib/views/NetworksView.svelte";
+  import SystemView from "./lib/views/SystemView.svelte";
+  import ContainerDetails from "./lib/views/ContainerDetails.svelte";
+  import UpdateBanner from "./lib/views/UpdateBanner.svelte";
 
   const POLL_MS = 3000;
 
@@ -567,6 +567,12 @@
   const EngineIcon = $derived(engine.icon);
   // "Engine: running" → "Engine running" for the compact status lines.
   let engineLine = $derived(engine.label.replace(": ", " "));
+  // Label for the active view, shown as the ctx-bar breadcrumb.
+  let activeViewLabel = $derived(
+    activeView === "settings"
+      ? "Settings"
+      : (NAV.find((n) => n.id === activeView)?.label ?? "")
+  );
 </script>
 
 {#snippet themeControls()}
@@ -583,16 +589,6 @@
     >
       <Sun aria-hidden="true" />Light
     </button>
-  </div>
-  <div class="sw" title="Accent shade">
-    {#each ACCENT_SHADES as _shade, i (i)}
-      <button
-        class={"l" + (i + 1)}
-        class:a={theme.accent === i}
-        aria-label={`Accent shade ${i + 1}`}
-        onclick={() => theme.setAccent(i)}
-      ></button>
-    {/each}
   </div>
 {/snippet}
 
@@ -678,13 +674,10 @@
 
     <!-- ===== MAIN ===== -->
     <main class="main">
-      <!-- slim ctx bar -->
+      <!-- slim ctx bar — engine status lives in the sidebar pod, so the bar holds
+           only the active context + the right-aligned controls. -->
       <div class="ctx">
-        <span class="live {engineTone}"><span class="d"></span>{engineLine}</span>
-        <span class="sep"></span>
-        <span class="num">{containers.length} containers</span>
-        <span class="sep"></span>
-        <span>WSL2 backend</span>
+        <span class="ctx-view">{activeViewLabel}</span>
         <span class="sp"></span>
         {@render themeControls()}
         <span class="sep"></span>
@@ -872,6 +865,47 @@
         <div class="head"><h1>Settings</h1></div>
         <div class="body">
           <div class="page">
+            <div class="card card-pad" style="max-width:60ch">
+              <div class="section-title" style="margin-bottom:12px">Appearance</div>
+              <div style="display:flex;flex-direction:column;gap:16px">
+                <div class="setrow">
+                  <div>
+                    <div class="setrow-t">Theme</div>
+                    <div class="setrow-s">Dark is the hero; light is first-class.</div>
+                  </div>
+                  <div class="seg" aria-label="Theme">
+                    <button
+                      aria-pressed={theme.theme === "dark"}
+                      onclick={() => theme.setTheme("dark")}
+                    >
+                      <Moon aria-hidden="true" />Dark
+                    </button>
+                    <button
+                      aria-pressed={theme.theme === "light"}
+                      onclick={() => theme.setTheme("light")}
+                    >
+                      <Sun aria-hidden="true" />Light
+                    </button>
+                  </div>
+                </div>
+                <div class="setrow">
+                  <div>
+                    <div class="setrow-t">Accent</div>
+                    <div class="setrow-s">The lime shade used for primary actions and highlights.</div>
+                  </div>
+                  <div class="sw" title="Accent shade">
+                    {#each ACCENT_SHADES as _shade, i (i)}
+                      <button
+                        class={"l" + (i + 1)}
+                        class:a={theme.accent === i}
+                        aria-label={`Accent shade ${i + 1}`}
+                        onclick={() => theme.setAccent(i)}
+                      ></button>
+                    {/each}
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="card card-pad" style="max-width:60ch">
               <div class="section-title" style="margin-bottom:12px">Engine</div>
               <div style="display:flex;flex-direction:column;gap:14px">

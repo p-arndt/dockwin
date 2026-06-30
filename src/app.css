@@ -446,6 +446,13 @@
 .ctx .sp {
   flex: 1;
 }
+/* active-view breadcrumb (left side of the ctx bar) */
+.ctx-view {
+  font-weight: 650;
+  font-size: 12.5px;
+  letter-spacing: -0.1px;
+  color: var(--text-2);
+}
 
 /* segmented control (theme toggle, etc.) */
 .seg {
@@ -510,6 +517,24 @@
 }
 .sw .l3 {
   background: #8fd95f;
+}
+
+/* settings row: a label/description block on the left, control on the right */
+.setrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.setrow-t {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 13px;
+}
+.setrow-s {
+  color: var(--text-3);
+  font-size: 12px;
+  margin-top: 2px;
 }
 
 /* ---- page header (per screen) ---- */
@@ -755,6 +780,7 @@
 
 /* ---- data table (containers + simple resource tables) ---- */
 .table {
+  width: 100%;
   background: var(--s1);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);

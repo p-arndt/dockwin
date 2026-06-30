@@ -10,7 +10,7 @@
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import Info from "@lucide/svelte/icons/info";
   import X from "@lucide/svelte/icons/x";
-  import { errText } from "./api";
+  import { errText } from "../api";
   import {
     volumeList,
     volumeCreate,
@@ -18,8 +18,8 @@
     volumePrune,
     volumeInspect,
     type Volume,
-  } from "./volumesApi";
-  import type { EngineState } from "./types";
+  } from "../api/volumes";
+  import type { EngineState } from "../types";
 
   interface Props {
     engineState?: EngineState;

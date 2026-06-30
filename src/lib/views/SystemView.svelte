@@ -20,8 +20,8 @@
     humanBytes,
     type SystemDfDto,
     type SystemInfoDto,
-  } from "./systemApi";
-  import type { EngineState } from "./types";
+  } from "../api/system";
+  import type { EngineState } from "../types";
 
   interface Props {
     engineState?: EngineState;

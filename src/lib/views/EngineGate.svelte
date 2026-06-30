@@ -11,8 +11,8 @@
   import PlayCircle from "@lucide/svelte/icons/circle-play";
   import Hammer from "@lucide/svelte/icons/hammer";
   import Terminal from "@lucide/svelte/icons/terminal";
-  import StatusDot from "./components/StatusDot.svelte";
-  import type { EngineState, ProvisionUi } from "./types";
+  import StatusDot from "../components/StatusDot.svelte";
+  import type { EngineState, ProvisionUi } from "../types";
 
   let {
     engineState,

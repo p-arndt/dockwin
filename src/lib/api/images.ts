@@ -4,7 +4,7 @@
 // handlers (image_list lives in commands.rs; the rest in cmd_images_ext.rs).
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { ImageDto } from "./types";
+import type { ImageDto } from "../types";
 
 // --- Types (mirror the Rust DTOs) ---
 

@@ -9,9 +9,10 @@
   import Package from "@lucide/svelte/icons/package";
   import Box from "@lucide/svelte/icons/box";
   import ExternalLink from "@lucide/svelte/icons/external-link";
-  import Pill from "./components/Pill.svelte";
-  import { openExternal } from "./openExternal";
-  import type { Stack, NormalizedContainer, NormalizedPort } from "./types";
+  import FolderOpen from "@lucide/svelte/icons/folder-open";
+  import Pill from "../components/Pill.svelte";
+  import { openExternal, openFolder, wslToWindowsPath } from "../api/external";
+  import type { Stack, NormalizedContainer, NormalizedPort } from "../types";
 
   type StackAction = "start" | "stop" | "restart";
 
@@ -85,6 +86,17 @@
               class="num">{s.total}</span
             > running
           </Pill>
+          {#if s.workingDir}
+            <button
+              class="shead-dir"
+              type="button"
+              title={`Open ${wslToWindowsPath(s.workingDir)} in Explorer`}
+              onclick={() => openFolder(s.workingDir!)}
+            >
+              <FolderOpen aria-hidden="true" />
+              <span class="shead-dir-path">{wslToWindowsPath(s.workingDir)}</span>
+            </button>
+          {/if}
           <div class="shead-acts">
             <button
               class="btn btn-soft sm"
@@ -202,6 +214,38 @@
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  /* Open-the-compose-folder chip: quiet, monospace path, brightens on hover. */
+  .shead-dir {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 360px;
+    padding: 4px 9px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--s2);
+    color: var(--text-3);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: color 0.13s var(--ease), border-color 0.13s var(--ease);
+  }
+  .shead-dir:hover {
+    color: var(--text);
+    border-color: var(--text-4);
+  }
+  .shead-dir :global(svg) {
+    width: 13px;
+    height: 13px;
+    flex: none;
+    color: var(--text-4);
+  }
+  .shead-dir-path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* Quieten the count separator inside the pill. */

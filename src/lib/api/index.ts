@@ -14,7 +14,7 @@ import type {
   NormalizedPort,
   PortMappingDto,
   ProvisionProgress,
-} from "./types";
+} from "../types";
 
 // --- Engine lifecycle ---
 
@@ -223,6 +223,9 @@ export function normalizeContainer(c: ContainerDto): NormalizedContainer {
     typeof composeRaw === "string" && composeRaw.trim() !== ""
       ? composeRaw
       : null;
+  const wdRaw = c.compose_working_dir;
+  const composeWorkingDir =
+    typeof wdRaw === "string" && wdRaw.trim() !== "" ? wdRaw : null;
   return {
     id,
     shortId,
@@ -233,6 +236,7 @@ export function normalizeContainer(c: ContainerDto): NormalizedContainer {
     ports,
     running: state === "running",
     composeProject,
+    composeWorkingDir,
   };
 }
 
@@ -240,9 +244,9 @@ export function normalizeContainer(c: ContainerDto): NormalizedContainer {
 // without a compose project are omitted. Sorted by project name; services within
 // a stack running-first then by name.
 export function groupStacks(
-  containers: import("./types").NormalizedContainer[]
-): import("./types").Stack[] {
-  const byProject = new Map<string, import("./types").NormalizedContainer[]>();
+  containers: import("../types").NormalizedContainer[]
+): import("../types").Stack[] {
+  const byProject = new Map<string, import("../types").NormalizedContainer[]>();
   for (const c of containers) {
     if (!c.composeProject) continue;
     const list = byProject.get(c.composeProject) ?? [];
@@ -259,6 +263,7 @@ export function groupStacks(
       containers: list,
       running: list.filter((c) => c.running).length,
       total: list.length,
+      workingDir: list.find((c) => c.composeWorkingDir)?.composeWorkingDir ?? null,
     };
   });
   stacks.sort((a, b) => a.project.localeCompare(b.project));
@@ -272,7 +277,10 @@ export function normalizePorts(
   ports: PortMappingDto[] | undefined | null
 ): NormalizedPort[] {
   if (!Array.isArray(ports)) return [];
-  const out: NormalizedPort[] = [];
+  // Docker publishes the same host port twice when bound to both IPv4 (0.0.0.0)
+  // and IPv6 (::); they render identically, so dedup by host-port + protocol and
+  // keep the forwarded (clickable) variant if either is.
+  const seen = new Map<string, NormalizedPort>();
   for (const p of ports) {
     const publicPort = p.public_port ?? p.PublicPort ?? p.host ?? null;
     const privatePort = p.private_port ?? p.PrivatePort ?? p.container ?? null;
@@ -289,14 +297,19 @@ export function normalizePorts(
       forwarded && proto.toLowerCase() === "tcp"
         ? `http://localhost:${publicPort}`
         : null;
-    out.push({
+    const entry: NormalizedPort = {
       host: publicPort,
       container: privatePort,
       proto,
       ip,
       wildcard,
       url,
-    });
+    };
+    const key = `${publicPort}/${proto.toLowerCase()}`;
+    const prev = seen.get(key);
+    // First occurrence wins, unless a later one is forwarded and the kept one
+    // isn't (prefer the clickable variant).
+    if (!prev || (!prev.url && entry.url)) seen.set(key, entry);
   }
-  return out;
+  return [...seen.values()];
 }

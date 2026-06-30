@@ -9,9 +9,9 @@
   import Braces from "@lucide/svelte/icons/braces";
   import Eraser from "@lucide/svelte/icons/eraser";
   import X from "@lucide/svelte/icons/x";
-  import { errText } from "./api";
-  import * as net from "./networksApi";
-  import type { EngineState } from "./types";
+  import { errText } from "../api";
+  import * as net from "../api/networks";
+  import type { EngineState } from "../types";
 
   interface Props {
     engineState?: EngineState;

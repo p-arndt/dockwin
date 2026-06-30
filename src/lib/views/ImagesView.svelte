@@ -19,9 +19,9 @@
   import Check from "@lucide/svelte/icons/check";
   import Copy from "@lucide/svelte/icons/copy";
   import Boxes from "@lucide/svelte/icons/boxes";
-  import * as imagesApi from "./imagesApi";
-  import type { ImageLayer } from "./imagesApi";
-  import type { EngineState, ImageDto } from "./types";
+  import * as imagesApi from "../api/images";
+  import type { ImageLayer } from "../api/images";
+  import type { EngineState, ImageDto } from "../types";
 
   interface Props {
     engineState?: EngineState;

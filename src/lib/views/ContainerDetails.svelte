@@ -23,8 +23,8 @@
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import Network from "@lucide/svelte/icons/network";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
-  import type { NormalizedContainer, NormalizedPort } from "./types";
-  import { openExternal } from "./openExternal";
+  import type { NormalizedContainer, NormalizedPort } from "../types";
+  import { openExternal } from "../api/external";
   import {
     containerInspect,
     containerRename,
@@ -35,7 +35,7 @@
     humanBytes,
     type ContainerStatsDto,
     type ContainerTopDto,
-  } from "./containersApi";
+  } from "../api/containers";
 
   interface Props {
     container: NormalizedContainer;
