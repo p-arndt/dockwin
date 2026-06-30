@@ -29,7 +29,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 # Open published-container ports / URLs in the OS default browser.
-tauri-plugin-opener = "2"
+tauri-plugin-opener = "2.5.4"
 
 # --- Docker Engine API client ---
 # bollard 0.18 ships current Docker API bindings and (on Windows) named-pipe transport.
@@ -47,7 +47,6 @@ serde_json = "1"
 thiserror = "2"
 log = "0.4"
 tauri-plugin-log = "2"
-tauri-plugin-opener = "2.5.4"
 
 [features]
 # This feature is used by the `tauri` CLI for production builds.
