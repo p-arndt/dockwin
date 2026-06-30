@@ -87,30 +87,44 @@
       counts={app.navCounts}
       engineTone={app.engineTone}
       engineLine={app.engineLine}
+      settingsActive={activeView === "settings"}
       onSelect={navigate}
+      onSettings={() => navigate("settings")}
     />
 
     <Sidebar.Inset class="flex flex-col min-w-0 overflow-hidden">
       <TopBar
         label={app.viewLabel(activeView)}
-        engineState={app.engineState}
-        settingsActive={activeView === "settings"}
-        engineBusy={app.engineBusy}
         working={app.working}
-        engineToggleDisabled={app.engineToggleDisabled}
-        onSettings={() => navigate("settings")}
         onRefresh={app.manualRefresh}
-        onToggleEngine={() => app.toggleEngine()}
       />
 
       {@render children()}
 
       <div
-        class="shrink-0 border-t border-border bg-card py-[6px] px-[22px] text-[11.5px] select-text {app.footerErr
+        class="shrink-0 flex items-center gap-[14px] border-t border-border bg-card py-[6px] px-[22px] text-[11.5px] select-text {app.footerErr
           ? 'text-destructive'
           : 'text-muted-foreground'}"
       >
-        {app.footer}
+        <span class="min-w-0 truncate">{app.footer}</span>
+        <span class="flex-1"></span>
+        <button
+          type="button"
+          onclick={() => navigate("settings")}
+          title="Engine settings"
+          class="flex items-center gap-[7px] shrink-0 rounded-[6px] -mr-1 px-[6px] py-[2px] font-medium text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+        >
+          <span
+            class="relative h-[6px] w-[6px] shrink-0 rounded-full {app.engineTone ===
+            'warn'
+              ? 'bg-chart-3'
+              : app.engineTone === 'off'
+                ? 'bg-chart-5'
+                : 'bg-chart-2'}"
+            class:eng-dot-ring={app.engineTone === 'live'}
+          ></span>
+          {app.engineLine}
+        </button>
       </div>
     </Sidebar.Inset>
   </Sidebar.Provider>

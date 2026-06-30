@@ -248,6 +248,30 @@
     background: var(--lime-soft);
   }
 
+  /* Engine "live" status dot — soft pulsing ring. Shared by the sidebar engine
+     button, the Settings engine card and the bottom status bar (a pseudo-element
+     + keyframes can't be expressed as inline Tailwind utilities). The element it
+     decorates must be `relative`. */
+  .eng-dot-ring::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 1px solid var(--ok);
+    opacity: 0.5;
+    animation: eng-dot-ring 2.6s var(--ease) infinite;
+  }
+  @keyframes eng-dot-ring {
+    0% {
+      transform: scale(0.6);
+      opacity: 0.6;
+    }
+    100% {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+  }
+
   /* ===== scrollbars =====
      Tauri's WebView2 ships a chunky white default bar (see the containers
      table). Replace it with a thin, themed, overlay-style track that fades

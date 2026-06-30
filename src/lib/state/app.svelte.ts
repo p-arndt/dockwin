@@ -274,6 +274,25 @@ export class AppController {
     }
   }
 
+  // Restart the running engine. There's no single backend command for this, so
+  // sequence a stop then a start (sharing the engineBusy guard with toggleEngine).
+  async restartEngine() {
+    if (this.engineBusy || this.working) return;
+    if (this.engineState !== "running") return;
+    this.engineBusy = true;
+    try {
+      this.setFooter("Restarting engine…");
+      await api.engineStop();
+      await api.engineStart();
+      this.setFooter("Engine restarted.");
+    } catch (e) {
+      this.setFooter(`Engine restart failed: ${api.errText(e)}`, true);
+    } finally {
+      this.engineBusy = false;
+      await this.refreshAll();
+    }
+  }
+
   // Apply a live provisioning progress event to the UI.
   private handleProvision = (p: ProvisionProgress) => {
     if (!this.working) return; // ignore stray late events

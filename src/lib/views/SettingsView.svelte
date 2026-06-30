@@ -1,18 +1,37 @@
 <script lang="ts">
-  // Settings screen: appearance (theme) and engine teardown.
+  // Settings screen: appearance (theme), engine control (start/stop/restart) and
+  // engine teardown (danger zone).
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import CircleStop from "@lucide/svelte/icons/circle-stop";
+  import PlayCircle from "@lucide/svelte/icons/circle-play";
+  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
   import ThemeToggle from "../components/ThemeToggle.svelte";
+  import type { EngineState } from "../types";
 
   let {
     working,
     withBackup = $bindable(),
+    engineState,
+    engineLine,
+    engineTone,
+    engineBusy,
+    engineToggleDisabled,
+    onToggleEngine,
+    onRestartEngine,
     onTeardown,
   }: {
     working: boolean;
     withBackup: boolean;
+    engineState: EngineState;
+    engineLine: string;
+    engineTone: string;
+    engineBusy: boolean;
+    engineToggleDisabled: boolean;
+    onToggleEngine: () => void;
+    onRestartEngine: () => void;
     onTeardown: () => void;
   } = $props();
 </script>
@@ -49,6 +68,54 @@
         class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70 mb-[12px]"
       >
         Engine
+      </div>
+      <div class="flex items-center justify-between gap-[18px]">
+        <div class="flex items-center gap-[10px]">
+          <span
+            class="relative h-[8px] w-[8px] shrink-0 rounded-full {engineTone ===
+            'warn'
+              ? 'bg-chart-3'
+              : engineTone === 'off'
+                ? 'bg-chart-5'
+                : 'bg-chart-2'}"
+            class:eng-dot-ring={engineTone === 'live'}
+          ></span>
+          <div>
+            <div class="font-semibold text-foreground text-[13px]">{engineLine}</div>
+            <div class="text-muted-foreground text-[12px] mt-[2px]">WSL2 backend</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-[8px] shrink-0">
+          {#if engineState === "running" || engineState === "stopped"}
+            <Button
+              variant={engineState === "running" ? "destructive" : "success"}
+              disabled={engineToggleDisabled}
+              onclick={onToggleEngine}
+            >
+              {#if engineState === "running"}
+                <CircleStop aria-hidden="true" />{engineBusy ? "Stopping…" : "Stop"}
+              {:else}
+                <PlayCircle aria-hidden="true" />{engineBusy ? "Starting…" : "Start"}
+              {/if}
+            </Button>
+          {/if}
+          <Button
+            variant="outline"
+            disabled={engineToggleDisabled || engineState !== "running"}
+            onclick={onRestartEngine}
+          >
+            <RotateCcw aria-hidden="true" />Restart
+          </Button>
+        </div>
+      </div>
+    </div>
+    <div
+      class="bg-card border border-border rounded-[11px] shadow-sm py-[16px] px-[18px] max-w-[60ch]"
+    >
+      <div
+        class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70 mb-[12px]"
+      >
+        Danger zone
       </div>
       <div class="flex flex-col gap-[14px]">
         <p class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground m-0">

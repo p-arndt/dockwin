@@ -41,6 +41,7 @@
 
 <script lang="ts">
   import Container from "@lucide/svelte/icons/container";
+  import Settings from "@lucide/svelte/icons/settings";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 
   let {
@@ -48,13 +49,17 @@
     counts,
     engineTone,
     engineLine,
+    settingsActive,
     onSelect,
+    onSettings,
   }: {
     activeView: View;
     counts: Partial<Record<View, number>>;
     engineTone: string;
     engineLine: string;
+    settingsActive: boolean;
     onSelect: (view: View) => void;
+    onSettings: () => void;
   } = $props();
 </script>
 
@@ -64,7 +69,7 @@
       class="flex items-center gap-2.5 p-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
     >
       <span
-        class="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-[linear-gradient(150deg,var(--lime-bright),var(--lime-deep))] text-[var(--lime-ink)] shadow-[0_4px_14px_-4px_var(--lime-line),inset_0_1px_0_rgba(255,255,255,0.35)]"
+        class="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"
       >
         <Container size={17} aria-hidden="true" />
       </span>
@@ -90,7 +95,7 @@
                   tooltipContent={item.label}
                   aria-current={activeView === item.id ? "page" : undefined}
                   onclick={() => onSelect(item.id)}
-                  class="font-medium text-muted-foreground hover:bg-foreground/10! hover:text-foreground! data-[active=true]:bg-foreground/[0.14]! data-[active=true]:text-foreground! data-[active=true]:shadow-[inset_2px_0_0_var(--lime)] [&_svg]:text-muted-foreground data-[active=true]:[&_svg]:text-[var(--lime)]"
+                  class="font-medium text-muted-foreground hover:bg-foreground/10! hover:text-foreground! data-[active=true]:bg-foreground/[0.14]! data-[active=true]:text-foreground! data-[active=true]:shadow-[inset_2px_0_0_var(--primary)] [&_svg]:text-muted-foreground data-[active=true]:[&_svg]:text-primary"
                 >
                   <ItemIcon aria-hidden="true" />
                   <span>{item.label}</span>
@@ -107,51 +112,35 @@
   </Sidebar.Content>
 
   <Sidebar.Footer class="group-data-[collapsible=icon]:hidden">
-    <div class="mt-0 border-t-0 px-0.5 py-1">
-      <div
-        class="flex items-center gap-[9px] rounded-[10px] border border-border bg-muted px-[11px] py-[9px]"
-      >
-        <span
-          class="relative h-[7px] w-[7px] shrink-0 rounded-full {engineTone ===
-          'warn'
-            ? 'bg-chart-3'
-            : engineTone === 'off'
-              ? 'bg-chart-5'
-              : 'bg-chart-2'}"
-          class:eng-dot-ring={engineTone === 'live'}
-        ></span>
-        <div>
-          <div class="text-[12px] font-semibold leading-[1.2]">{engineLine}</div>
-          <div class="text-[11px] text-muted-foreground">WSL2 backend</div>
-        </div>
+    <button
+      type="button"
+      onclick={onSettings}
+      aria-current={settingsActive ? "page" : undefined}
+      title="Engine settings"
+      class="group/eng flex w-full items-center gap-[10px] rounded-[8px] px-[8px] py-[7px] text-left transition-colors hover:bg-foreground/[0.06] {settingsActive
+        ? 'bg-foreground/[0.06]'
+        : ''}"
+    >
+      <span
+        class="relative h-[6px] w-[6px] shrink-0 rounded-full {engineTone === 'warn'
+          ? 'bg-chart-3'
+          : engineTone === 'off'
+            ? 'bg-chart-5'
+            : 'bg-chart-2'}"
+        class:eng-dot-ring={engineTone === 'live'}
+      ></span>
+      <div class="min-w-0 flex-1 leading-tight">
+        <div class="text-[12px] font-medium text-foreground/90">{engineLine}</div>
+        <div class="text-[10.5px] text-muted-foreground/80">WSL2 backend</div>
       </div>
-    </div>
+      <Settings
+        class="size-[14px] shrink-0 text-muted-foreground/60 transition-colors group-hover/eng:text-foreground {settingsActive
+          ? 'text-foreground'
+          : ''}"
+        aria-hidden="true"
+      />
+    </button>
   </Sidebar.Footer>
 
   <Sidebar.Rail />
 </Sidebar.Root>
-
-<style>
-  /* Engine status "live" dot pulse ring — pseudo-element + keyframes can't be
-     expressed as inline Tailwind utilities, so reproduce the original
-     `.eng .dot.live::after` rule here. Uses raw design vars (animation-only). */
-  .eng-dot-ring::after {
-    content: "";
-    position: absolute;
-    inset: -4px;
-    border-radius: 50%;
-    border: 1px solid var(--ok);
-    opacity: 0.5;
-    animation: ring 2.6s var(--ease) infinite;
-  }
-  @keyframes ring {
-    0% {
-      transform: scale(0.6);
-      opacity: 0.6;
-    }
-    100% {
-      transform: scale(1.5);
-      opacity: 0;
-    }
-  }
-</style>
