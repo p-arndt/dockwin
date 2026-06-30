@@ -226,7 +226,7 @@
       />
       <Input
         class="pl-8"
-        placeholder="Filter networks"
+        placeholder="Filter networks…"
         bind:value={query}
         disabled={engineState !== "running"}
         aria-label="Filter networks by name"
@@ -260,7 +260,7 @@
   <!-- Create network form -->
   {#if engineState === "running"}
     <form
-      class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] px-[18px] py-[16px] flex flex-wrap items-end gap-[12px]"
+      class="bg-card border border-border rounded-xl px-[18px] py-[16px] flex flex-wrap items-end gap-[12px]"
       onsubmit={createNetwork}
     >
       <label class="flex flex-col gap-[6px]">
@@ -332,7 +332,7 @@
               {:else if query.trim()}
                 No networks match “{query.trim()}”.
               {:else}
-                No networks.
+                No custom networks yet — create one to get started.
               {/if}
             </Table.Cell>
           </Table.Row>
@@ -342,10 +342,19 @@
             {@const inspecting = pending.has(`inspect:${n.id}`)}
             {@const open = inspectId === n.id}
             <Table.Row
-              class="group relative data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--primary)]"
+              class="group relative cursor-pointer data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:-outline-offset-2"
               data-sel={open}
               style={acting ? "opacity:.55" : undefined}
+              role="button"
+              tabindex={0}
               aria-busy={acting}
+              onclick={() => toggleInspect(n)}
+              onkeydown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggleInspect(n);
+                }
+              }}
             >
               <Table.Cell>
                 <div class="flex items-center gap-[12px] min-w-0">
@@ -353,6 +362,7 @@
                     class="w-[7px] h-[7px] rounded-full shrink-0 {n.containers > 0
                       ? 'bg-chart-2'
                       : 'bg-chart-5'}"
+                    title={n.containers > 0 ? "Has containers" : "No containers"}
                   ></span>
                   <span
                     class="size-[30px] rounded-[8px] shrink-0 grid place-items-center bg-muted border border-border text-muted-foreground"
@@ -398,8 +408,12 @@
                     variant="ghost"
                     size="icon-sm"
                     title={open ? "Hide inspect" : "Inspect"}
+                    aria-label={open ? "Hide inspect" : "Inspect"}
                     disabled={inspecting}
-                    onclick={() => toggleInspect(n)}
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      toggleInspect(n);
+                    }}
                   >
                     {#if open}<X aria-hidden="true" />{:else}<Braces
                         aria-hidden="true"
@@ -411,8 +425,12 @@
                       size="icon-sm"
                       class="text-muted-foreground hover:text-destructive"
                       title="Remove network"
+                      aria-label="Remove network"
                       disabled={acting}
-                      onclick={() => removeNetwork(n)}
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        removeNetwork(n);
+                      }}
                     >
                       <Trash2 aria-hidden="true" />
                     </Button>

@@ -44,13 +44,35 @@
     return s.running === s.total ? "ok" : "warn";
   }
 
-  // Loud status word for a service (running => "Running"; otherwise capitalise
-  // the raw docker state, falling back to "Stopped").
-  function stateWord(c: NormalizedContainer): string {
-    if (c.running) return "Running";
-    const st = (c.state || "").trim();
-    if (!st) return "Stopped";
-    return st.charAt(0).toUpperCase() + st.slice(1);
+  // Quiet status descriptor: a tone (drives the dot + word colour) + the lamp
+  // class for the name-cell indicator + a single word. Mirrors
+  // ContainerList.svelte's statusOf() so service status reads identically
+  // whether viewed from Containers or from a Stack's service table.
+  interface StatusView {
+    tone: "run" | "warn" | "err" | "exit";
+    lamp: "run" | "warn" | "err" | "";
+    word: string;
+  }
+  function statusOf(c: NormalizedContainer): StatusView {
+    if (c.running) return { tone: "run", lamp: "run", word: "Running" };
+    switch (c.state) {
+      case "paused":
+        return { tone: "warn", lamp: "warn", word: "Paused" };
+      case "restarting":
+        return { tone: "warn", lamp: "warn", word: "Restarting" };
+      case "created":
+        return { tone: "exit", lamp: "", word: "Created" };
+      case "dead":
+        return { tone: "err", lamp: "err", word: "Dead" };
+      case "exited":
+        return { tone: "exit", lamp: "", word: "Exited" };
+      default:
+        return {
+          tone: "exit",
+          lamp: "",
+          word: c.state ? c.state[0].toUpperCase() + c.state.slice(1) : "Unknown",
+        };
+    }
   }
 
   function portLabel(p: NormalizedPort): string {
@@ -125,7 +147,7 @@
           {/if}
           <div class="ml-auto flex items-center gap-[6px]">
             <Button
-              variant="outline"
+              variant="success"
               size="sm"
               disabled={busy || allRunning}
               onclick={() => act("start", s)}
@@ -134,7 +156,7 @@
               <Play aria-hidden="true" /> Start
             </Button>
             <Button
-              variant="outline"
+              variant="destructive"
               size="sm"
               disabled={busy || s.running === 0}
               onclick={() => act("stop", s)}
@@ -177,6 +199,7 @@
           </Table.Header>
           <Table.Body>
             {#each s.containers as c (c.id)}
+              {@const st = statusOf(c)}
               <Table.Row
                 class="hover:bg-transparent"
                 style={pending.has(c.id) ? "opacity:.55" : undefined}
@@ -184,15 +207,19 @@
                 <Table.Cell>
                   <div class="flex items-center gap-[12px] min-w-0">
                     <span
-                      class="w-[7px] h-[7px] rounded-full shrink-0 {c.running
+                      class="w-[7px] h-[7px] rounded-full shrink-0 {st.lamp === 'run'
                         ? 'bg-chart-2'
-                        : 'bg-chart-5'}"
+                        : st.lamp === 'warn'
+                          ? 'bg-chart-3'
+                          : st.lamp === 'err'
+                            ? 'bg-destructive'
+                            : 'bg-chart-5'}"
                     ></span>
                     <span
                       class="grid place-items-center size-[30px] rounded-[8px] shrink-0 bg-muted border border-border [&_svg]:size-[15px]"
                       ><Box aria-hidden="true" /></span
                     >
-                    <div style="min-width:0">
+                    <div class="min-w-0">
                       <div
                         class="font-semibold text-[13.5px] text-foreground tracking-[-0.1px] leading-[1.25] truncate"
                       >
@@ -217,14 +244,23 @@
                 <Table.Cell>
                   <div class="flex flex-col gap-[2px] min-w-0">
                     <span
-                      class="flex items-center gap-[7px] text-[12.5px] font-medium {c.running
-                        ? 'text-foreground'
-                        : 'text-muted-foreground'}"
+                      class="flex items-center gap-[7px] text-[12.5px] font-medium {st.tone ===
+                      'warn'
+                        ? 'text-chart-3'
+                        : st.tone === 'err'
+                          ? 'text-destructive'
+                          : st.tone === 'exit'
+                            ? 'text-muted-foreground'
+                            : 'text-foreground'}"
                       ><span
-                        class="w-[6px] h-[6px] rounded-full shrink-0 {c.running
-                          ? 'bg-chart-2'
-                          : 'bg-chart-5'}"
-                      ></span>{stateWord(c)}</span
+                        class="w-[6px] h-[6px] rounded-full shrink-0 {st.tone === 'warn'
+                          ? 'bg-chart-3'
+                          : st.tone === 'err'
+                            ? 'bg-destructive'
+                            : st.tone === 'exit'
+                              ? 'bg-chart-5'
+                              : 'bg-chart-2'}"
+                      ></span>{st.word}</span
                     >
                     {#if c.status}<span
                         class="text-[11px] text-muted-foreground/70 tabular-nums truncate"

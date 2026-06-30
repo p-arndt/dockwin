@@ -15,6 +15,7 @@
   import AppSidebar, { type View } from "$lib/components/AppSidebar.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import ConfirmHost from "$lib/components/ConfirmHost.svelte";
+  import StatusDot from "$lib/components/StatusDot.svelte";
   import EngineGate from "$lib/views/EngineGate.svelte";
   import TopBar from "$lib/views/TopBar.svelte";
   import UpdateBanner from "$lib/views/UpdateBanner.svelte";
@@ -52,13 +53,11 @@
       </span>
       <span class="w-px h-[13px] bg-border"></span>
       <span class="flex items-center gap-[7px] text-muted-foreground font-medium"
-        ><span
-          class="size-[6px] rounded-full {app.engineTone === 'warn'
-            ? 'bg-chart-3'
-            : app.engineTone === 'off'
-              ? 'bg-chart-5'
-              : 'bg-chart-2'}"
-        ></span>{app.engineLine}</span
+        ><StatusDot
+          tone={app.engineTone === "warn" ? "warn" : app.engineTone === "off" ? "off" : "run"}
+          halo={app.engineTone === "live"}
+          size={6}
+        />{app.engineLine}</span
       >
       <span class="flex-1"></span>
       <ThemeToggle />
@@ -114,15 +113,11 @@
           title="Engine settings"
           class="flex items-center gap-[7px] shrink-0 rounded-[6px] -mr-1 px-[6px] py-[2px] font-medium text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
         >
-          <span
-            class="relative h-[6px] w-[6px] shrink-0 rounded-full {app.engineTone ===
-            'warn'
-              ? 'bg-chart-3'
-              : app.engineTone === 'off'
-                ? 'bg-chart-5'
-                : 'bg-chart-2'}"
-            class:eng-dot-ring={app.engineTone === 'live'}
-          ></span>
+          <StatusDot
+            tone={app.engineTone === "warn" ? "warn" : app.engineTone === "off" ? "off" : "run"}
+            halo={app.engineTone === "live"}
+            size={6}
+          />
           {app.engineLine}
         </button>
       </div>

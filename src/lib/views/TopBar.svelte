@@ -22,7 +22,7 @@
   <span class="w-px h-[13px] bg-border"></span>
   <span class="font-[650] text-[12.5px] tracking-[-0.1px] text-muted-foreground">{label}</span>
   <span class="flex-1"></span>
-  <Button variant="outline" size="icon" title="Refresh" disabled={working} onclick={onRefresh}>
+  <Button variant="outline" size="icon" title="Refresh" aria-label="Refresh" disabled={working} onclick={onRefresh}>
     <RefreshCw aria-hidden="true" />
   </Button>
 </div>

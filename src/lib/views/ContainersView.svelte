@@ -4,6 +4,7 @@
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Search from "@lucide/svelte/icons/search";
   import { Badge } from "$lib/components/ui/badge/index.js";
+  import { Input } from "$lib/components/ui/input/index.js";
   import * as Alert from "$lib/components/ui/alert/index.js";
   import * as Sheet from "$lib/components/ui/sheet/index.js";
   import ContainerList from "./ContainerList.svelte";
@@ -39,6 +40,15 @@
   const sheetWidth = $derived(
     detailFull ? "w-[920px]! max-w-[94vw]!" : "w-[560px]! max-w-[94vw]!"
   );
+
+  let filter = $state("");
+  const shown = $derived.by(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return containers;
+    return containers.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.image.toLowerCase().includes(q)
+    );
+  });
 </script>
 
 <div class="flex items-end gap-[14px] pt-[22px] px-[22px] pb-[16px] shrink-0">
@@ -50,17 +60,12 @@
     <b class="tabular-nums text-foreground">{containers.length}</b> total
   </Badge>
   <span class="flex-1"></span>
-  <div class="relative w-[260px]" aria-hidden="true">
+  <div class="relative w-[220px]">
     <Search
-      class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+      class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
       aria-hidden="true"
     />
-    <div
-      class="flex h-8 items-center gap-2 rounded-lg border border-input bg-card pl-9 pr-2 text-[12.5px] text-muted-foreground"
-    >
-      <span>Search</span>
-      <kbd class="ml-auto rounded border border-border px-1 font-mono text-[10px]">Ctrl K</kbd>
-    </div>
+    <Input class="pl-8" placeholder="Filter containers…" bind:value={filter} aria-label="Filter containers" />
   </div>
 </div>
 <div class="flex-1 overflow-auto min-h-0 px-[22px] pb-[22px]">
@@ -70,7 +75,13 @@
       <Alert.Description>{errorMsg}</Alert.Description>
     </Alert.Root>
   {/if}
-  <ContainerList {containers} {pending} onAction={onAction} onSelect={onSelect} />
+  <ContainerList
+    containers={shown}
+    {pending}
+    emptyMessage={filter.trim() ? "No containers match the filter." : "No containers."}
+    onAction={onAction}
+    onSelect={onSelect}
+  />
 </div>
 
 <!-- Details as a right-side Sheet overlay; expand widens it (see sheetWidth). -->

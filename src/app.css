@@ -3,6 +3,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* shadcn-svelte's components style active state via `data-active:`, but bits-ui
+   emits `data-state="active"`. Register the variant so those classes actually
+   match (tabs active pill/underline, nav, etc.). */
+@custom-variant data-active (&[data-state="active"]);
+
 /* ============================================================
    Theme tokens — standard shadcn-svelte layout.
    Colours live DIRECTLY on the semantic tokens: :root is light,
@@ -188,6 +193,20 @@
   }
   ::selection {
     background: color-mix(in srgb, var(--primary) 22%, transparent);
+  }
+
+  .eng-dot-ring {
+    animation: eng-dot-ring 1.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 
   @keyframes eng-dot-ring {

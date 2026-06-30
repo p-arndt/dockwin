@@ -20,6 +20,7 @@
   interface Props {
     containers?: NormalizedContainer[];
     pending?: Set<string>;
+    emptyMessage?: string;
     onAction?: (action: Action, c: NormalizedContainer) => void;
     onSelect?: (c: NormalizedContainer) => void;
   }
@@ -27,6 +28,7 @@
   let {
     containers = [],
     pending = new Set<string>(),
+    emptyMessage = "No containers.",
     onAction,
     onSelect,
   }: Props = $props();
@@ -108,7 +110,7 @@
       {#if containers.length === 0}
         <Table.Row class="hover:bg-transparent">
           <Table.Cell colspan={5} class="py-7 text-center text-muted-foreground"
-            >No containers.</Table.Cell
+            >{emptyMessage}</Table.Cell
           >
         </Table.Row>
       {:else}
@@ -116,7 +118,7 @@
           {@const acting = pending.has(c.id)}
           {@const st = statusOf(c)}
           <Table.Row
-            class="group relative cursor-pointer data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--primary)]"
+            class="group relative cursor-pointer data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:-outline-offset-2"
             style={acting ? "opacity:.55" : undefined}
             role="button"
             tabindex={0}
@@ -142,7 +144,7 @@
                         : 'bg-chart-5'}"
                 ></span>
                 <span
-                  class="grid size-[30px] shrink-0 place-items-center rounded-[8px] border border-border bg-muted text-muted-foreground"
+                  class="grid size-[30px] shrink-0 place-items-center rounded-xl border border-border bg-muted text-muted-foreground"
                   ><Box aria-hidden="true" class="size-[15px]" /></span
                 >
                 <div class="min-w-0">
@@ -232,9 +234,10 @@
                 <!-- primary lifecycle action: always visible, colour-coded -->
                 {#if c.running}
                   <Button
-                    variant="outline"
+                    variant="destructive"
                     size="icon-sm"
                     title="Stop"
+                    aria-label="Stop"
                     disabled={acting}
                     onclick={(e) => act(e, "stop", c)}
                   >
@@ -242,9 +245,10 @@
                   </Button>
                 {:else}
                   <Button
-                    variant="outline"
+                    variant="success"
                     size="icon-sm"
                     title="Start"
+                    aria-label="Start"
                     disabled={acting}
                     onclick={(e) => act(e, "start", c)}
                   >
@@ -260,6 +264,7 @@
                       variant="ghost"
                       size="icon-sm"
                       title="Restart"
+                      aria-label="Restart"
                       disabled={acting}
                       onclick={(e) => act(e, "restart", c)}
                     >
@@ -271,6 +276,7 @@
                     size="icon-sm"
                     class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     title="Remove"
+                    aria-label="Remove"
                     disabled={acting}
                     onclick={(e) => act(e, "remove", c)}
                   >

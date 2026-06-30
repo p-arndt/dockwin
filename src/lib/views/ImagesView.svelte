@@ -485,7 +485,7 @@
                 {#if loading}
                   Loading images…
                 {:else if engineState === "running"}
-                  {filter.trim() ? "No images match the filter." : "No images yet — pull one to get started."}
+                  {filter.trim() ? `No images match “${filter.trim()}”.` : "No images yet — pull one to get started."}
                 {:else}
                   Engine not running.
                 {/if}
@@ -513,11 +513,11 @@
                 <Table.Cell>
                   <div class="flex items-center gap-[12px] min-w-0">
                     <span class="size-[30px] rounded-[8px] shrink-0 grid place-items-center bg-muted border border-border text-muted-foreground [&_svg]:size-[15px]"><Layers aria-hidden="true" /></span>
-                    <div style="min-width:0">
+                    <div class="min-w-0">
                       <div class="flex items-center gap-[8px] min-w-0">
                         <span class="font-semibold text-[13.5px] text-foreground tracking-[-0.1px] leading-[1.25] truncate" title={repoTag(img)}>{primaryTag(img)}</span>
                         {#if isOfficial(img)}
-                          <span class="inline-flex items-center gap-[4px] text-[10.5px] font-[650] text-primary bg-primary/10 border border-primary/30 rounded-[5px] py-px px-[6px] [&_svg]:size-[11px]"><Check aria-hidden="true" />Official</span>
+                          <span class="inline-flex items-center gap-[4px] text-[10.5px] font-[650] text-muted-foreground bg-muted border border-border rounded-[5px] py-px px-[6px] [&_svg]:size-[11px]"><Check aria-hidden="true" />Official</span>
                         {/if}
                         {#if dangling}
                           <span class="inline-flex items-center gap-[6px] text-[11px] font-semibold py-[2px] px-[8px] rounded-[6px] tabular-nums text-chart-3 bg-chart-3/15 border border-chart-3/30"><span class="size-[6px] rounded-full shrink-0 bg-chart-3"></span>Untagged</span>
@@ -543,6 +543,7 @@
                       variant="ghost"
                       size="icon-sm"
                       title="Tag"
+                      aria-label="Tag"
                       disabled={acting}
                       onclick={(e) => { e.stopPropagation(); selectImage(img, "overview"); }}
                     ><Tag aria-hidden="true" /></Button>
@@ -550,6 +551,7 @@
                       variant="ghost"
                       size="icon-sm"
                       title="History"
+                      aria-label="History"
                       disabled={acting}
                       onclick={(e) => { e.stopPropagation(); selectImage(img, "history"); }}
                     ><History aria-hidden="true" /></Button>
@@ -557,6 +559,7 @@
                       variant="ghost"
                       size="icon-sm"
                       title="Inspect"
+                      aria-label="Inspect"
                       disabled={acting}
                       onclick={(e) => { e.stopPropagation(); selectImage(img, "inspect"); }}
                     ><Info aria-hidden="true" /></Button>
@@ -565,6 +568,7 @@
                       size="icon-sm"
                       class="text-muted-foreground hover:text-destructive"
                       title="Remove"
+                      aria-label="Remove"
                       disabled={acting}
                       onclick={(e) => { e.stopPropagation(); doRemove(img); }}
                     ><Trash2 aria-hidden="true" /></Button>
@@ -584,11 +588,11 @@
         <div class="pt-[18px] px-[20px] pb-[16px] border-b border-border">
           <div class="flex items-center gap-[12px]">
             <span class="size-[38px] rounded-[10px] shrink-0 grid place-items-center bg-muted border border-border text-muted-foreground [&_svg]:size-[19px]"><Layers aria-hidden="true" /></span>
-            <div style="min-width:0">
+            <div class="min-w-0">
               <div class="text-[16px] font-[680] tracking-[-0.3px] leading-[1.15]" title={repoTag(sel)}>{primaryTag(sel)}</div>
               <div class="flex items-center gap-[8px] text-[11.5px] text-muted-foreground mt-[3px] flex-wrap">
                 {#if isOfficial(sel)}
-                  <span class="inline-flex items-center gap-[4px] text-[10.5px] font-[650] text-primary bg-primary/10 border border-primary/30 rounded-[5px] py-px px-[6px] [&_svg]:size-[11px]"><Check aria-hidden="true" />Official</span>
+                  <span class="inline-flex items-center gap-[4px] text-[10.5px] font-[650] text-muted-foreground bg-muted border border-border rounded-[5px] py-px px-[6px] [&_svg]:size-[11px]"><Check aria-hidden="true" />Official</span>
                 {:else if isDangling(sel)}
                   <span class="inline-flex items-center gap-[6px] text-[11px] font-semibold py-[2px] px-[8px] rounded-[6px] tabular-nums text-chart-3 bg-chart-3/15 border border-chart-3/30"><span class="size-[6px] rounded-full shrink-0 bg-chart-3"></span>Untagged</span>
                 {/if}
@@ -617,9 +621,9 @@
 
         <Tabs.Root value={detailTab} onValueChange={(v) => setTab(v as DetailTab)}>
           <Tabs.List variant="line" class="mx-5">
-            <Tabs.Trigger value="overview" class="after:bg-primary">Overview</Tabs.Trigger>
-            <Tabs.Trigger value="history" class="after:bg-primary">History</Tabs.Trigger>
-            <Tabs.Trigger value="inspect" class="after:bg-primary">Inspect</Tabs.Trigger>
+            <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
+            <Tabs.Trigger value="history">History</Tabs.Trigger>
+            <Tabs.Trigger value="inspect">Inspect</Tabs.Trigger>
           </Tabs.List>
         </Tabs.Root>
 
@@ -633,7 +637,7 @@
 
           {#if detailTab === "overview"}
             <div class="flex flex-col">
-              <div class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70 pt-[4px] pb-[9px]">Details</div>
+              <div class="text-[12px] font-semibold text-muted-foreground pt-[4px] pb-[9px]">Details</div>
               <div class="grid grid-cols-[120px_1fr] gap-[10px] py-[8px] border-t border-border items-start">
                 <span class="text-[12.5px] text-muted-foreground">Image ID</span>
                 <span class="text-[11.5px] text-foreground text-left break-words font-mono inline-flex items-center gap-[6px] justify-start [&_svg]:size-[13px]"
@@ -642,6 +646,7 @@
                     size="icon-xs"
                     class="text-muted-foreground"
                     title="Copy full ID"
+                    aria-label="Copy full ID"
                     onclick={() => copyText(sel.id)}><Copy aria-hidden="true" /></Button
                   ></span
                 >
@@ -718,8 +723,8 @@
                 <div class="flex items-center gap-[8px] bg-muted border-b border-border py-[8px] px-[12px] text-[12px] text-muted-foreground">
                   <Boxes aria-hidden="true" />
                   <span>Inspect</span>
-                  <span style="flex:1"></span>
-                  <Button variant="ghost" size="icon-xs" class="text-muted-foreground" title="Copy JSON" onclick={() => copyText(inspectData)}>
+                  <span class="flex-1"></span>
+                  <Button variant="ghost" size="icon-xs" class="text-muted-foreground" title="Copy JSON" aria-label="Copy JSON" onclick={() => copyText(inspectData)}>
                     <Copy aria-hidden="true" />
                   </Button>
                 </div>
@@ -739,7 +744,7 @@
     position: absolute;
     inset: 0 auto 0 0;
     border-radius: 999px;
-    background-color: var(--primary);
+    background-color: color-mix(in srgb, var(--foreground) 70%, transparent);
     background-image: linear-gradient(
       90deg,
       transparent,

@@ -45,8 +45,7 @@
   </Badge>
   <span class="flex-1"></span>
   <Button title="Pick a docker-compose.yml and run it on the dockwin engine" {disabled} onclick={compose.up}>
-    <FileUp aria-hidden="true" />
-    {compose.busy ? "Working…" : "Compose up"}
+    <FileUp aria-hidden="true" />Compose up
   </Button>
   <Button variant="outline" title="docker compose down" {disabled} onclick={compose.down}>
     <FileDown aria-hidden="true" />Down

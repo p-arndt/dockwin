@@ -9,6 +9,7 @@
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
   import ThemeToggle from "../components/ThemeToggle.svelte";
+  import StatusDot from "../components/StatusDot.svelte";
   import type { EngineState } from "../types";
 
   let {
@@ -45,7 +46,7 @@
       class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px] max-w-[60ch]"
     >
       <div
-        class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70 mb-[12px]"
+        class="text-[12px] font-semibold text-muted-foreground mb-[12px]"
       >
         Appearance
       </div>
@@ -65,21 +66,17 @@
       class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px] max-w-[60ch]"
     >
       <div
-        class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70 mb-[12px]"
+        class="text-[12px] font-semibold text-muted-foreground mb-[12px]"
       >
         Engine
       </div>
       <div class="flex items-center justify-between gap-[18px]">
         <div class="flex items-center gap-[10px]">
-          <span
-            class="relative h-[8px] w-[8px] shrink-0 rounded-full {engineTone ===
-            'warn'
-              ? 'bg-chart-3'
-              : engineTone === 'off'
-                ? 'bg-chart-5'
-                : 'bg-chart-2'}"
-            class:eng-dot-ring={engineTone === 'live'}
-          ></span>
+          <StatusDot
+            tone={engineTone === "warn" ? "warn" : engineTone === "off" ? "off" : "ok"}
+            halo={engineTone === "live"}
+            size={8}
+          />
           <div>
             <div class="font-semibold text-foreground text-[13px]">{engineLine}</div>
             <div class="text-muted-foreground text-[12px] mt-[2px]">WSL2 backend</div>
@@ -113,7 +110,7 @@
       class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px] max-w-[60ch]"
     >
       <div
-        class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70 mb-[12px]"
+        class="text-[12px] font-semibold text-muted-foreground mb-[12px]"
       >
         Danger zone
       </div>

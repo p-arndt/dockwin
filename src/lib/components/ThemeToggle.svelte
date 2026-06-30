@@ -8,6 +8,7 @@
 </script>
 
 <div
+  role="group"
   class="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5"
   aria-label="Theme"
 >

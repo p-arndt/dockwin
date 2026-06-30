@@ -25,8 +25,9 @@
   );
 </script>
 
-<span
-  class="inline-block rounded-full shrink-0 {colorClass}"
-  style="width:{size}px; height:{size}px;"
-  aria-hidden="true"
-></span>
+<span class="relative inline-block shrink-0" style="width:{size}px; height:{size}px;" aria-hidden="true">
+  {#if halo}
+    <span class="absolute inset-0 rounded-full {colorClass} eng-dot-ring"></span>
+  {/if}
+  <span class="absolute inset-0 rounded-full {colorClass}"></span>
+</span>

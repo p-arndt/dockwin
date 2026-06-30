@@ -7,6 +7,7 @@
   import { onMount } from "svelte";
   import Download from "@lucide/svelte/icons/download";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
+  import CircleCheck from "@lucide/svelte/icons/circle-check";
   import X from "@lucide/svelte/icons/x";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Card from "$lib/components/ui/card/index.js";
@@ -29,13 +30,17 @@
   let engineUpdating = $state(false);
   let enginePct = $state(0);
   let engineMsg = $state("");
+  // True right after a successful engine update, until dismissed or the next
+  // check — keeps the success line on screen instead of vanishing the instant
+  // engineAvailable flips to false.
+  let engineJustUpdated = $state(false);
 
   let errorMsg = $state("");
   let dismissed = $state(false);
 
   // Show the card only when there's something to offer and it isn't dismissed.
   let visible = $derived(
-    !dismissed && (appUpdate !== null || engineAvailable)
+    !dismissed && (appUpdate !== null || engineAvailable || engineJustUpdated)
   );
 
   // Trim the apt epoch/suffix noise to a friendly "27.3.1" for display.
@@ -60,6 +65,7 @@
       engineInstalled = u.installed;
       engineCandidate = u.candidate;
       engineAvailable = u.update_available;
+      if (engineAvailable) engineJustUpdated = false;
     } catch {
       engineAvailable = false;
     }
@@ -87,12 +93,13 @@
     enginePct = 0;
     engineMsg = "Starting…";
     errorMsg = "";
+    engineJustUpdated = false;
     try {
       await api.engineUpdate();
-      engineMsg = "Docker engine up to date.";
-      engineAvailable = false;
       // Reflect the new installed version in the card.
       engineInstalled = engineCandidate;
+      engineAvailable = false;
+      engineJustUpdated = true;
     } catch (e) {
       errorMsg = `Engine update failed: ${api.errText(e)}`;
     } finally {
@@ -129,17 +136,18 @@
 
 {#if visible}
   <Card.Root
-    class="fixed bottom-9 right-4 z-50 w-[340px] select-text gap-0 py-0 shadow-xl"
+    class="fixed bottom-9 right-4 z-50 w-[340px] select-text gap-0 py-0"
     role="status"
   >
     <div class="flex items-center gap-2 border-b border-border px-3.5 py-2.5">
-      <Download size={15} class="text-primary" aria-hidden="true" />
+      <Download size={15} class="text-muted-foreground" aria-hidden="true" />
       <span class="text-[13px] font-semibold">Updates available</span>
       <Button
         variant="ghost"
         size="icon-sm"
         class="ml-auto"
         title="Dismiss"
+        aria-label="Dismiss"
         onclick={() => (dismissed = true)}
       >
         <X size={14} aria-hidden="true" />
@@ -165,7 +173,7 @@
           {#if appInstalling}
             <div class="h-1.5 overflow-hidden rounded-full bg-muted">
               <div
-                class="h-full bg-primary transition-[width] duration-150"
+                class="h-full bg-foreground/70 transition-[width] duration-150"
                 style="width: {appPct}%"
               ></div>
             </div>
@@ -180,32 +188,40 @@
         </div>
       {/if}
 
-      {#if appUpdate && engineAvailable}
+      {#if appUpdate && (engineAvailable || engineJustUpdated)}
         <div class="h-px bg-border"></div>
       {/if}
 
       <!-- Engine (Docker) update -->
-      {#if engineAvailable}
+      {#if engineAvailable || engineJustUpdated}
         <div class="flex flex-col gap-1.5">
-          <div class="text-[12.5px] text-muted-foreground">
-            <span class="font-semibold text-foreground">
-              Docker Engine {shortDocker(engineCandidate)}
-            </span>
-            <span class="text-muted-foreground">
-              · running {shortDocker(engineInstalled)}
-            </span>
-          </div>
+          {#if engineJustUpdated && !engineUpdating}
+            <div class="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+              <CircleCheck size={14} class="text-chart-2" aria-hidden="true" />
+              <span class="font-semibold text-foreground">Docker Engine {shortDocker(engineInstalled)}</span>
+              <span class="text-muted-foreground">up to date</span>
+            </div>
+          {:else}
+            <div class="text-[12.5px] text-muted-foreground">
+              <span class="font-semibold text-foreground">
+                Docker Engine {shortDocker(engineCandidate)}
+              </span>
+              <span class="text-muted-foreground">
+                · running {shortDocker(engineInstalled)}
+              </span>
+            </div>
+          {/if}
           {#if engineUpdating}
             <div class="h-1.5 overflow-hidden rounded-full bg-muted">
               <div
-                class="h-full bg-primary transition-[width] duration-150"
+                class="h-full bg-foreground/70 transition-[width] duration-150"
                 style="width: {enginePct}%"
               ></div>
             </div>
             <span class="truncate font-mono text-[11px] text-muted-foreground" title={engineMsg}>
               {engineMsg}
             </span>
-          {:else}
+          {:else if !engineJustUpdated}
             <Button variant="outline" size="sm" class="w-full" onclick={doUpdateEngine}>
               <RefreshCw size={14} aria-hidden="true" /> Update engine
             </Button>

@@ -5,6 +5,7 @@
   import HardDrive from "@lucide/svelte/icons/hard-drive";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Search from "@lucide/svelte/icons/search";
+  import Braces from "@lucide/svelte/icons/braces";
   import Plus from "@lucide/svelte/icons/plus";
   import Eraser from "@lucide/svelte/icons/eraser";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
@@ -257,13 +258,14 @@
       />
       <Input
         class="pl-8"
-        placeholder="Filter volumes"
+        placeholder="Filter volumes…"
         bind:value={filter}
+        disabled={engineState !== "running"}
         aria-label="Filter volumes"
       />
     </div>
 
-    <div class="flex items-center gap-[9px] text-[13px] text-muted-foreground" title="Force removal even when a volume is in use">
+    <div class="flex items-center gap-[9px] text-[13px] text-muted-foreground" title="Applies to Remove on individual volumes — not to Prune unused">
       <Checkbox id="vol-force-remove" bind:checked={forceRemove} />
       <Label for="vol-force-remove">Force remove</Label>
     </div>
@@ -303,10 +305,10 @@
   {/if}
 
   {#if showCreate}
-    <form class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px]" onsubmit={onCreate}>
-      <div class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70 mb-[12px]">New volume</div>
-      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
-        <div class="relative flex-1" style="min-width:200px">
+    <form class="bg-card border border-border rounded-xl py-[16px] px-[18px]" onsubmit={onCreate}>
+      <div class="text-[12px] font-semibold text-muted-foreground mb-[12px]">New volume</div>
+      <div class="flex flex-wrap items-center gap-[10px]">
+        <div class="relative flex-1 min-w-[200px]">
           <HardDrive
             class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
@@ -381,7 +383,7 @@
               {:else if filter.trim()}
                 No volumes match “{filter.trim()}”.
               {:else}
-                No volumes yet.
+                No volumes yet — create one to get started.
               {/if}
             </Table.Cell>
           </Table.Row>
@@ -437,19 +439,21 @@
                     variant="ghost"
                     size="icon-sm"
                     title={open ? "Hide inspect" : "Inspect"}
+                    aria-label={open ? "Hide inspect" : "Inspect"}
                     disabled={acting}
                     onclick={(e) => {
                       e.stopPropagation();
                       onInspect(v);
                     }}
                   >
-                    <Search aria-hidden="true" />
+                    {#if open}<X aria-hidden="true" />{:else}<Braces aria-hidden="true" />{/if}
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     class="text-muted-foreground hover:text-destructive"
                     title="Remove volume"
+                    aria-label="Remove volume"
                     disabled={acting}
                     onclick={(e) => {
                       e.stopPropagation();
@@ -468,13 +472,14 @@
                   <div class="py-[12px] px-[18px] border-b border-border">
                     <div class="border border-border rounded-[9px] bg-background overflow-hidden">
                       <div class="flex items-center gap-[8px] bg-muted border-b border-border py-[8px] px-[12px] text-[12px] text-muted-foreground">
-                        <Search aria-hidden="true" />
+                        <Braces aria-hidden="true" />
                         <span>Inspect · <span class="font-mono tabular-nums">{v.name}</span></span>
                         <span class="flex-1"></span>
                         <Button
                           variant="outline"
                           size="icon-sm"
                           title="Close"
+                          aria-label="Close"
                           onclick={() => onInspect(v)}
                         >
                           <X aria-hidden="true" />

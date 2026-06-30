@@ -76,8 +76,7 @@
       </div>
 
       <div
-        class="relative h-[10px] w-full rounded-full bg-muted overflow-hidden"
-        style="margin-top:16px"
+        class="relative h-[10px] w-full rounded-full bg-muted overflow-hidden mt-[16px]"
       >
         <i class="fill" style="width:{Math.max(2, provision.pct)}%"></i>
       </div>
@@ -91,8 +90,7 @@
 
       {#if provision.log.length}
         <div
-          class="border border-border rounded-[9px] bg-background overflow-hidden"
-          style="margin-top:14px"
+          class="border border-border rounded-[9px] bg-background overflow-hidden mt-[13px]"
         >
           <div
             class="flex items-center gap-[8px] bg-muted border-b border-border px-[12px] py-[8px] text-[12px] text-muted-foreground"
@@ -111,8 +109,7 @@
       {/if}
 
       <p
-        class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground"
-        style="margin-top:14px"
+        class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground mt-[13px]"
       >
         Downloading the Ubuntu image and installing Docker. You can keep this
         window open — it'll finish on its own.
@@ -144,8 +141,7 @@
       </div>
 
       <p
-        class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground"
-        style="margin-top:14px"
+        class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground mt-[13px]"
       >
         dockwin runs Docker in a dedicated, isolated WSL2 distro — no Docker
         Desktop required. Setting up downloads a minimal Ubuntu image
@@ -154,8 +150,7 @@
       </p>
 
       <div
-        class="flex items-center gap-[9px] text-[13px] text-muted-foreground"
-        style="margin-top:16px"
+        class="flex items-center gap-[9px] text-[13px] text-muted-foreground mt-[16px]"
       >
         <Checkbox id="enable-tcp" bind:checked={enableTcp} disabled={working} />
         <Label for="enable-tcp">
@@ -196,8 +191,7 @@
       </div>
 
       <p
-        class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground"
-        style="margin-top:14px"
+        class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground mt-[13px]"
       >
         Start the dockwin engine to manage your containers, images, volumes and
         networks.
@@ -281,8 +275,7 @@
       </div>
 
       <p
-        class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground"
-        style="margin-top:14px"
+        class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground mt-[13px]"
       >
         Couldn't determine the engine state. Retry to check again.
       </p>

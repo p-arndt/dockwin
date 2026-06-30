@@ -13,6 +13,7 @@
   import MemoryStick from "@lucide/svelte/icons/memory-stick";
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
+  import StatusDot from "../components/StatusDot.svelte";
   import {
     systemDf,
     systemInfo,
@@ -214,11 +215,11 @@
     <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">System</h1>
     {#if engineRunning}
       <Badge variant="secondary" class="gap-1.5 font-normal">
-        <span class="size-[6px] rounded-full bg-chart-2 shrink-0"></span>Engine running
+        <StatusDot tone="run" size={6} />Engine running
         {#if info?.server_version}<span class="text-muted-foreground/70">·</span><b class="font-mono tabular-nums">{info.server_version}</b>{/if}
       </Badge>
     {:else}
-      <Badge variant="secondary" class="gap-1.5 font-normal"><span class="size-[6px] rounded-full bg-chart-5 shrink-0"></span>{stateLabel}</Badge>
+      <Badge variant="secondary" class="gap-1.5 font-normal"><StatusDot tone="off" size={6} />{stateLabel}</Badge>
     {/if}
     {#if df && totalReclaimable > 0}
       <Badge variant="secondary" class="gap-1.5 font-normal"><b class="tabular-nums">{humanBytes(totalReclaimable)}</b> reclaimable</Badge>
@@ -275,7 +276,7 @@
         bind:checked={allImages}
         disabled={pruning || !engineRunning}
       />
-      <Label for="prune-all-images">Remove ALL unused images, not just dangling</Label>
+      <Label for="prune-all-images">Remove all unused images, not just dangling</Label>
     </div>
     <div class="flex items-center gap-[9px] text-[13px] text-muted-foreground">
       <Checkbox

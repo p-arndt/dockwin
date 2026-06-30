@@ -43,6 +43,7 @@
   import Container from "@lucide/svelte/icons/container";
   import Settings from "@lucide/svelte/icons/settings";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+  import StatusDot from "./StatusDot.svelte";
 
   let {
     activeView,
@@ -95,7 +96,7 @@
                   tooltipContent={item.label}
                   aria-current={activeView === item.id ? "page" : undefined}
                   onclick={() => onSelect(item.id)}
-                  class="relative font-medium gap-3 rounded-md text-muted-foreground hover:bg-foreground/[0.05]! hover:text-foreground! data-[active=true]:bg-foreground/[0.06]! data-[active=true]:text-foreground! data-[active=true]:before:content-[''] data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-1/2 data-[active=true]:before:h-[17px] data-[active=true]:before:w-[3px] data-[active=true]:before:-translate-y-1/2 data-[active=true]:before:rounded-r-full data-[active=true]:before:bg-primary [&_svg]:text-muted-foreground data-[active=true]:[&_svg]:text-primary"
+                  class="relative font-medium gap-3 rounded-md text-muted-foreground hover:bg-foreground/[0.05]! hover:text-foreground! data-[active=true]:bg-foreground/[0.06]! data-[active=true]:text-foreground! data-[active=true]:shadow-[inset_2px_0_0_var(--primary)] [&_svg]:text-muted-foreground data-[active=true]:[&_svg]:text-foreground"
                 >
                   <ItemIcon aria-hidden="true" />
                   <span>{item.label}</span>
@@ -117,17 +118,15 @@
       onclick={onSettings}
       aria-current={settingsActive ? "page" : undefined}
       title="Engine settings"
-      class="group/eng flex w-full items-center gap-[10px] rounded-[8px] px-[8px] py-[7px] text-left transition-colors hover:bg-foreground/[0.06] {settingsActive
+      class="group/eng flex w-full items-center gap-[10px] rounded-[8px] px-[8px] py-[7px] text-left transition-colors hover:bg-foreground/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 {settingsActive
         ? 'bg-foreground/[0.06]'
         : ''}"
     >
-      <span
-        class="relative h-[6px] w-[6px] shrink-0 rounded-full {engineTone === 'warn'
-          ? 'bg-chart-3'
-          : engineTone === 'off'
-            ? 'bg-chart-5'
-            : 'bg-chart-2'}"
-      ></span>
+      <StatusDot
+        tone={engineTone === "warn" ? "warn" : engineTone === "off" ? "off" : "run"}
+        halo={engineTone === "live"}
+        size={6}
+      />
       <div class="min-w-0 flex-1 leading-tight">
         <div class="text-[12px] font-medium text-foreground/90">{engineLine}</div>
         <div class="text-[10.5px] text-muted-foreground/80">WSL2 backend</div>
