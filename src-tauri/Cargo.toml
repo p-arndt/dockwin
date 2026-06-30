@@ -48,6 +48,17 @@ thiserror = "2"
 log = "0.4"
 tauri-plugin-log = "2"
 
+# Win32 APIs used to build a per-user security descriptor for the named-pipe
+# relay, so only the current user (and LocalSystem) can reach the root-capable
+# engine through it. Windows-only; the relay is a no-op stub elsewhere.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_System_Threading",
+] }
+
 [features]
 # This feature is used by the `tauri` CLI for production builds.
 custom-protocol = ["tauri/custom-protocol"]
