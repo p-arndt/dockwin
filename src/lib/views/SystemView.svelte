@@ -209,25 +209,23 @@
   );
 </script>
 
-<div class="flex flex-col gap-[16px] min-w-0 pt-[18px] px-[22px] pb-[24px]">
-  <!-- Page header -->
-  <div class="flex items-end gap-[14px] shrink-0 pt-[22px] px-[22px] pb-[16px]">
-    <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">System</h1>
-    {#if engineRunning}
-      <Badge variant="secondary" class="gap-1.5 font-normal">
-        <StatusDot tone="run" size={6} />Engine running
-        {#if info?.server_version}<span class="text-muted-foreground/70">·</span><b class="font-mono tabular-nums">{info.server_version}</b>{/if}
-      </Badge>
-    {:else}
-      <Badge variant="secondary" class="gap-1.5 font-normal"><StatusDot tone="off" size={6} />{stateLabel}</Badge>
-    {/if}
-    {#if df && totalReclaimable > 0}
-      <Badge variant="secondary" class="gap-1.5 font-normal"><b class="tabular-nums">{humanBytes(totalReclaimable)}</b> reclaimable</Badge>
-    {/if}
-    {#if loading}<Badge variant="secondary" class="gap-1.5 font-normal">Loading…</Badge>{/if}
-    <span class="flex-1"></span>
-  </div>
-
+<div class="flex items-end gap-[14px] shrink-0 pt-[22px] px-[22px] pb-[16px]">
+  <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">System</h1>
+  {#if engineRunning}
+    <Badge variant="secondary" class="gap-1.5 font-normal">
+      <StatusDot tone="run" size={6} />Engine running
+      {#if info?.server_version}<span class="text-muted-foreground/70">·</span><b class="font-mono tabular-nums">{info.server_version}</b>{/if}
+    </Badge>
+  {:else}
+    <Badge variant="secondary" class="gap-1.5 font-normal"><StatusDot tone="off" size={6} />{stateLabel}</Badge>
+  {/if}
+  {#if df && totalReclaimable > 0}
+    <Badge variant="secondary" class="gap-1.5 font-normal"><b class="tabular-nums">{humanBytes(totalReclaimable)}</b> reclaimable</Badge>
+  {/if}
+  {#if loading}<Badge variant="secondary" class="gap-1.5 font-normal">Loading…</Badge>{/if}
+  <span class="flex-1"></span>
+</div>
+<div class="flex-1 overflow-auto min-h-0 flex flex-col gap-[24px] min-w-0 px-[22px] pb-[24px]">
   {#if errorMsg}
     <Alert.Root variant="destructive">
       <TriangleAlert aria-hidden="true" />

@@ -387,24 +387,22 @@
 
 </script>
 
-<div class="flex flex-col gap-[16px] min-w-0 pt-[18px] px-[22px] pb-[24px]">
-  <!-- ===== Page header ===== -->
-  <div class="flex items-end gap-[14px] pt-[22px] px-[22px] pb-[16px] shrink-0">
-    <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">Images</h1>
-    <Badge variant="secondary" class="gap-1.5 font-normal">
-      <b class="tabular-nums">{images.length}</b> images
-      {#if totalSize > 0}
-        <span class="text-muted-foreground/70">·</span>
-        <b class="tabular-nums">{imagesApi.humanBytes(totalSize)}</b>
-      {/if}
-    </Badge>
-    <span class="flex-1"></span>
-    <div class="relative w-[220px]">
-      <Search class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-      <Input class="pl-8" placeholder="Filter images…" bind:value={filter} aria-label="Filter images" />
-    </div>
+<div class="flex items-end gap-[14px] pt-[22px] px-[22px] pb-[16px] shrink-0">
+  <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">Images</h1>
+  <Badge variant="secondary" class="gap-1.5 font-normal">
+    <b class="tabular-nums">{images.length}</b> images
+    {#if totalSize > 0}
+      <span class="text-muted-foreground/70">·</span>
+      <b class="tabular-nums">{imagesApi.humanBytes(totalSize)}</b>
+    {/if}
+  </Badge>
+  <span class="flex-1"></span>
+  <div class="relative w-[220px]">
+    <Search class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+    <Input class="pl-8" placeholder="Filter images…" bind:value={filter} aria-label="Filter images" />
   </div>
-
+</div>
+<div class="flex-1 overflow-auto min-h-0 flex flex-col gap-[16px] min-w-0 px-[22px] pb-[24px]">
   <!-- ===== Toolbar: pull (primary) + prune ===== -->
   <div class="flex items-center gap-[10px] flex-wrap">
     <div class="flex-1 min-w-[240px] max-w-[520px] relative">
@@ -468,7 +466,7 @@
   <!-- ===== List + detail drawer ===== -->
   <div class="grid gap-[16px] items-start min-w-0 {selected ? 'grid-cols-[minmax(0,1fr)_clamp(340px,34%,392px)]' : 'grid-cols-[minmax(0,1fr)]'}">
     <div class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
-      <Table.Root class="table-fixed">
+      <Table.Root class="table-fixed [&_td]:py-[13px]">
         <Table.Header>
           <Table.Row class="hover:bg-transparent">
             <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider" style="width:42%">Repository : Tag</Table.Head>

@@ -118,7 +118,7 @@
       onclick={onSettings}
       aria-current={settingsActive ? "page" : undefined}
       title="Engine settings"
-      class="group/eng flex w-full items-center gap-[10px] rounded-[8px] px-[8px] py-[7px] text-left transition-colors hover:bg-foreground/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 {settingsActive
+      class="group/eng flex w-full items-center gap-3 rounded-[8px] px-[8px] py-[7px] text-left transition-colors hover:bg-foreground/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 {settingsActive
         ? 'bg-foreground/[0.06]'
         : ''}"
     >

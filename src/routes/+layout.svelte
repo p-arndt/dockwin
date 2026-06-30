@@ -41,7 +41,7 @@
        full-window EngineGate, which owns set-up / progress / start / unreachable. -->
   <div class="flex flex-col h-screen min-h-0">
     <div
-      class="flex items-center gap-[14px] pl-[22px] pr-[16px] h-[46px] shrink-0 border-b border-border text-muted-foreground text-[12px]"
+      class="flex items-center gap-[14px] pl-[22px] pr-[16px] h-[50px] shrink-0 border-b border-border text-muted-foreground text-[12px]"
     >
       <span class="flex items-center gap-[9px] p-0">
         <span

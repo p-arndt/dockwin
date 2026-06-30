@@ -176,7 +176,7 @@
           </div>
         </header>
 
-        <Table.Root class="table-fixed">
+        <Table.Root class="table-fixed [&_td]:py-[13px]">
           <Table.Header>
             <Table.Row class="hover:bg-transparent">
               <Table.Head

@@ -382,7 +382,7 @@
 
 <aside class="flex min-w-0 flex-1 min-h-0 flex-col overflow-auto bg-card" aria-label="Container details">
   <!-- ===== header ===== -->
-  <div class="border-b border-border px-5 pt-[18px] pb-4">
+  <div class="border-b border-border px-5 pt-4 pb-4">
     <div class="flex items-center gap-3">
       <span class="grid size-[38px] shrink-0 place-items-center rounded-[10px] border border-border bg-muted text-muted-foreground"><Box class="size-[19px]" aria-hidden="true" /></span>
       <div class="min-w-0">
@@ -416,7 +416,7 @@
 
     <!-- action row (pause/unpause + rename) -->
     {#if renaming}
-      <div class="mt-[15px] flex flex-wrap gap-[7px]">
+      <div class="mt-4 flex flex-wrap gap-[7px]">
         <Input
           class="flex-1 font-mono"
           bind:value={renameValue}
@@ -434,7 +434,7 @@
         </Button>
       </div>
     {:else}
-      <div class="mt-[15px] flex flex-wrap gap-[7px]">
+      <div class="mt-4 flex flex-wrap gap-[7px]">
         <Button
           variant="outline"
           size="sm"
@@ -485,7 +485,7 @@
           {:else if !stats}
             <div class="rounded-[10px] border border-border bg-muted/20 px-[18px] py-6 text-center text-[13px] text-muted-foreground">Loading stats…</div>
           {:else}
-            <div class="grid grid-cols-2 gap-[10px]">
+            <div class="grid grid-cols-2 gap-[12px]">
               <!-- CPU — the one focused chart on this screen -->
               <div class="relative overflow-hidden rounded-[9px] border border-border bg-card px-[14px] py-[13px]">
                 <div class="flex items-center gap-[6px] text-[11px] font-medium text-muted-foreground"><Cpu class="size-[13px] text-muted-foreground/70" aria-hidden="true" />CPU</div>

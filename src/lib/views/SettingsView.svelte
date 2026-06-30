@@ -41,68 +41,70 @@
   <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">Settings</h1>
 </div>
 <div class="flex-1 overflow-auto grid grid-cols-[1fr] min-h-0">
-  <div class="px-[22px] pt-[18px] pb-[24px] min-w-0 flex flex-col gap-[16px]">
-    <div
-      class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px] max-w-[60ch]"
-    >
+  <div class="px-[22px] pt-[18px] pb-[24px] min-w-0 flex flex-col gap-[28px]">
+    <div class="flex flex-col gap-[16px]">
       <div
-        class="text-[12px] font-semibold text-muted-foreground mb-[12px]"
+        class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px] max-w-[60ch]"
       >
-        Appearance
+        <div
+          class="text-[12px] font-semibold text-muted-foreground mb-[12px]"
+        >
+          Appearance
+        </div>
+        <div class="flex flex-col gap-[16px]">
+          <div class="flex items-center justify-between gap-[18px]">
+            <div>
+              <div class="font-semibold text-foreground text-[13px]">Theme</div>
+              <div class="text-muted-foreground text-[12px] mt-[2px]">
+                Dark is the hero; light is first-class.
+              </div>
+            </div>
+            <ThemeToggle />
+          </div>
+        </div>
       </div>
-      <div class="flex flex-col gap-[16px]">
+      <div
+        class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px] max-w-[60ch]"
+      >
+        <div
+          class="text-[12px] font-semibold text-muted-foreground mb-[12px]"
+        >
+          Engine
+        </div>
         <div class="flex items-center justify-between gap-[18px]">
-          <div>
-            <div class="font-semibold text-foreground text-[13px]">Theme</div>
-            <div class="text-muted-foreground text-[12px] mt-[2px]">
-              Dark is the hero; light is first-class.
+          <div class="flex items-center gap-[10px]">
+            <StatusDot
+              tone={engineTone === "warn" ? "warn" : engineTone === "off" ? "off" : "ok"}
+              halo={engineTone === "live"}
+              size={8}
+            />
+            <div>
+              <div class="font-semibold text-foreground text-[13px]">{engineLine}</div>
+              <div class="text-muted-foreground text-[12px] mt-[2px]">WSL2 backend</div>
             </div>
           </div>
-          <ThemeToggle />
-        </div>
-      </div>
-    </div>
-    <div
-      class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px] max-w-[60ch]"
-    >
-      <div
-        class="text-[12px] font-semibold text-muted-foreground mb-[12px]"
-      >
-        Engine
-      </div>
-      <div class="flex items-center justify-between gap-[18px]">
-        <div class="flex items-center gap-[10px]">
-          <StatusDot
-            tone={engineTone === "warn" ? "warn" : engineTone === "off" ? "off" : "ok"}
-            halo={engineTone === "live"}
-            size={8}
-          />
-          <div>
-            <div class="font-semibold text-foreground text-[13px]">{engineLine}</div>
-            <div class="text-muted-foreground text-[12px] mt-[2px]">WSL2 backend</div>
-          </div>
-        </div>
-        <div class="flex items-center gap-[8px] shrink-0">
-          {#if engineState === "running" || engineState === "stopped"}
+          <div class="flex items-center gap-[8px] shrink-0">
+            {#if engineState === "running" || engineState === "stopped"}
+              <Button
+                variant={engineState === "running" ? "destructive" : "success"}
+                disabled={engineToggleDisabled}
+                onclick={onToggleEngine}
+              >
+                {#if engineState === "running"}
+                  <CircleStop aria-hidden="true" />{engineBusy ? "Stopping…" : "Stop"}
+                {:else}
+                  <PlayCircle aria-hidden="true" />{engineBusy ? "Starting…" : "Start"}
+                {/if}
+              </Button>
+            {/if}
             <Button
-              variant={engineState === "running" ? "destructive" : "success"}
-              disabled={engineToggleDisabled}
-              onclick={onToggleEngine}
+              variant="outline"
+              disabled={engineToggleDisabled || engineState !== "running"}
+              onclick={onRestartEngine}
             >
-              {#if engineState === "running"}
-                <CircleStop aria-hidden="true" />{engineBusy ? "Stopping…" : "Stop"}
-              {:else}
-                <PlayCircle aria-hidden="true" />{engineBusy ? "Starting…" : "Start"}
-              {/if}
+              <RotateCcw aria-hidden="true" />Restart
             </Button>
-          {/if}
-          <Button
-            variant="outline"
-            disabled={engineToggleDisabled || engineState !== "running"}
-            onclick={onRestartEngine}
-          >
-            <RotateCcw aria-hidden="true" />Restart
-          </Button>
+          </div>
         </div>
       </div>
     </div>

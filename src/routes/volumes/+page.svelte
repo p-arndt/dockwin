@@ -5,4 +5,4 @@
   const app = getAppController();
 </script>
 
-<div class="body"><VolumesView engineState={app.engineState} refreshKey={app.imageRefreshKey} /></div>
+<VolumesView engineState={app.engineState} refreshKey={app.imageRefreshKey} />

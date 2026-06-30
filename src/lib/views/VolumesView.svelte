@@ -241,55 +241,54 @@
   }
 </script>
 
-<div class="flex flex-col min-w-0 gap-[16px] pt-[18px] px-[22px] pb-[24px]">
-  <div class="flex items-end shrink-0 gap-[14px] pt-[22px] px-[22px] pb-[16px]">
-    <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-[1]">Volumes</h1>
-    {#if volumes.length}
-      <Badge variant="secondary" class="gap-1.5 font-normal"
-        ><b class="tabular-nums">{volumes.length}</b> total</Badge
-      >
-    {/if}
-    <span class="flex-1"></span>
-
-    <div class="relative w-[220px]">
-      <Search
-        class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-        aria-hidden="true"
-      />
-      <Input
-        class="pl-8"
-        placeholder="Filter volumes…"
-        bind:value={filter}
-        disabled={engineState !== "running"}
-        aria-label="Filter volumes"
-      />
-    </div>
-
-    <div class="flex items-center gap-[9px] text-[13px] text-muted-foreground" title="Applies to Remove on individual volumes — not to Prune unused">
-      <Checkbox id="vol-force-remove" bind:checked={forceRemove} />
-      <Label for="vol-force-remove">Force remove</Label>
-    </div>
-
-    <Button
-      variant="destructive"
-      disabled={pruning || engineState !== "running"}
-      onclick={onPrune}
-      title="Remove all unused volumes"
+<div class="flex items-end shrink-0 gap-[14px] pt-[22px] px-[22px] pb-[16px]">
+  <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-[1]">Volumes</h1>
+  {#if volumes.length}
+    <Badge variant="secondary" class="gap-1.5 font-normal"
+      ><b class="tabular-nums">{volumes.length}</b> total</Badge
     >
-      <Eraser aria-hidden="true" />
-      {pruning ? "Pruning…" : "Prune unused"}
-    </Button>
+  {/if}
+  <span class="flex-1"></span>
 
-    <Button
-      variant={showCreate ? "secondary" : "outline"}
+  <div class="relative w-[220px]">
+    <Search
+      class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+      aria-hidden="true"
+    />
+    <Input
+      class="pl-8"
+      placeholder="Filter volumes…"
+      bind:value={filter}
       disabled={engineState !== "running"}
-      onclick={() => (showCreate = !showCreate)}
-    >
-      <Plus aria-hidden="true" />
-      New volume
-    </Button>
+      aria-label="Filter volumes"
+    />
   </div>
 
+  <div class="flex items-center gap-[9px] text-[13px] text-muted-foreground" title="Applies to Remove on individual volumes — not to Prune unused">
+    <Checkbox id="vol-force-remove" bind:checked={forceRemove} />
+    <Label for="vol-force-remove">Force remove</Label>
+  </div>
+
+  <Button
+    variant="destructive"
+    disabled={pruning || engineState !== "running"}
+    onclick={onPrune}
+    title="Remove all unused volumes"
+  >
+    <Eraser aria-hidden="true" />
+    {pruning ? "Pruning…" : "Prune unused"}
+  </Button>
+
+  <Button
+    variant={showCreate ? "secondary" : "outline"}
+    disabled={engineState !== "running"}
+    onclick={() => (showCreate = !showCreate)}
+  >
+    <Plus aria-hidden="true" />
+    New volume
+  </Button>
+</div>
+<div class="flex-1 overflow-auto min-h-0 flex flex-col min-w-0 gap-[16px] px-[22px] pb-[24px]">
   {#if errorMsg}
     <Alert.Root variant="destructive">
       <CircleAlert aria-hidden="true" />
@@ -347,7 +346,7 @@
   {/if}
 
   <div class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
-    <Table.Root class="table-fixed">
+    <Table.Root class="table-fixed [&_td]:py-[13px]">
       <Table.Header>
         <Table.Row class="hover:bg-transparent">
           <Table.Head

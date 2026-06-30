@@ -5,4 +5,4 @@
   const app = getAppController();
 </script>
 
-<div class="body"><ImagesView engineState={app.engineState} refreshKey={app.imageRefreshKey} /></div>
+<ImagesView engineState={app.engineState} refreshKey={app.imageRefreshKey} />

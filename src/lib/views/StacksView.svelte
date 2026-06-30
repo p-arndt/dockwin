@@ -47,18 +47,20 @@
   <Button title="Pick a docker-compose.yml and run it on the dockwin engine" {disabled} onclick={compose.up}>
     <FileUp aria-hidden="true" />Compose up
   </Button>
-  <Button variant="outline" title="docker compose down" {disabled} onclick={compose.down}>
-    <FileDown aria-hidden="true" />Down
-  </Button>
-  <Button variant="outline" title="docker compose pull" {disabled} onclick={compose.pull}>
-    <Download aria-hidden="true" />Pull
-  </Button>
-  <Button variant="outline" title="docker compose build" {disabled} onclick={compose.build}>
-    <Hammer aria-hidden="true" />Build
-  </Button>
-  <Button variant="outline" title="docker compose logs (tail)" {disabled} onclick={compose.logs}>
-    <ScrollText aria-hidden="true" />Logs
-  </Button>
+  <div class="flex items-center gap-[6px]">
+    <Button variant="outline" title="docker compose down" {disabled} onclick={compose.down}>
+      <FileDown aria-hidden="true" />Down
+    </Button>
+    <Button variant="outline" title="docker compose pull" {disabled} onclick={compose.pull}>
+      <Download aria-hidden="true" />Pull
+    </Button>
+    <Button variant="outline" title="docker compose build" {disabled} onclick={compose.build}>
+      <Hammer aria-hidden="true" />Build
+    </Button>
+    <Button variant="outline" title="docker compose logs (tail)" {disabled} onclick={compose.logs}>
+      <ScrollText aria-hidden="true" />Logs
+    </Button>
+  </div>
 </div>
 <div class="flex-1 overflow-auto grid grid-cols-[1fr] min-h-0">
   <div class="flex flex-col gap-[16px] min-w-0 pt-0 px-[22px] pb-[24px]">

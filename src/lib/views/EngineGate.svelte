@@ -229,7 +229,7 @@
         </div>
       </div>
 
-      <Alert.Root variant="destructive" class="mt-[14px]">
+      <Alert.Root variant="destructive" class="mt-[13px]">
         <TriangleAlert aria-hidden="true" />
         <Alert.Description>
           The dockwin WSL distro is registered but its disk image is missing.

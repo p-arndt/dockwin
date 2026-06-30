@@ -212,37 +212,36 @@
   );
 </script>
 
-<section class="flex flex-col gap-[16px] pt-[18px] px-[22px] pb-[24px] min-w-0">
-  <div class="flex items-end gap-[14px] pt-[22px] px-[22px] pb-[16px] shrink-0">
-    <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">Networks</h1>
-    <Badge variant="secondary" class="gap-1.5 font-normal"
-      ><b class="tabular-nums">{networks.length}</b> total</Badge
-    >
-    <span class="flex-1"></span>
-    <div class="relative w-[220px]">
-      <Search
-        class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-        aria-hidden="true"
-      />
-      <Input
-        class="pl-8"
-        placeholder="Filter networks…"
-        bind:value={query}
-        disabled={engineState !== "running"}
-        aria-label="Filter networks by name"
-      />
-    </div>
-    <Button
-      variant="destructive"
-      disabled={pruning || engineState !== "running"}
-      onclick={pruneNetworks}
-      title="Remove all unused networks"
-    >
-      <Eraser aria-hidden="true" />
-      {pruning ? "Pruning…" : "Prune unused"}
-    </Button>
+<div class="flex items-end gap-[14px] pt-[22px] px-[22px] pb-[16px] shrink-0">
+  <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">Networks</h1>
+  <Badge variant="secondary" class="gap-1.5 font-normal"
+    ><b class="tabular-nums">{networks.length}</b> total</Badge
+  >
+  <span class="flex-1"></span>
+  <div class="relative w-[220px]">
+    <Search
+      class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+      aria-hidden="true"
+    />
+    <Input
+      class="pl-8"
+      placeholder="Filter networks…"
+      bind:value={query}
+      disabled={engineState !== "running"}
+      aria-label="Filter networks by name"
+    />
   </div>
-
+  <Button
+    variant="destructive"
+    disabled={pruning || engineState !== "running"}
+    onclick={pruneNetworks}
+    title="Remove all unused networks"
+  >
+    <Eraser aria-hidden="true" />
+    {pruning ? "Pruning…" : "Prune unused"}
+  </Button>
+</div>
+<section class="flex-1 overflow-auto min-h-0 flex flex-col gap-[16px] px-[22px] pb-[24px] min-w-0">
   {#if errorMsg}
     <Alert.Root variant="destructive">
       <X aria-hidden="true" />
@@ -260,7 +259,7 @@
   <!-- Create network form -->
   {#if engineState === "running"}
     <form
-      class="bg-card border border-border rounded-xl px-[18px] py-[16px] flex flex-wrap items-end gap-[12px]"
+      class="bg-card border border-border rounded-xl px-[18px] py-[16px] flex flex-wrap items-end gap-[10px]"
       onsubmit={createNetwork}
     >
       <label class="flex flex-col gap-[6px]">
@@ -295,7 +294,7 @@
   {/if}
 
   <div class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
-    <Table.Root class="table-fixed">
+    <Table.Root class="table-fixed [&_td]:py-[13px]">
       <Table.Header>
         <Table.Row class="hover:bg-transparent">
           <Table.Head
@@ -442,7 +441,7 @@
             {#if open}
               <Table.Row class="hover:bg-transparent">
                 <Table.Cell colspan={6} class="p-0">
-                  <div class="px-[18px] pb-[14px] border-b border-border">
+                  <div class="py-[12px] px-[18px] border-b border-border">
                     <div class="border border-border rounded-[9px] bg-background overflow-hidden">
                       <div
                         class="flex items-center gap-[8px] bg-muted border-b border-border px-[12px] py-[8px] text-[12px] text-muted-foreground"
