@@ -1,11 +1,10 @@
 <script lang="ts">
-  // Settings screen: appearance (theme + accent shade) and engine teardown.
+  // Settings screen: appearance (theme) and engine teardown.
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
   import ThemeToggle from "../components/ThemeToggle.svelte";
-  import { theme, ACCENT_SHADES } from "../state/theme.svelte";
 
   let {
     working,
@@ -30,22 +29,6 @@
             <div class="setrow-s">Dark is the hero; light is first-class.</div>
           </div>
           <ThemeToggle />
-        </div>
-        <div class="setrow">
-          <div>
-            <div class="setrow-t">Accent</div>
-            <div class="setrow-s">The lime shade used for primary actions and highlights.</div>
-          </div>
-          <div class="sw" title="Accent shade">
-            {#each ACCENT_SHADES as _shade, i (i)}
-              <button
-                class={"l" + (i + 1)}
-                class:a={theme.accent === i}
-                aria-label={`Accent shade ${i + 1}`}
-                onclick={() => theme.setAccent(i)}
-              ></button>
-            {/each}
-          </div>
         </div>
       </div>
     </div>

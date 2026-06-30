@@ -7,7 +7,6 @@
   import CircleStop from "@lucide/svelte/icons/circle-stop";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
-  import ThemeToggle from "../components/ThemeToggle.svelte";
   import type { EngineState } from "../types";
 
   let {
@@ -38,8 +37,6 @@
   <span class="sep"></span>
   <span class="ctx-view">{label}</span>
   <span class="sp"></span>
-  <ThemeToggle />
-  <span class="sep"></span>
   <Button
     variant={settingsActive ? "secondary" : "outline"}
     size="icon"

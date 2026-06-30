@@ -10,10 +10,9 @@
    shadcn-svelte token layer (fresh lime theme)
    Maps shadcn's component tokens onto dockwin's crafted lime/dark palette.
    The values reference the legacy --bg / --s* / --text* / --lime vars defined
-   further down, which are already theme-scoped AND accent-swappable at runtime
-   — so shadcn components inherit the exact dockwin look, dark/light switching
-   works through [data-theme], and the Settings accent swatch keeps flowing into
-   --primary for free. Defined once: the referenced vars resolve per theme.
+   further down, which are theme-scoped — so shadcn components inherit the exact
+   dockwin look and dark/light switching works through [data-theme]. Defined
+   once: the referenced vars resolve per theme.
    ============================================================ */
 :root {
   --radius: 0.45rem;
@@ -114,7 +113,7 @@
    4. Numbers use tabular-nums; ids / ports / hashes use the mono font.
 
    Everything is driven by CSS variables so the theme store can
-   swap dark/light + accent shade at runtime on <html>.
+   swap dark/light at runtime on <html>.
    ============================================================ */
 
 :root {
@@ -126,9 +125,8 @@
   --mono: "Cascadia Code", "JetBrains Mono", ui-monospace, Consolas, monospace;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
-  /* Refined lime — a touch desaturated, not neon. These three are the
-     swappable core; the theme store rewrites them inline on <html> for the
-     non-default accent shades. soft/line/ink stay derived from the default. */
+  /* Refined lime — a touch desaturated, not neon. The core accent, with
+     soft/line/ink derived from it. Light gets its own shade further down. */
   --lime: #a6e35b;
   --lime-bright: #b7ee70;
   --lime-deep: #7eb83c;
@@ -182,9 +180,7 @@
   --err: #cf3f50;
   --err-dim: rgba(207, 63, 80, 0.1);
   --off: #9aa2ad;
-  /* Light gets its own slightly deeper lime so the accent stays legible.
-     The theme store only writes inline --lime for non-default shades, so this
-     default light accent is respected. */
+  /* Light gets its own slightly deeper lime so the accent stays legible. */
   --lime: #7fb53a;
   --lime-bright: #8cc545;
   --lime-deep: #5d8c22;
@@ -511,37 +507,6 @@
   font-size: 12.5px;
   letter-spacing: -0.1px;
   color: var(--text-2);
-}
-
-/* accent-shade swatches */
-.sw {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-  padding-left: 4px;
-}
-.sw b,
-.sw button {
-  width: 15px;
-  height: 15px;
-  padding: 0;
-  border-radius: 50%;
-  cursor: pointer;
-  border: 1.5px solid transparent;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-.sw b.a,
-.sw button.a {
-  border-color: var(--text-2);
-}
-.sw .l1 {
-  background: #a6e35b;
-}
-.sw .l2 {
-  background: #c3ee82;
-}
-.sw .l3 {
-  background: #8fd95f;
 }
 
 /* settings row: a label/description block on the left, control on the right */
