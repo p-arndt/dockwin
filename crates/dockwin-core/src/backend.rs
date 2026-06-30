@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 
-use crate::ops::{self, EngineState, EngineUpdate, InstallOpts, Progress};
+use crate::ops::{self, EngineState, EngineUpdate, InstallOpts, LogsOpts, Progress};
 
 /// How a local Docker client (bollard / `docker.exe`) should reach `dockerd`.
 ///
@@ -72,6 +72,15 @@ pub trait EngineBackend: Send + Sync {
         &self,
         file: &Path,
         action: &[&str],
+        on_line: &mut dyn FnMut(&str),
+    ) -> Result<bool>;
+
+    /// Stream `docker logs` for a single container, forwarding each combined
+    /// stdout+stderr line to `on_line`. Returns child success.
+    fn container_logs(
+        &self,
+        container: &str,
+        opts: &LogsOpts,
         on_line: &mut dyn FnMut(&str),
     ) -> Result<bool>;
 
@@ -155,6 +164,15 @@ impl EngineBackend for WslBackend {
         on_line: &mut dyn FnMut(&str),
     ) -> Result<bool> {
         ops::compose_run(file, action, on_line)
+    }
+
+    fn container_logs(
+        &self,
+        container: &str,
+        opts: &LogsOpts,
+        on_line: &mut dyn FnMut(&str),
+    ) -> Result<bool> {
+        ops::container_logs(container, opts, on_line)
     }
 
     fn repair(&self) -> Result<()> {

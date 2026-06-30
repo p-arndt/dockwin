@@ -10,12 +10,22 @@
   import Box from "@lucide/svelte/icons/box";
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
+  import ScrollText from "@lucide/svelte/icons/scroll-text";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import ArrowDownToLine from "@lucide/svelte/icons/arrow-down-to-line";
+  import X from "@lucide/svelte/icons/x";
   import Pill from "../components/Pill.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Table from "$lib/components/ui/table/index.js";
   import { openExternal, openFolder, wslToWindowsPath } from "../api/external";
-  import { errText } from "../api";
+  import {
+    errText,
+    composeLogsStreamStart,
+    composeLogsStreamStop,
+    onComposeLogLine,
+    onComposeLogEnd,
+  } from "../api";
   import type { Stack, NormalizedContainer, NormalizedPort } from "../types";
 
   type StackAction = "start" | "stop" | "restart";
@@ -37,6 +47,91 @@
   }
   function act(action: StackAction, s: Stack) {
     onStackAction?.(action, s);
+  }
+
+  // ── Live aggregated stack logs ──────────────────────────────────────────
+  // One stack streams at a time (the backend aborts any previous aggregated
+  // stream). `logsProject` is the stack whose live panel is open; the $effect
+  // below owns the backend stream + event subscriptions for its whole lifetime.
+  let logsProject = $state<string | null>(null);
+  let logLines = $state<{ service: string; stream: string; message: string }[]>([]);
+  let logStreaming = $state(false);
+  let logEnded = $state(false);
+  let logError = $state<string | null>(null);
+  let logEl = $state<HTMLDivElement | null>(null);
+  // Stick to the bottom while the user hasn't scrolled up to read history.
+  let logFollow = $state(true);
+  const LOG_CAP = 5000;
+
+  function toggleLogs(project: string) {
+    logsProject = logsProject === project ? null : project;
+  }
+
+  // Drive the aggregated follow-stream while a stack's panel is open. Mirrors the
+  // container Logs tab: subscribe, start, and on teardown unlisten + stop.
+  $effect(() => {
+    const project = logsProject;
+    if (!project) return;
+    let cancelled = false;
+    let unlistenLine: (() => void) | undefined;
+    let unlistenEnd: (() => void) | undefined;
+
+    logLines = [];
+    logEnded = false;
+    logError = null;
+    logStreaming = true;
+    logFollow = true;
+
+    (async () => {
+      unlistenLine = await onComposeLogLine((l) => {
+        if (cancelled || l.project !== project) return;
+        const next = [
+          ...logLines,
+          { service: l.service, stream: l.stream, message: l.message },
+        ];
+        logLines = next.length > LOG_CAP ? next.slice(-LOG_CAP) : next;
+      });
+      unlistenEnd = await onComposeLogEnd((e) => {
+        if (cancelled || e.project !== project) return;
+        logStreaming = false;
+        logEnded = true;
+        if (e.error) logError = e.error;
+      });
+      try {
+        await composeLogsStreamStart(project, 200);
+      } catch (e) {
+        if (!cancelled) {
+          logStreaming = false;
+          logError = errText(e);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      unlistenLine?.();
+      unlistenEnd?.();
+      void composeLogsStreamStop();
+    };
+  });
+
+  // Keep the log viewport pinned to the bottom while following.
+  $effect(() => {
+    void logLines.length;
+    if (logFollow && logEl) {
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+  });
+
+  // Drop out of follow-mode when the user scrolls up; re-arm at the bottom.
+  function onLogScroll() {
+    if (!logEl) return;
+    const atBottom = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 24;
+    logFollow = atBottom;
+  }
+
+  function clearLogs() {
+    logLines = [];
   }
 
   function stackTone(s: Stack): "ok" | "warn" | "neutral" {
@@ -173,6 +268,14 @@
             >
               <RotateCw aria-hidden="true" /> Restart
             </Button>
+            <Button
+              variant={logsProject === s.project ? "secondary" : "outline"}
+              size="sm"
+              onclick={() => toggleLogs(s.project)}
+              title="Stream live aggregated logs for this stack"
+            >
+              <ScrollText aria-hidden="true" /> Logs
+            </Button>
           </div>
         </header>
 
@@ -300,6 +403,91 @@
             {/each}
           </Table.Body>
         </Table.Root>
+
+        {#if logsProject === s.project}
+          <div class="border-t border-border bg-background">
+            <div
+              class="flex items-center gap-[8px] bg-muted/50 border-b border-border px-[14px] py-[8px] text-[12px]"
+            >
+              <ScrollText aria-hidden="true" class="size-[14px] text-muted-foreground" />
+              <span class="font-semibold text-foreground">Live logs</span>
+              {#if logStreaming}
+                <span
+                  class="inline-flex items-center gap-[5px] text-[11.5px] font-semibold text-chart-2"
+                  ><span class="size-[6px] animate-pulse rounded-full bg-chart-2"></span
+                  >Streaming</span
+                >
+              {:else if logEnded}
+                <span
+                  class="inline-flex items-center gap-[5px] text-[11.5px] font-semibold text-muted-foreground"
+                  ><span class="size-[6px] rounded-full bg-chart-5"></span>Stream ended</span
+                >
+              {/if}
+              <span class="text-[11.5px] tabular-nums text-muted-foreground/70"
+                >{logLines.length} line{logLines.length === 1 ? "" : "s"}</span
+              >
+              <div class="ml-auto flex items-center gap-[6px]">
+                {#if !logFollow}
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onclick={() => {
+                      logFollow = true;
+                      if (logEl) logEl.scrollTop = logEl.scrollHeight;
+                    }}
+                    title="Jump to latest and resume following"
+                  >
+                    <ArrowDownToLine aria-hidden="true" /> Follow
+                  </Button>
+                {/if}
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onclick={clearLogs}
+                  disabled={logLines.length === 0}
+                  title="Clear the log view"
+                >
+                  <Trash2 aria-hidden="true" /> Clear
+                </Button>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onclick={() => (logsProject = null)}
+                  title="Stop streaming and close"
+                >
+                  <X aria-hidden="true" /> Stop
+                </Button>
+              </div>
+            </div>
+
+            {#if logError}
+              <div class="px-[14px] py-[8px] text-[12px] text-destructive">{logError}</div>
+            {/if}
+
+            <div
+              bind:this={logEl}
+              onscroll={onLogScroll}
+              class="max-h-[18rem] overflow-auto px-[14px] py-[10px] font-mono text-[11.5px] leading-[1.55] select-text"
+            >
+              {#if logLines.length > 0}
+                {#each logLines as l, i (i)}
+                  <div style="white-space:pre-wrap;word-break:break-all">
+                    {#if l.service}<span
+                        class="text-muted-foreground/60 font-semibold mr-[6px]">{l.service}</span
+                      >{/if}<span
+                      class={l.stream === "stderr" ? "text-chart-5" : "text-muted-foreground"}
+                      >{l.message}</span
+                    >
+                  </div>
+                {/each}
+              {:else if logStreaming}
+                <div class="text-[12px] text-muted-foreground">Waiting for output…</div>
+              {:else}
+                <div class="text-[12px] text-muted-foreground">No log output.</div>
+              {/if}
+            </div>
+          </div>
+        {/if}
       </section>
     {/each}
   </div>

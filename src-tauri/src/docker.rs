@@ -272,6 +272,38 @@ impl DockerClient {
         Ok(out)
     }
 
+    /// Find every container belonging to a compose `project`, returning each
+    /// one's `(id, service)` pair. `service` is the `com.docker.compose.service`
+    /// label (empty when absent). Includes stopped containers (`all: true`) so an
+    /// aggregated follow-stream can attach to a stack even if some services are
+    /// down. Drives the live Compose-logs command in `commands.rs`.
+    pub async fn compose_project_containers(&self, project: &str) -> Result<Vec<(String, String)>> {
+        let mut filters = std::collections::HashMap::new();
+        filters.insert(
+            "label".to_string(),
+            vec![format!("com.docker.compose.project={project}")],
+        );
+        let opts = ListContainersOptions::<String> {
+            all: true,
+            filters,
+            ..Default::default()
+        };
+        let summaries = self.inner.list_containers(Some(opts)).await?;
+        let out = summaries
+            .into_iter()
+            .filter_map(|c| {
+                let id = c.id?;
+                let service = c
+                    .labels
+                    .as_ref()
+                    .and_then(|l| l.get("com.docker.compose.service").cloned())
+                    .unwrap_or_default();
+                Some((id, service))
+            })
+            .collect();
+        Ok(out)
+    }
+
     /// Start a container by id or name.
     pub async fn start_container(&self, id: &str) -> Result<()> {
         self.inner
@@ -348,6 +380,34 @@ impl DockerClient {
             chunks.push(log_output_to_dto(output));
         }
         Ok(chunks)
+    }
+
+    /// Stream a container's logs live, invoking `on_chunk` for each frame as it
+    /// arrives. Seeds with the last `tail` lines, then (with `follow`) blocks
+    /// forwarding new output until the container stops or the future is dropped.
+    ///
+    /// The command layer drives this from a spawned task and forwards each chunk
+    /// to the GUI over a Tauri event; dropping that task cancels the stream.
+    pub async fn stream_logs<F: FnMut(LogChunkDto)>(
+        &self,
+        id: &str,
+        tail: u32,
+        follow: bool,
+        mut on_chunk: F,
+    ) -> Result<()> {
+        let opts = LogsOptions::<String> {
+            stdout: true,
+            stderr: true,
+            follow,
+            timestamps: false,
+            tail: tail.to_string(),
+            ..Default::default()
+        };
+        let mut stream = self.inner.logs(id, Some(opts));
+        while let Some(next) = stream.next().await {
+            on_chunk(log_output_to_dto(next?));
+        }
+        Ok(())
     }
 
     /// Borrow the raw bollard handle for advanced callers (e.g. streaming logs,

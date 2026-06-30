@@ -3,6 +3,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type Event, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  ComposeLogEndDto,
+  ComposeLogLineDto,
   ComposeOutput,
   ContainerDto,
   EngineState,
@@ -10,6 +12,8 @@ import type {
   EngineUpdateDto,
   ImageDto,
   LogChunkDto,
+  LogEndDto,
+  LogLineDto,
   NormalizedContainer,
   NormalizedPort,
   PortMappingDto,
@@ -140,6 +144,33 @@ export function onComposeOutput(
   return listen<ComposeOutput>("compose://output", (ev) => handler(ev.payload?.line ?? ""));
 }
 
+// Start streaming a whole Compose stack's logs live, aggregated across every
+// container in `project`. Each line (prefixed with its service) arrives via
+// onComposeLogLine; closure arrives via onComposeLogEnd. Only one stack streams
+// at a time — starting a new one aborts the previous.
+export function composeLogsStreamStart(project: string, tail?: number): Promise<void> {
+  return invoke("compose_logs_stream_start", { project, tail });
+}
+
+// Stop the active aggregated Compose live-logs stream (no-op if none running).
+export function composeLogsStreamStop(): Promise<void> {
+  return invoke("compose_logs_stream_stop");
+}
+
+// Subscribe to aggregated Compose live log lines (the `compose-logs://line` event).
+export function onComposeLogLine(
+  handler: (line: ComposeLogLineDto) => void
+): Promise<UnlistenFn> {
+  return listen<ComposeLogLineDto>("compose-logs://line", (ev) => handler(ev.payload));
+}
+
+// Subscribe to aggregated Compose live-logs closure (the `compose-logs://end` event).
+export function onComposeLogEnd(
+  handler: (end: ComposeLogEndDto) => void
+): Promise<UnlistenFn> {
+  return listen<ComposeLogEndDto>("compose-logs://end", (ev) => handler(ev.payload));
+}
+
 // --- Containers ---
 
 // Returns the raw container list from dockwin-core (array of records).
@@ -175,8 +206,35 @@ export function imageList(all = true): Promise<ImageDto[]> {
 
 // --- Logs ---
 
+// One-shot bounded tail snapshot (non-following).
 export function containerLogs(id: string, tail?: number): Promise<LogChunkDto[]> {
   return invoke<LogChunkDto[]>("container_logs", { id, tail });
+}
+
+// Start streaming a container's logs live. Seeds with the last `tail` lines,
+// then follows. Frames arrive via onLogLine; closure arrives via onLogEnd.
+// Only one stream runs at a time — starting a new one aborts the previous.
+export function containerLogsStart(id: string, tail?: number): Promise<void> {
+  return invoke("container_logs_start", { id, tail });
+}
+
+// Stop the active live-logs stream (no-op if none is running).
+export function containerLogsStop(): Promise<void> {
+  return invoke("container_logs_stop");
+}
+
+// Subscribe to live log lines (the `logs://line` event).
+export function onLogLine(
+  handler: (line: LogLineDto) => void
+): Promise<UnlistenFn> {
+  return listen<LogLineDto>("logs://line", (ev) => handler(ev.payload));
+}
+
+// Subscribe to live-logs stream closure (the `logs://end` event).
+export function onLogEnd(
+  handler: (end: LogEndDto) => void
+): Promise<UnlistenFn> {
+  return listen<LogEndDto>("logs://end", (ev) => handler(ev.payload));
 }
 
 // --- Events ---

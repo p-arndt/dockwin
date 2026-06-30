@@ -45,7 +45,7 @@ Stock `dockerd` in a single dedicated WSL2 distro · native Tauri GUI · scripta
 - 📊 **Live container details** — CPU/mem/net/blk stats, `inspect` JSON, `top` processes, rename, pause/unpause.
 - 🧹 **System view** — disk usage (`df`), prune (incl. all-images / volumes), engine info.
 - ⚙️ **One-click provisioning** — imports a minimal (~29 MB) Ubuntu rootfs, installs pinned `dockerd`, wires systemd autostart, from the GUI's first-run panel or `dockwin install`.
-- 🖥️ **Scriptable CLI** — `dockwin status/install/start/stop/uninstall` mirrors the GUI's setup logic exactly.
+- 🖥️ **Scriptable CLI** — `dockwin status/install/start/stop/uninstall` mirrors the GUI's setup logic exactly, plus `dockwin logs [-f] [<container>]` to tail (and follow) a single container or, with no container, the whole compose stack.
 
 ---
 

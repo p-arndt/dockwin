@@ -50,6 +50,37 @@ export interface LogChunkDto {
   message: string;
 }
 
+// A live log line streamed via the `logs://line` event (tagged with the
+// container id so stale frames from an aborted stream can be ignored).
+export interface LogLineDto {
+  id: string;
+  stream: string;
+  message: string;
+}
+
+// Terminal payload for a live-logs stream (`logs://end` event).
+export interface LogEndDto {
+  id: string;
+  error: string | null;
+}
+
+// A live aggregated Compose log line streamed via the `compose-logs://line`
+// event. Tagged with the compose project (so stale frames from an aborted stack
+// stream can be ignored) and the originating service (used as the line prefix).
+export interface ComposeLogLineDto {
+  project: string;
+  service: string;
+  stream: string;
+  message: string;
+}
+
+// Terminal payload for an aggregated Compose live-logs stream
+// (`compose-logs://end` event): every per-container follow-stream closed.
+export interface ComposeLogEndDto {
+  project: string;
+  error: string | null;
+}
+
 // A local image record.
 export interface ImageDto {
   id: string;

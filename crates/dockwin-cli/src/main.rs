@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
-use dockwin_core::ops::{self, InstallOpts};
+use dockwin_core::ops::{self, InstallOpts, LogsOpts};
 
 #[derive(Parser)]
 #[command(
@@ -107,6 +107,31 @@ enum Commands {
         #[arg(short = 'f', long = "file")]
         file: Option<PathBuf>,
     },
+
+    /// Fetch (and optionally follow) logs from the dockwin engine — either a
+    /// single container, or the whole compose stack when no container is given.
+    ///
+    /// With a `<CONTAINER>` argument this streams that one container's logs
+    /// (like `docker logs`). With no container it aggregates the logs of an
+    /// entire compose stack (like `docker compose logs`); point at a specific
+    /// stack with `--file`.
+    Logs {
+        /// Container name or ID. Omit to tail the whole compose stack instead.
+        container: Option<String>,
+        /// Compose file for stack logs (default: ./docker-compose.yml or
+        /// ./compose.yml). Only valid when no `<CONTAINER>` is given.
+        #[arg(long = "file")]
+        file: Option<PathBuf>,
+        /// Keep the stream open and follow new output (like `docker logs -f`).
+        #[arg(short = 'f', long)]
+        follow: bool,
+        /// Show only the last N lines first (default: all of the buffered log).
+        #[arg(short = 'n', long)]
+        tail: Option<u32>,
+        /// Prefix every line with its timestamp.
+        #[arg(short = 't', long)]
+        timestamps: bool,
+    },
 }
 
 /// Resolve a compose file: an explicit path, else the conventional names in cwd.
@@ -190,6 +215,76 @@ fn main() -> ExitCode {
                 }
             })
         }),
+        Commands::Logs {
+            container,
+            file,
+            follow,
+            tail,
+            timestamps,
+        } => {
+            let mut emit = |line: &str| println!("{line}");
+            match container {
+                Some(container) => {
+                    // `--file` only makes sense for whole-stack (compose) logs.
+                    if file.is_some() {
+                        Err(anyhow::anyhow!(
+                            "--file only applies to compose-stack logs; drop the <CONTAINER> argument to tail a stack"
+                        ))
+                    } else {
+                        let opts = LogsOpts {
+                            follow,
+                            timestamps,
+                            tail,
+                        };
+                        dockwin_core::backend::detect()
+                            .container_logs(&container, &opts, &mut emit)
+                            .and_then(|ok| {
+                                // A `--follow` stream cancelled with Ctrl-C exits
+                                // non-zero, which is a normal stop — don't surface
+                                // it as a CLI error. Without --follow a non-zero
+                                // exit is a real failure (e.g. "No such
+                                // container"), so propagate it.
+                                if ok || follow {
+                                    Ok(())
+                                } else {
+                                    anyhow::bail!(
+                                        "docker logs reported an error (see output above)"
+                                    )
+                                }
+                            })
+                    }
+                }
+                None => resolve_compose_file(file).and_then(|f| {
+                    // Build `docker compose logs [...]` honoring the flags.
+                    let mut args: Vec<String> = vec!["logs".to_string()];
+                    if follow {
+                        args.push("--follow".to_string());
+                    }
+                    if timestamps {
+                        args.push("--timestamps".to_string());
+                    }
+                    if let Some(n) = tail {
+                        args.push("--tail".to_string());
+                        args.push(n.to_string());
+                    }
+                    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+                    dockwin_core::backend::detect()
+                        .compose_run(&f, &arg_refs, &mut emit)
+                        .and_then(|ok| {
+                            // Same Ctrl-C semantics as the single-container path:
+                            // a cancelled `--follow` stream exits non-zero but is
+                            // a clean stop; a non-following failure is real.
+                            if ok || follow {
+                                Ok(())
+                            } else {
+                                anyhow::bail!(
+                                    "docker compose logs reported an error (see output above)"
+                                )
+                            }
+                        })
+                }),
+            }
+        }
     };
 
     match result {

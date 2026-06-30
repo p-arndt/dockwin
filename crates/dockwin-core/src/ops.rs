@@ -823,6 +823,55 @@ pub fn compose_down(file: &Path, on_line: &mut dyn FnMut(&str)) -> Result<bool> 
     compose_run(file, &["down"], on_line)
 }
 
+/// Options for [`container_logs`].
+#[derive(Debug, Clone, Default)]
+pub struct LogsOpts {
+    /// Keep the stream open and follow new output (`docker logs --follow`).
+    pub follow: bool,
+    /// Prefix each line with its RFC3339 timestamp (`--timestamps`).
+    pub timestamps: bool,
+    /// Tail only the last N lines first. `None` shows the full history.
+    pub tail: Option<u32>,
+}
+
+/// `dockwin logs`: `docker logs [--follow] [--timestamps] [--tail N] <container>`
+/// INSIDE the dockwin distro, streaming combined stdout+stderr to `on_line`.
+///
+/// `2>&1` merges the container's stderr into stdout so `run_streaming` (which
+/// only reads the child's stdout) sees both streams, exactly like `compose_run`.
+/// Returns whether `docker logs` exited successfully (a `--follow` stream that
+/// the user cancels with Ctrl-C reports failure, which the CLI treats as a clean
+/// stop rather than an error).
+pub fn container_logs(
+    container: &str,
+    opts: &LogsOpts,
+    on_line: &mut dyn FnMut(&str),
+) -> Result<bool> {
+    if !wsl::distro_exists(DISTRO)? {
+        bail!("engine '{DISTRO}' is not provisioned. Set it up first (`dockwin install`).");
+    }
+    ensure_dockerd();
+    // Single-quote and escape the container ref so a name/id can't break out of
+    // the shell command (`docker` refs can't legally contain quotes, but be safe).
+    let safe = container.replace('\'', "'\\''");
+    let mut cmd = String::from("docker logs");
+    if opts.follow {
+        cmd.push_str(" --follow");
+    }
+    if opts.timestamps {
+        cmd.push_str(" --timestamps");
+    }
+    if let Some(n) = opts.tail {
+        cmd.push_str(&format!(" --tail {n}"));
+    }
+    cmd.push_str(&format!(" '{safe}' 2>&1"));
+    wsl::run_streaming(
+        &["-d", DISTRO, "-u", "root", "--", "bash", "-lc", &cmd],
+        on_line,
+    )
+    .context("running docker logs inside the distro failed")
+}
+
 // ---------------------------------------------------------------------------
 // start
 // ---------------------------------------------------------------------------

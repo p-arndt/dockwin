@@ -25,6 +25,15 @@ pub struct AppState {
     /// Whether to allow the insecure loopback-TCP fallback when the named pipe
     /// is unreachable. Off by default.
     allow_tcp_fallback: Mutex<bool>,
+    /// The single in-flight live-logs streaming task, if any. The GUI only shows
+    /// one container's logs at a time, so starting a new stream (or stopping)
+    /// aborts the previous one. See [`container_logs_start`].
+    log_stream: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
+    /// The in-flight aggregated Compose live-logs task, if any. The GUI streams
+    /// one stack's logs at a time; this single task fans out over every container
+    /// in the project. Starting a new stream (or stopping) aborts the previous
+    /// one. See [`compose_logs_stream_start`].
+    compose_log_streams: Mutex<Vec<tauri::async_runtime::JoinHandle<()>>>,
 }
 
 impl AppState {
@@ -52,6 +61,21 @@ impl AppState {
     /// Drop any cached connection (forces a reconnect on next call).
     pub(crate) async fn reset(&self) {
         *self.client.lock().await = None;
+    }
+
+    /// Abort the active live-logs streaming task, if one is running.
+    pub(crate) async fn stop_log_stream(&self) {
+        if let Some(handle) = self.log_stream.lock().await.take() {
+            handle.abort();
+        }
+    }
+
+    /// Abort the active aggregated Compose live-logs task(s), if any are running.
+    /// Aborting the parent task cancels every per-container follow-stream it owns.
+    pub(crate) async fn stop_compose_log_streams(&self) {
+        for handle in self.compose_log_streams.lock().await.drain(..) {
+            handle.abort();
+        }
     }
 }
 
@@ -450,10 +474,6 @@ pub async fn container_remove(
 // ---------------------------------------------------------------------------
 
 /// Tail a bounded number of log lines once (non-following snapshot).
-///
-/// TODO: add a streaming variant that takes a `tauri::ipc::Channel<LogChunkDto>`
-/// and forwards `DockerClient::inner().logs(..)` frames live for the GUI log
-/// viewer / exec terminal. Kept out of MVP wrapper to keep the surface small.
 #[tauri::command]
 pub async fn container_logs(
     state: tauri::State<'_, AppState>,
@@ -465,6 +485,79 @@ pub async fn container_logs(
         .logs_tail(&id, tail.unwrap_or(200))
         .await
         .map_err(|e| e.to_string())
+}
+
+/// One live log line, forwarded as a `logs://line` event. Tagged with the
+/// container `id` so the GUI can ignore frames from a stream it has moved on
+/// from (e.g. the user switched to another container before the abort lands).
+#[derive(Clone, Serialize)]
+pub struct LogLineDto {
+    pub id: String,
+    /// "stdout" | "stderr" | "stdin" | "console".
+    pub stream: String,
+    pub message: String,
+}
+
+/// Terminal event for a live-logs stream (`logs://end`): the container stopped
+/// or the stream closed cleanly. `error` is set when it ended on a failure.
+#[derive(Clone, Serialize)]
+pub struct LogEndDto {
+    pub id: String,
+    pub error: Option<String>,
+}
+
+/// Start streaming a container's logs live to the GUI.
+///
+/// Seeds with the last `tail` lines, then follows new output, emitting each
+/// frame as a `logs://line` event and a final `logs://end` when the stream
+/// closes. Only one stream runs at a time: this aborts any previous one first,
+/// matching the single container-detail panel the GUI shows.
+#[tauri::command]
+pub async fn container_logs_start(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    id: String,
+    tail: Option<u32>,
+) -> Result<(), String> {
+    let client = state.get_client().await?;
+    let tail = tail.unwrap_or(500);
+
+    // Abort any stream still running for a previously-selected container.
+    state.stop_log_stream().await;
+
+    let cid = id.clone();
+    let handle = tauri::async_runtime::spawn(async move {
+        let emit_id = cid.clone();
+        let res = client
+            .stream_logs(&cid, tail, true, |chunk| {
+                let _ = app.emit(
+                    "logs://line",
+                    LogLineDto {
+                        id: emit_id.clone(),
+                        stream: chunk.stream,
+                        message: chunk.message,
+                    },
+                );
+            })
+            .await;
+        let _ = app.emit(
+            "logs://end",
+            LogEndDto {
+                id: cid,
+                error: res.err().map(|e| e.to_string()),
+            },
+        );
+    });
+
+    *state.log_stream.lock().await = Some(handle);
+    Ok(())
+}
+
+/// Stop the active live-logs stream (no-op if none is running).
+#[tauri::command]
+pub async fn container_logs_stop(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.stop_log_stream().await;
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -629,4 +722,91 @@ pub async fn compose_logs(
         tail,
     ];
     compose_action(app, &state, path, args, "logs").await
+}
+
+/// One live aggregated Compose log line, forwarded as a `compose-logs://line`
+/// event. Tagged with the `project` (so the GUI can drop frames from a stream it
+/// has moved on from) and the originating `service` so each line is prefixed.
+#[derive(Clone, Serialize)]
+pub struct ComposeLogLineDto {
+    pub project: String,
+    pub service: String,
+    /// "stdout" | "stderr" | "stdin" | "console".
+    pub stream: String,
+    pub message: String,
+}
+
+/// Terminal event for an aggregated Compose live-logs stream
+/// (`compose-logs://end`): every per-container follow-stream closed.
+#[derive(Clone, Serialize)]
+pub struct ComposeLogEndDto {
+    pub project: String,
+    pub error: Option<String>,
+}
+
+/// Start streaming a whole Compose stack's logs live to the GUI.
+///
+/// Resolves every container in `project` (via the compose-project label), then
+/// drives one bollard follow-stream per container concurrently from a single
+/// task, emitting each frame as a `compose-logs://line` event (prefixed with its
+/// service) and a final `compose-logs://end` once all streams close. Only one
+/// stack streams at a time: this aborts any previous aggregated stream first.
+#[tauri::command]
+pub async fn compose_logs_stream_start(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    project: String,
+    tail: Option<u32>,
+) -> Result<(), String> {
+    let client = state.get_client().await?;
+    let tail = tail.unwrap_or(200);
+
+    // Abort any aggregated stream still running for a previously-selected stack.
+    state.stop_compose_log_streams().await;
+
+    let containers = client
+        .compose_project_containers(&project)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let parent = tauri::async_runtime::spawn(async move {
+        let streams = containers.into_iter().map(|(id, service)| {
+            let client = client.clone();
+            let app = app.clone();
+            let project = project.clone();
+            async move {
+                let _ = client
+                    .stream_logs(&id, tail, true, |chunk| {
+                        let _ = app.emit(
+                            "compose-logs://line",
+                            ComposeLogLineDto {
+                                project: project.clone(),
+                                service: service.clone(),
+                                stream: chunk.stream,
+                                message: chunk.message,
+                            },
+                        );
+                    })
+                    .await;
+            }
+        });
+        futures_util::future::join_all(streams).await;
+        let _ = app.emit(
+            "compose-logs://end",
+            ComposeLogEndDto {
+                project,
+                error: None,
+            },
+        );
+    });
+
+    state.compose_log_streams.lock().await.push(parent);
+    Ok(())
+}
+
+/// Stop the active aggregated Compose live-logs stream (no-op if none running).
+#[tauri::command]
+pub async fn compose_logs_stream_stop(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.stop_compose_log_streams().await;
+    Ok(())
 }

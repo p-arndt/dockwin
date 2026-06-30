@@ -173,6 +173,8 @@ fn main() {
             commands::container_remove,
             // Logs
             commands::container_logs,
+            commands::container_logs_start,
+            commands::container_logs_stop,
             // Container details (inspect / stats / top / rename / pause)
             cmd_containers_ext::container_inspect,
             cmd_containers_ext::container_rename,
@@ -213,6 +215,8 @@ fn main() {
             commands::compose_pull,
             commands::compose_restart,
             commands::compose_logs,
+            commands::compose_logs_stream_start,
+            commands::compose_logs_stream_stop,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the dockwin Tauri application");

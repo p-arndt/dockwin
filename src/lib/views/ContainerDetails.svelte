@@ -23,8 +23,17 @@
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import Network from "@lucide/svelte/icons/network";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import ArrowDownToLine from "@lucide/svelte/icons/arrow-down-to-line";
+  import ScrollText from "@lucide/svelte/icons/scroll-text";
   import type { NormalizedContainer, NormalizedPort } from "../types";
   import { openExternal } from "../api/external";
+  import {
+    containerLogsStart,
+    containerLogsStop,
+    onLogLine,
+    onLogEnd,
+  } from "../api";
   import {
     containerInspect,
     containerRename,
@@ -60,7 +69,7 @@
   const status = $derived(container.status);
   const running = $derived(container.running);
 
-  type Tab = "overview" | "inspect" | "top";
+  type Tab = "overview" | "logs" | "inspect" | "top";
   let activeTab = $state<Tab>("overview");
 
   // Locally-tracked name so a rename shows immediately (the parent's selected
@@ -93,6 +102,16 @@
   let topError = $state<string | null>(null);
   let topLoading = $state(false);
 
+  // Logs (live stream). Chunks keep their stream tag so stderr renders distinctly.
+  let logChunks = $state<{ stream: string; message: string }[]>([]);
+  let logStreaming = $state(false);
+  let logEnded = $state(false);
+  let logError = $state<string | null>(null);
+  let logEl = $state<HTMLDivElement | null>(null);
+  // Stick to the bottom while the user hasn't scrolled up to read history.
+  let logFollow = $state(true);
+  const LOG_CAP = 5000;
+
   // Show-advanced disclosure in the details list.
   let showAdv = $state(false);
 
@@ -112,6 +131,11 @@
       inspectError = null;
       top = null;
       topError = null;
+      logChunks = [];
+      logStreaming = false;
+      logEnded = false;
+      logError = null;
+      logFollow = true;
       paused = false;
       renaming = false;
       renameValue = container.name;
@@ -256,6 +280,73 @@
     }
   }
 
+  // Live log streaming: active only while the Logs tab is open. Seeds with the
+  // last 500 lines from the backend, then follows new output. Tearing down
+  // (tab switch, container change, panel close) aborts the backend stream.
+  $effect(() => {
+    if (activeTab !== "logs") return;
+    const cid = id;
+    let cancelled = false;
+    let unlistenLine: (() => void) | undefined;
+    let unlistenEnd: (() => void) | undefined;
+
+    // Fresh start each time the tab opens (the backend re-seeds the tail).
+    logChunks = [];
+    logEnded = false;
+    logError = null;
+    logStreaming = true;
+    logFollow = true;
+
+    (async () => {
+      unlistenLine = await onLogLine((l) => {
+        if (cancelled || l.id !== cid) return;
+        const next = [...logChunks, { stream: l.stream, message: l.message }];
+        logChunks = next.length > LOG_CAP ? next.slice(-LOG_CAP) : next;
+      });
+      unlistenEnd = await onLogEnd((e) => {
+        if (cancelled || e.id !== cid) return;
+        logStreaming = false;
+        logEnded = true;
+        if (e.error) logError = e.error;
+      });
+      try {
+        await containerLogsStart(cid, 500);
+      } catch (e) {
+        if (!cancelled) {
+          logStreaming = false;
+          logError = String(e);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      unlistenLine?.();
+      unlistenEnd?.();
+      void containerLogsStop();
+    };
+  });
+
+  // Keep the log viewport pinned to the bottom while following.
+  $effect(() => {
+    void logChunks.length;
+    if (logFollow && logEl) {
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+  });
+
+  // Drop out of follow-mode when the user scrolls up; re-arm at the bottom.
+  function onLogScroll() {
+    if (!logEl) return;
+    const atBottom =
+      logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 24;
+    logFollow = atBottom;
+  }
+
+  function clearLogs() {
+    logChunks = [];
+  }
+
   async function togglePause() {
     busyAction = true;
     actionError = null;
@@ -367,6 +458,7 @@
 
   const TABS: { key: Tab; label: string }[] = [
     { key: "overview", label: "Overview" },
+    { key: "logs", label: "Logs" },
     { key: "inspect", label: "Inspect" },
     { key: "top", label: "Top" },
   ];
@@ -639,6 +731,51 @@
             </Button>
           {/if}
         </div>
+      </div>
+    {:else if activeTab === "logs"}
+      <!-- toolbar: stream status + clear -->
+      <div class="flex items-center gap-2">
+        {#if logStreaming}
+          <span class="inline-flex items-center gap-[5px] text-[11.5px] font-semibold text-chart-2"><span class="size-[6px] animate-pulse rounded-full bg-chart-2"></span>Streaming</span>
+        {:else if logEnded}
+          <span class="inline-flex items-center gap-[5px] text-[11.5px] font-semibold text-muted-foreground"><span class="size-[6px] rounded-full bg-chart-5"></span>Stream ended</span>
+        {/if}
+        <span class="text-[11.5px] tabular-nums text-muted-foreground/70">{logChunks.length} line{logChunks.length === 1 ? "" : "s"}</span>
+        <div class="ml-auto flex gap-[7px]">
+          {#if !logFollow}
+            <Button variant="outline" size="xs" type="button" onclick={() => { logFollow = true; if (logEl) logEl.scrollTop = logEl.scrollHeight; }} title="Jump to latest and resume following">
+              <ArrowDownToLine aria-hidden="true" />Follow
+            </Button>
+          {/if}
+          <Button variant="outline" size="xs" type="button" onclick={clearLogs} disabled={logChunks.length === 0} title="Clear the log view">
+            <Trash2 aria-hidden="true" />Clear
+          </Button>
+        </div>
+      </div>
+
+      {#if logError}
+        <Alert.Root variant="destructive">
+          <TriangleAlert aria-hidden="true" />
+          <Alert.Description>{logError}</Alert.Description>
+        </Alert.Root>
+      {/if}
+
+      <div
+        bind:this={logEl}
+        onscroll={onLogScroll}
+        class="flex-1 min-h-[280px] overflow-auto bg-card border border-border rounded-[9px] p-[12px] text-[11px] leading-[1.55] select-text font-mono whitespace-pre-wrap break-all"
+        style:max-height={full ? "calc(100vh - 320px)" : "calc(100vh - 360px)"}
+      >
+        {#if logChunks.length > 0}
+          {#each logChunks as c, i (i)}<span class={c.stream === "stderr" ? "text-chart-5" : "text-muted-foreground"}>{c.message}</span>{/each}
+        {:else if logStreaming}
+          <div class="grid h-full place-items-center text-[12.5px] text-muted-foreground">Waiting for output…</div>
+        {:else}
+          <div class="flex h-full flex-col items-center justify-center gap-2 text-[12.5px] text-muted-foreground">
+            <ScrollText class="size-5 text-muted-foreground/60" aria-hidden="true" />
+            This container hasn't logged anything.
+          </div>
+        {/if}
       </div>
     {:else if activeTab === "inspect"}
       {#if inspectLoading && inspectText === null}
