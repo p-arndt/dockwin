@@ -13,3 +13,6 @@ description = "Shared WSL2 engine-distro lifecycle + provisioning for dockwin, u
 anyhow = "1"
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 lzma-rs = "0.3"
+# Pure-Rust SHA-256 (MIT/Apache, no C deps) used to verify the downloaded base
+# rootfs against its pinned checksum before importing it as a root distro.
+sha2 = "0.10"

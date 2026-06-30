@@ -346,6 +346,34 @@ fn download_rootfs(url: &str, dest: &Path, progress: &dyn Fn(f32, &str)) -> Resu
     }
 }
 
+/// Lowercase hex encoding of arbitrary bytes (for SHA-256 digests). Avoids
+/// pulling in a hex crate for this single, tiny use.
+fn hex_lower(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        let _ = write!(s, "{b:02x}");
+    }
+    s
+}
+
+/// Stream `path` through SHA-256 and return its lowercase hex digest. Streaming
+/// (64 KiB at a time) keeps the hundreds-of-MB rootfs out of memory.
+fn sha256_file(path: &Path) -> Result<String> {
+    use sha2::{Digest, Sha256};
+    let mut file = File::open(path).with_context(|| format!("opening {} to hash", path.display()))?;
+    let mut hasher = Sha256::new();
+    let mut buf = [0u8; 64 * 1024];
+    loop {
+        let n = file.read(&mut buf).context("reading rootfs while hashing")?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(hex_lower(&hasher.finalize()))
+}
+
 /// Decompress a compressed rootfs tarball to a plain `.tar` (gz import fails with
 /// "Incorrect function." on older WSL builds, and `wsl --import` cannot read xz
 /// at all). `.gz`/`.tgz` use gzip; `.xz` uses lzma; a plain `.tar` is passed
@@ -535,6 +563,24 @@ pub fn install_reporting(opts: InstallOpts, report: &dyn Fn(Progress)) -> Result
                 report(Progress::info("download", 3.0 + frac * 42.0, msg));
             };
             download_rootfs(wsl::DEFAULT_ROOTFS_URL, &dest, &dl)?;
+            // Verify the download against its pinned checksum BEFORE we import it
+            // as a root distro. HTTPS authenticates the transport but not the
+            // bytes at rest (poisoned mirror / intercepting proxy / stale cache);
+            // a pinned hash does. Hard-fail (and delete the file) on mismatch.
+            report(Progress::step("download", 44.0, "Verifying rootfs checksum"));
+            let got = sha256_file(&dest)?;
+            if !got.eq_ignore_ascii_case(wsl::DEFAULT_ROOTFS_SHA256) {
+                let _ = fs::remove_file(&dest);
+                bail!(
+                    "rootfs checksum mismatch — refusing to import it.\n  \
+                     expected {}\n  got      {}\n\
+                     The download may be corrupt or tampered with. Retry; if it \
+                     persists, pass a trusted local rootfs via --rootfs.",
+                    wsl::DEFAULT_ROOTFS_SHA256,
+                    got
+                );
+            }
+            report(Progress::info("download", 45.0, "rootfs checksum verified"));
             dest
         }
     };
@@ -734,9 +780,14 @@ pub fn compose_run(
         Some(i) => wpath[..i].to_string(),
     };
     let joined = action.join(" ");
-    // Quote the paths (they may contain spaces). Compose files rarely contain
-    // single quotes; we accept that edge case rather than full shell-escaping.
-    let script = format!("cd '{dir}' && docker compose -f '{wpath}' {joined} 2>&1");
+    // Shell-escape the user-derived paths (this runs as root in the distro, so a
+    // single quote in the path must not be able to break out and inject). The
+    // `action` args are fixed app-controlled flags, so they pass through as-is.
+    let script = format!(
+        "cd {} && docker compose -f {} {joined} 2>&1",
+        wsl::sh_quote(&dir),
+        wsl::sh_quote(&wpath)
+    );
     wsl::run_streaming(
         &["-d", DISTRO, "-u", "root", "--", "bash", "-lc", &script],
         on_line,

@@ -33,6 +33,15 @@ pub const DISTRO: &str = "dockwin";
 pub const DEFAULT_ROOTFS_URL: &str =
     "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-amd64.tar.gz";
 
+/// Pinned SHA-256 of [`DEFAULT_ROOTFS_URL`], from Ubuntu's published
+/// `SHA256SUMS` next to the image. We verify the download against this before
+/// importing it as a *root* WSL distro: HTTPS authenticates the transport but
+/// not the bytes at rest (a poisoned mirror, a TLS-intercepting proxy, a stale
+/// CDN cache), and a pinned hash baked into the binary closes that gap. MUST be
+/// bumped together with `DEFAULT_ROOTFS_URL` whenever the point release changes.
+pub const DEFAULT_ROOTFS_SHA256: &str =
+    "c1e67ef7b17a6300e136118bd1dc04725009cb376c1aad10abcf8cd453628d58";
+
 /// `CREATE_NO_WINDOW` (winbase.h). Without it, every child process spawned from
 /// the GUI — which has no console of its own — briefly flashes a console window.
 #[cfg(windows)]
@@ -54,6 +63,15 @@ pub fn command(program: &str) -> Command {
 
 /// The named pipe served by the GUI's relay; the docker context points here.
 pub const PIPE_HOST: &str = "npipe:////./pipe/dockwin_engine";
+
+/// Quote `s` as a single POSIX shell word, safe to interpolate into a
+/// `bash -lc` script. Wraps the value in single quotes and rewrites any embedded
+/// single quote as the standard `'\''` sequence, so the value cannot terminate
+/// the quoting and inject further commands. These in-distro scripts run as
+/// **root**, so every interpolated path/value must go through this.
+pub fn sh_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
 
 /// Decode bytes emitted by `wsl.exe`.
 ///
@@ -164,7 +182,10 @@ pub fn distro_running(name: &str) -> Result<bool> {
 /// CRLF is normalised to LF so shell/conf files are valid under Linux.
 pub fn write_into_distro(content: &str, dest: &str, mode: &str) -> Result<()> {
     let normalized = content.replace("\r\n", "\n");
-    let script = format!("cat > '{dest}' && chmod {mode} '{dest}'");
+    // Shell-escape the interpolated values: this runs as root in the distro, so
+    // a single quote in `dest`/`mode` must not be able to break out and inject.
+    let q_dest = sh_quote(dest);
+    let script = format!("cat > {q_dest} && chmod {} {q_dest}", sh_quote(mode));
     let mut child = command("wsl.exe")
         .args(["-d", DISTRO, "-u", "root", "--", "bash", "-lc", &script])
         .stdin(Stdio::piped())
