@@ -116,7 +116,7 @@
           {@const acting = pending.has(c.id)}
           {@const st = statusOf(c)}
           <Table.Row
-            class="group relative cursor-pointer data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--lime)]"
+            class="group relative cursor-pointer data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--primary)]"
             style={acting ? "opacity:.55" : undefined}
             role="button"
             tabindex={0}

@@ -342,7 +342,7 @@
             {@const inspecting = pending.has(`inspect:${n.id}`)}
             {@const open = inspectId === n.id}
             <Table.Row
-              class="group relative data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--lime)]"
+              class="group relative data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--primary)]"
               data-sel={open}
               style={acting ? "opacity:.55" : undefined}
               aria-busy={acting}

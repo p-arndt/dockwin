@@ -464,7 +464,7 @@
   <Tabs.Root bind:value={activeTab}>
     <Tabs.List variant="line" class="mx-5">
       {#each TABS as t (t.key)}
-        <Tabs.Trigger value={t.key} class="after:bg-[var(--lime)]">{t.label}</Tabs.Trigger>
+        <Tabs.Trigger value={t.key} class="after:bg-[var(--primary)]">{t.label}</Tabs.Trigger>
       {/each}
     </Tabs.List>
   </Tabs.Root>
@@ -495,12 +495,12 @@
                   <svg class="absolute inset-x-0 bottom-0 h-[34px] opacity-90" viewBox="0 0 {SPARK_W} {SPARK_H}" preserveAspectRatio="none" aria-hidden="true">
                     <defs>
                       <linearGradient id="cpuspark" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0" stop-color="var(--lime)" stop-opacity="0.35" />
-                        <stop offset="1" stop-color="var(--lime)" stop-opacity="0" />
+                        <stop offset="0" stop-color="var(--primary)" stop-opacity="0.35" />
+                        <stop offset="1" stop-color="var(--primary)" stop-opacity="0" />
                       </linearGradient>
                     </defs>
                     <path d={spark.fill} fill="url(#cpuspark)" />
-                    <path d={spark.line} fill="none" stroke="var(--lime)" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+                    <path d={spark.line} fill="none" stroke="var(--primary)" stroke-width="1.5" vector-effect="non-scaling-stroke" />
                   </svg>
                 {/if}
               </div>
@@ -643,7 +643,7 @@
             {/if}
           </div>
           {#if info}
-            <Button variant="link" size="sm" class="h-auto self-start p-0 text-[var(--lime)]" type="button" onclick={() => (showAdv = !showAdv)}>
+            <Button variant="link" size="sm" class="h-auto self-start p-0 text-[var(--primary)]" type="button" onclick={() => (showAdv = !showAdv)}>
               <ChevronDown aria-hidden="true" style={showAdv ? "transform:rotate(180deg)" : undefined} />
               {showAdv ? "Hide advanced information" : "Show advanced information"}
             </Button>
@@ -662,7 +662,9 @@
           Retry
         </Button>
       {:else if inspectText !== null}
-        <pre class="inspect-pre font-mono">{inspectText}</pre>
+        <pre
+          class="m-0 flex-1 overflow-auto bg-card border border-border rounded-[9px] p-[12px] text-[11px] leading-[1.55] text-muted-foreground whitespace-pre select-text font-mono"
+        >{inspectText}</pre>
       {:else}
         <Button variant="outline" size="sm" type="button" style="align-self:flex-start" onclick={() => loadInspect(id)}>
           Load inspect
@@ -726,21 +728,5 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-  }
-
-  .inspect-pre {
-    margin: 0;
-    flex: 1;
-    overflow: auto;
-    background: var(--s1);
-    border: 1px solid var(--line);
-    border-radius: var(--r);
-    padding: 12px;
-    font-size: 11px;
-    line-height: 1.55;
-    color: var(--text-2);
-    white-space: pre;
-    user-select: text;
-    box-shadow: inset 0 1px 0 var(--hi);
   }
 </style>

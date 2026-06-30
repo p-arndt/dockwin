@@ -496,7 +496,7 @@
               {@const acting = pending.has(img.id)}
               {@const dangling = isDangling(img)}
               <Table.Row
-                class="group relative cursor-pointer data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--lime)]"
+                class="group relative cursor-pointer data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--primary)]"
                 data-sel={selectedId === img.id}
                 style={acting ? "opacity:.55" : undefined}
                 role="button"
@@ -617,9 +617,9 @@
 
         <Tabs.Root value={detailTab} onValueChange={(v) => setTab(v as DetailTab)}>
           <Tabs.List variant="line" class="mx-5">
-            <Tabs.Trigger value="overview" class="after:bg-[var(--lime)]">Overview</Tabs.Trigger>
-            <Tabs.Trigger value="history" class="after:bg-[var(--lime)]">History</Tabs.Trigger>
-            <Tabs.Trigger value="inspect" class="after:bg-[var(--lime)]">Inspect</Tabs.Trigger>
+            <Tabs.Trigger value="overview" class="after:bg-primary">Overview</Tabs.Trigger>
+            <Tabs.Trigger value="history" class="after:bg-primary">History</Tabs.Trigger>
+            <Tabs.Trigger value="inspect" class="after:bg-primary">Inspect</Tabs.Trigger>
           </Tabs.List>
         </Tabs.Root>
 
@@ -739,7 +739,13 @@
     position: absolute;
     inset: 0 auto 0 0;
     border-radius: 999px;
-    background: linear-gradient(90deg, var(--lime-deep), var(--lime), var(--lime-bright));
+    background-color: var(--primary);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, #fff 28%, transparent),
+      transparent
+    );
     background-size: 200% 100%;
     animation: progress-sheen 1.6s linear infinite;
     transition: width 0.3s ease-out;

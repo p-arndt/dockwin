@@ -1,56 +1,95 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* shadcn-svelte's `dark:` variant, keyed to dockwin's existing data-theme
-   attribute (the theme store toggles <html data-theme="dark|light">) instead
-   of the stock `.dark` class — so no theme-store change is needed. */
-@custom-variant dark (&:is([data-theme=dark], [data-theme=dark] *));
+@custom-variant dark (&:is(.dark *));
 
 /* ============================================================
-   shadcn-svelte token layer (fresh lime theme)
-   Maps shadcn's component tokens onto dockwin's crafted lime/dark palette.
-   The values reference the legacy --bg / --s* / --text* / --lime vars defined
-   further down, which are theme-scoped — so shadcn components inherit the exact
-   dockwin look and dark/light switching works through [data-theme]. Defined
-   once: the referenced vars resolve per theme.
+   Theme tokens — standard shadcn-svelte layout.
+   Colours live DIRECTLY on the semantic tokens: :root is light,
+   .dark is the dark hero. The theme store toggles the `.dark`
+   class on <html>. dockwin's lime palette, placed on the tokens.
    ============================================================ */
 :root {
   --radius: 0.45rem;
 
-  --background: var(--bg);
-  --foreground: var(--text);
-  --card: var(--s1);
-  --card-foreground: var(--text);
-  --popover: var(--s2);
-  --popover-foreground: var(--text);
-  --primary: var(--lime);
-  --primary-foreground: var(--lime-ink);
-  --secondary: var(--s2);
-  --secondary-foreground: var(--text);
-  --muted: var(--s2);
-  --muted-foreground: var(--text-3);
-  --accent: var(--s2);
-  --accent-foreground: var(--text);
-  --destructive: var(--err);
-  --destructive-foreground: var(--text);
-  --border: var(--line);
-  --input: var(--line);
-  --ring: var(--lime);
+  --background: #f5f6f8;
+  --foreground: #161a20;
+  --card: #ffffff;
+  --card-foreground: #161a20;
+  --popover: #fafbfc;
+  --popover-foreground: #161a20;
+  --primary: #7fb53a;
+  --primary-foreground: #11210a;
+  --secondary: #fafbfc;
+  --secondary-foreground: #161a20;
+  --muted: #fafbfc;
+  --muted-foreground: #7b828d;
+  --accent: #fafbfc;
+  --accent-foreground: #161a20;
+  --destructive: #cf3f50;
+  --destructive-foreground: #161a20;
+  --border: rgba(16, 24, 40, 0.09);
+  --input: rgba(16, 24, 40, 0.09);
+  --ring: #7fb53a;
 
-  --sidebar: var(--s1);
-  --sidebar-foreground: var(--text-2);
-  --sidebar-primary: var(--lime);
-  --sidebar-primary-foreground: var(--lime-ink);
-  --sidebar-accent: var(--s2);
-  --sidebar-accent-foreground: var(--text);
-  --sidebar-border: var(--line);
-  --sidebar-ring: var(--lime);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #525a66;
+  --sidebar-primary: #7fb53a;
+  --sidebar-primary-foreground: #11210a;
+  --sidebar-accent: #fafbfc;
+  --sidebar-accent-foreground: #161a20;
+  --sidebar-border: rgba(16, 24, 40, 0.09);
+  --sidebar-ring: #7fb53a;
 
-  --chart-1: var(--lime);
-  --chart-2: var(--ok);
-  --chart-3: var(--warn);
-  --chart-4: var(--err);
-  --chart-5: var(--off);
+  --chart-1: #7fb53a;
+  --chart-2: #179a5f;
+  --chart-3: #b07816;
+  --chart-4: #cf3f50;
+  --chart-5: #9aa2ad;
+
+  /* dockwin extras: the soft backdrop behind the app shell */
+  --backdrop-grad: #eef0f4;
+  --backdrop-glow: 0.07;
+}
+
+.dark {
+  --background: #0a0b0e;
+  --foreground: #f3f4f6;
+  --card: #101216;
+  --card-foreground: #f3f4f6;
+  --popover: #15181d;
+  --popover-foreground: #f3f4f6;
+  --primary: #a6e35b;
+  --primary-foreground: #16240a;
+  --secondary: #15181d;
+  --secondary-foreground: #f3f4f6;
+  --muted: #15181d;
+  --muted-foreground: #727a86;
+  --accent: #15181d;
+  --accent-foreground: #f3f4f6;
+  --destructive: #e5727f;
+  --destructive-foreground: #f3f4f6;
+  --border: rgba(255, 255, 255, 0.065);
+  --input: rgba(255, 255, 255, 0.065);
+  --ring: #a6e35b;
+
+  --sidebar: #101216;
+  --sidebar-foreground: #aab1bb;
+  --sidebar-primary: #a6e35b;
+  --sidebar-primary-foreground: #16240a;
+  --sidebar-accent: #15181d;
+  --sidebar-accent-foreground: #f3f4f6;
+  --sidebar-border: rgba(255, 255, 255, 0.065);
+  --sidebar-ring: #a6e35b;
+
+  --chart-1: #a6e35b;
+  --chart-2: #54c98a;
+  --chart-3: #e0aa46;
+  --chart-4: #e5727f;
+  --chart-5: #5a626d;
+
+  --backdrop-grad: #0c0e12;
+  --backdrop-glow: 0.05;
 }
 
 @theme inline {
@@ -94,105 +133,10 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
-  --font-sans: var(--font);
-  --font-mono: var(--mono);
+  --font-sans: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", ui-monospace, Consolas, monospace;
 }
 
-/* ============================================================
-   dockwin — crafted design foundation
-   Token layer + component layer ported from the v2 reference.
-
-   RESTRAINT rules baked into these classes:
-   1. The lime accent appears in ~4 roles only — primary action,
-      active-nav rail, selected-row rail, one focused chart.
-      Everywhere else is neutral.
-   2. Status is QUIET: a small dot + a single word + a muted
-      sub-line. No glowing filled status bands.
-   3. Real material: layered surfaces, a 1px top highlight, a
-      soft ambient shadow, a faintly cool ink base (not pure black).
-   4. Numbers use tabular-nums; ids / ports / hashes use the mono font.
-
-   Everything is driven by CSS variables so the theme store can
-   swap dark/light at runtime on <html>.
-   ============================================================ */
-
-:root {
-  --r-xs: 5px;
-  --r-sm: 7px;
-  --r: 9px;
-  --r-lg: 11px;
-  --font: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --mono: "Cascadia Code", "JetBrains Mono", ui-monospace, Consolas, monospace;
-  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-
-  /* Refined lime — a touch desaturated, not neon. The core accent, with
-     soft/line/ink derived from it. Light gets its own shade further down. */
-  --lime: #a6e35b;
-  --lime-bright: #b7ee70;
-  --lime-deep: #7eb83c;
-  --lime-ink: #16240a;
-  --lime-soft: rgba(166, 227, 91, 0.14);
-  --lime-line: rgba(166, 227, 91, 0.32);
-}
-
-[data-theme="dark"] {
-  --bg: #0a0b0e; /* faintly cool ink, not pure black */
-  --bg-grad: #0c0e12;
-  --s1: #101216; /* panel */
-  --s2: #15181d; /* raised */
-  --s3: #1b1f25; /* control */
-  --line: rgba(255, 255, 255, 0.065);
-  --line-soft: rgba(255, 255, 255, 0.035);
-  --hi: rgba(255, 255, 255, 0.045); /* top highlight */
-  --text: #f3f4f6;
-  --text-2: #aab1bb;
-  --text-3: #727a86;
-  --text-4: #4d545f;
-  --ok: #54c98a;
-  --ok-dim: rgba(84, 201, 138, 0.16);
-  --warn: #e0aa46;
-  --warn-dim: rgba(224, 170, 70, 0.16);
-  --err: #e5727f;
-  --err-dim: rgba(229, 114, 127, 0.15);
-  --off: #5a626d;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -10px rgba(0, 0, 0, 0.55);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --accent-glow: 0.05; /* radial accent in the body backdrop */
-}
-
-[data-theme="light"] {
-  --bg: #f5f6f8;
-  --bg-grad: #eef0f4;
-  --s1: #ffffff;
-  --s2: #fafbfc;
-  --s3: #f0f2f5;
-  --line: rgba(16, 24, 40, 0.09);
-  --line-soft: rgba(16, 24, 40, 0.05);
-  --hi: rgba(255, 255, 255, 0.7);
-  --text: #161a20;
-  --text-2: #525a66;
-  --text-3: #7b828d;
-  --text-4: #a6acb5;
-  --ok: #179a5f;
-  --ok-dim: rgba(23, 154, 95, 0.12);
-  --warn: #b07816;
-  --warn-dim: rgba(176, 120, 22, 0.12);
-  --err: #cf3f50;
-  --err-dim: rgba(207, 63, 80, 0.1);
-  --off: #9aa2ad;
-  /* Light gets its own slightly deeper lime so the accent stays legible. */
-  --lime: #7fb53a;
-  --lime-bright: #8cc545;
-  --lime-deep: #5d8c22;
-  --lime-ink: #11210a;
-  --lime-soft: rgba(127, 181, 58, 0.13);
-  --lime-line: rgba(127, 181, 58, 0.4);
-  --shadow: 0 1px 2px rgba(20, 30, 50, 0.06), 0 10px 30px -14px rgba(20, 30, 50, 0.18);
-  --shadow-sm: 0 1px 2px rgba(20, 30, 50, 0.05);
-  --accent-glow: 0.07;
-}
-
-/* ===== base ===== */
 @layer base {
   * {
     box-sizing: border-box;
@@ -200,17 +144,16 @@
     padding: 0;
   }
   /* Tailwind v4 changed two defaults that regressed dockwin's look:
-       1. `border-*` utilities no longer imply a color — they fall back to
-          `currentColor`, so every uncolored border (the sidebar rail seam, the
-          table-row dividers) rendered as a bright near-white line.
-       2. <button> lost its implicit `cursor: pointer`, so controls felt dead.
+       1. `border-*` utilities no longer imply a colour — they fall back to
+          `currentColor`, so uncolored borders rendered as bright near-white lines.
+       2. <button> lost its implicit `cursor: pointer`.
      Restore both to the v3 behaviour the design was built against. */
   *,
   ::after,
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--border);
+    @apply border-border;
   }
   button:not(:disabled),
   [role="button"]:not(:disabled),
@@ -225,11 +168,10 @@
     height: 100%;
   }
   body {
-    font-family: var(--font);
-    color: var(--text);
+    @apply text-foreground font-sans;
     background:
-      radial-gradient(1100px 520px at 88% -8%, rgba(166, 227, 91, var(--accent-glow)), transparent 60%),
-      linear-gradient(180deg, var(--bg-grad), var(--bg) 40%);
+      radial-gradient(1100px 520px at 88% -8%, rgba(166, 227, 91, var(--backdrop-glow)), transparent 60%),
+      linear-gradient(180deg, var(--backdrop-grad), var(--background) 40%);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     font-size: 13.5px;
@@ -245,21 +187,19 @@
     display: block;
   }
   ::selection {
-    background: var(--lime-soft);
+    background: color-mix(in srgb, var(--primary) 22%, transparent);
   }
 
-  /* Engine "live" status dot — soft pulsing ring. Shared by the sidebar engine
-     button, the Settings engine card and the bottom status bar (a pseudo-element
-     + keyframes can't be expressed as inline Tailwind utilities). The element it
-     decorates must be `relative`. */
+  /* Engine "live" status dot — soft pulsing ring (a pseudo-element + keyframes
+     can't be inline Tailwind). The element it decorates must be `relative`. */
   .eng-dot-ring::after {
     content: "";
     position: absolute;
     inset: -4px;
     border-radius: 50%;
-    border: 1px solid var(--ok);
+    border: 1px solid var(--chart-2);
     opacity: 0.5;
-    animation: eng-dot-ring 2.6s var(--ease) infinite;
+    animation: eng-dot-ring 2.6s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
   }
   @keyframes eng-dot-ring {
     0% {
@@ -273,12 +213,11 @@
   }
 
   /* ===== scrollbars =====
-     Tauri's WebView2 ships a chunky white default bar (see the containers
-     table). Replace it with a thin, themed, overlay-style track that fades
-     into the surface and only firms up on hover. */
+     Tauri's WebView2 ships a chunky white default bar. Replace it with a thin,
+     themed, overlay-style track that fades into the surface, firming on hover. */
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--line) transparent;
+    scrollbar-color: var(--border) transparent;
   }
   ::-webkit-scrollbar {
     width: 11px;
@@ -289,18 +228,18 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--text-4) 55%, transparent);
+    background: color-mix(in srgb, var(--muted-foreground) 45%, transparent);
     border: 3px solid transparent;
     border-radius: 999px;
     background-clip: padding-box;
     min-height: 36px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-4);
+    background: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
     background-clip: padding-box;
   }
   ::-webkit-scrollbar-thumb:active {
-    background: var(--text-3);
+    background: var(--muted-foreground);
     background-clip: padding-box;
   }
 }

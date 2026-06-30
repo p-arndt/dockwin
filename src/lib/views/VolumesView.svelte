@@ -390,7 +390,7 @@
             {@const acting = busy.has(v.name)}
             {@const open = inspectName === v.name}
             <Table.Row
-              class="group relative cursor-pointer data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--lime)]"
+              class="group relative cursor-pointer data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--primary)]"
               data-sel={open}
               style={acting ? "opacity:.55" : undefined}
               role="button"

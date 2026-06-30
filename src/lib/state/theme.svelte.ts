@@ -1,10 +1,11 @@
 // Theme foundation store (Svelte 5 runes module).
 //
 // Owns a single axis:
-//   • theme — "dark" (the hero) | "light", written to <html data-theme>.
+//   • theme — "dark" (the hero) | "light", applied as the `.dark` class on
+//     <html> (the shadcn-svelte convention) plus a matching color-scheme.
 //
-// Persists to localStorage and re-applies on construction (boot). The lime
-// accent itself is defined (theme-aware) in app.css; there is no runtime swap.
+// Persists to localStorage and re-applies on construction (boot). The palette
+// itself is defined (per theme) in app.css; there is no runtime swap.
 
 export type Theme = "dark" | "light";
 
@@ -22,7 +23,9 @@ function readStoredTheme(): Theme {
 
 function applyTheme(theme: Theme): void {
   if (typeof document === "undefined") return;
-  document.documentElement.setAttribute("data-theme", theme);
+  const root = document.documentElement;
+  root.classList.toggle("dark", theme === "dark");
+  root.style.colorScheme = theme;
 }
 
 class ThemeStore {
