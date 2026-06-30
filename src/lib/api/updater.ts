@@ -7,6 +7,18 @@
 // relaunches. Nothing here runs automatically in the background.
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { getVersion } from "@tauri-apps/api/app";
+
+// The running app's version, read from the bundle (src-tauri/tauri.conf.json
+// `version`). Authoritative — it matches the installed build, not package.json.
+// Returns null if the Tauri runtime isn't available (e.g. plain browser dev).
+export async function getAppVersion(): Promise<string | null> {
+  try {
+    return await getVersion();
+  } catch {
+    return null;
+  }
+}
 
 // A pending app update the user can choose to install.
 export interface AppUpdateInfo {
