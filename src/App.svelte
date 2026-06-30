@@ -13,7 +13,6 @@
   import HelpCircle from "@lucide/svelte/icons/circle-help";
   import Settings from "@lucide/svelte/icons/settings";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import DownloadCloud from "@lucide/svelte/icons/download-cloud";
   import FileUp from "@lucide/svelte/icons/file-up";
   import FileDown from "@lucide/svelte/icons/file-down";
   import Terminal from "@lucide/svelte/icons/terminal";
@@ -29,8 +28,10 @@
     EngineState,
     NormalizedContainer,
     ProvisionProgress,
+    ProvisionUi,
     Stack,
   } from "./lib/types";
+  import EngineGate from "./lib/EngineGate.svelte";
   import ContainerList from "./lib/ContainerList.svelte";
   import ImagesView from "./lib/ImagesView.svelte";
   import StackList from "./lib/StackList.svelte";
@@ -73,12 +74,6 @@
   let withBackup = $state(false); // export a .tar before teardown
 
   // Live provisioning progress (driven by the engine://provision event).
-  interface ProvisionUi {
-    pct: number;
-    phase: string;
-    message: string;
-    log: string[];
-  }
   let provision = $state<ProvisionUi | null>(null);
 
   // Compose (docker compose up/down inside the engine).
@@ -118,6 +113,10 @@
     unknown: { dot: "dot-unknown", icon: HelpCircle, label: "Engine: unknown", btn: "—" },
   };
   let engine = $derived(ENGINE[engineState] ?? ENGINE.unknown);
+  // The management shell (sidebar + resource views) only mounts once the engine
+  // is running. Every other state is owned by the full-window EngineGate, so the
+  // engine lifecycle never bleeds into the management UI.
+  let engineReady = $derived(engineState === "running");
   let engineToggleDisabled = $derived(
     engineBusy || working || repairing || engineState === "unknown"
   );
@@ -281,14 +280,6 @@
       for (const c of targets) markPending(c.id, false);
       await refreshAll();
     }
-  }
-
-  // Header engine button dispatcher: set up when not provisioned, else start/stop.
-  function onEngineButton() {
-    if (engineState === "broken") return repairEngine();
-    if (engineToggleDisabled) return;
-    if (engineState === "not-provisioned") return provisionEngine();
-    return toggleEngine();
   }
 
   async function toggleEngine() {
@@ -558,11 +549,14 @@
       <EngineIcon size={15} aria-hidden="true" />
       {engine.label}
     </span>
-    <button
-      class="min-w-[78px] cursor-pointer rounded-md border border-[#262b34] bg-[#21262d] px-3 py-[5px] text-[13px] text-[#e6e8eb] transition-colors hover:not-disabled:border-[#3a414b] hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-45"
-      disabled={engineToggleDisabled || engine.btn === "—"}
-      onclick={onEngineButton}>{engine.btn}</button
-    >
+    {#if engineState === "running"}
+      <!-- The gate owns set-up / start / repair; the header only stops a running engine. -->
+      <button
+        class="min-w-[78px] cursor-pointer rounded-md border border-[#262b34] bg-[#21262d] px-3 py-[5px] text-[13px] text-[#e6e8eb] transition-colors hover:not-disabled:border-[#3a414b] hover:not-disabled:bg-[#2b3138] disabled:cursor-default disabled:opacity-45"
+        disabled={engineToggleDisabled}
+        onclick={toggleEngine}>Stop</button
+      >
+    {/if}
     <button
       class="flex cursor-pointer items-center rounded-md border border-transparent bg-transparent px-2.5 py-[5px] text-[#e6e8eb] transition-colors hover:bg-[#21262d] disabled:opacity-45"
       title="Refresh"
@@ -574,7 +568,22 @@
   </div>
 </header>
 
-<!-- Body: fixed-width sidebar nav + scrollable main content -->
+<!-- Body: until the engine is running, a full-window gate owns the engine
+     lifecycle. Once running, the management shell (sidebar + views) mounts. -->
+{#if !engineReady}
+  <EngineGate
+    {engineState}
+    {working}
+    {provision}
+    {engineBusy}
+    {repairing}
+    bind:enableTcp
+    onProvision={provisionEngine}
+    onStart={toggleEngine}
+    onRepair={repairEngine}
+    onRetry={manualRefresh}
+  />
+{:else}
 <div class="flex min-h-0 flex-1">
   <nav
     class="flex w-[188px] flex-none flex-col gap-1 border-r border-[#262b34] bg-[#171a21] p-2"
@@ -597,92 +606,6 @@
   </nav>
 
   <main class="flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-4">
-    {#if working && provision}
-      <!-- Live provisioning progress (replaces the setup panel while running). -->
-      <section class="rounded-md border border-[#262b34] bg-[#171a21] p-5">
-        <div class="mb-3 flex items-center gap-2.5">
-          <DownloadCloud size={20} class="text-[#2f81f7]" aria-hidden="true" />
-          <h2 class="text-base font-semibold">Setting up the dockwin engine…</h2>
-          <span class="ml-auto font-mono-app text-sm text-[#9aa3af]">
-            {Math.round(provision.pct)}%
-          </span>
-        </div>
-        <!-- Progress bar -->
-        <div class="h-2.5 w-full overflow-hidden rounded-full bg-[#21262d]">
-          <div
-            class="provision-bar h-full rounded-full bg-[#1f6feb] transition-[width] duration-300 ease-out"
-            style="width: {Math.max(2, provision.pct)}%"
-          ></div>
-        </div>
-        <p class="mt-3 truncate text-[13px] text-[#c7ccd4]" title={provision.message}>
-          {provision.message}
-        </p>
-        <!-- Live log (most recent at the bottom) -->
-        {#if provision.log.length}
-          <div
-            class="mt-3 max-h-44 select-text overflow-auto rounded-md border border-[#262b34] bg-[#0d1117] p-2.5 font-mono-app text-[11.5px] leading-relaxed text-[#9aa3af]"
-          >
-            {#each provision.log.slice(-12) as line, i (i)}
-              <div class="whitespace-pre-wrap break-all">{line}</div>
-            {/each}
-          </div>
-        {/if}
-        <p class="mt-3 text-xs text-[#6e7681]">
-          Downloading the Ubuntu image and installing Docker. You can keep this
-          window open — it'll finish on its own.
-        </p>
-      </section>
-    {:else if engineState === "not-provisioned"}
-      <!-- First-run setup: shown in every view so it can't be missed. -->
-      <section class="rounded-md border border-[#262b34] bg-[#171a21] p-5">
-        <div class="mb-2 flex items-center gap-2.5">
-          <DownloadCloud size={20} class="text-[#2f81f7]" aria-hidden="true" />
-          <h2 class="text-base font-semibold">Set up the dockwin engine</h2>
-        </div>
-        <p class="mb-3 max-w-prose text-[13px] leading-relaxed text-[#9aa3af]">
-          dockwin runs Docker in a dedicated, isolated WSL2 distro — no Docker
-          Desktop required. Setting up downloads a minimal Ubuntu image (~250&nbsp;MB)
-          and installs the Docker Engine. This can take a few minutes; you can keep
-          this window open.
-        </p>
-        <label class="mb-3 flex items-center gap-2 text-[13px] text-[#c7ccd4]">
-          <input type="checkbox" bind:checked={enableTcp} disabled={working} />
-          Also enable insecure loopback TCP (127.0.0.1:2375) — not recommended
-        </label>
-        <button
-          class="flex items-center gap-2 rounded-md border border-[#2f81f7] bg-[#1f6feb] px-4 py-2 text-sm font-medium text-white transition-colors hover:not-disabled:bg-[#2f81f7] disabled:cursor-default disabled:opacity-60"
-          disabled={working}
-          onclick={provisionEngine}
-        >
-          <DownloadCloud size={16} aria-hidden="true" />
-          {working ? "Setting up…" : "Set up engine"}
-        </button>
-      </section>
-    {:else if engineState === "broken"}
-      <!-- Broken engine: distro registered but its disk image is missing. -->
-      <section
-        class="rounded-md border border-[#f8514966] bg-[#f851491a] p-5"
-      >
-        <div class="mb-2 flex items-center gap-2.5">
-          <TriangleAlert size={20} class="text-[#f85149]" aria-hidden="true" />
-          <h2 class="text-base font-semibold text-[#ff9b95]">Engine is broken</h2>
-        </div>
-        <p class="mb-3 max-w-prose text-[13px] leading-relaxed text-[#ffb3ae]">
-          The dockwin WSL distro is registered but its disk image is missing.
-          Reset it to unregister the dangling distro, then set the engine up again
-          to reprovision.
-        </p>
-        <button
-          class="flex items-center gap-2 rounded-md border border-[#f8514966] bg-[#f851491a] px-4 py-2 text-sm font-medium text-[#ff9b95] transition-colors hover:not-disabled:bg-[#f8514926] disabled:cursor-default disabled:opacity-60"
-          disabled={repairing || working}
-          onclick={repairEngine}
-        >
-          <Hammer size={16} aria-hidden="true" />
-          {repairing ? "Resetting…" : "Repair engine"}
-        </button>
-      </section>
-    {/if}
-
     {#if activeView === "containers"}
       <!-- Containers -->
       <section
@@ -831,21 +754,19 @@
           <div class="flex items-center gap-3">
             <button
               class="flex items-center gap-1.5 rounded-md border border-[#f8514966] bg-[#f851491a] px-3 py-[6px] text-[13px] text-[#ff9b95] transition-colors hover:not-disabled:bg-[#f8514926] disabled:cursor-default disabled:opacity-45"
-              disabled={working || engineState === "not-provisioned" || engineState === "unknown"}
+              disabled={working}
               onclick={teardownEngine}
             >
               <Trash2 size={15} aria-hidden="true" />
               Remove engine
             </button>
-            {#if engineState === "not-provisioned"}
-              <span class="text-xs text-[#9aa3af]">Nothing to remove — engine not set up.</span>
-            {/if}
           </div>
         </div>
       </section>
     {/if}
   </main>
 </div>
+{/if}
 
 <!-- Container details drawer (fixed; self-positioned). Open via a name click. -->
 {#if selectedContainer}

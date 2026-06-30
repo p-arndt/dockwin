@@ -134,3 +134,12 @@ export interface ProvisionProgress {
 export interface ComposeOutput {
   line: string;
 }
+
+// Aggregated, UI-facing provisioning state (built from ProvisionProgress events).
+// Drives the setup progress bar + live log in the engine gate.
+export interface ProvisionUi {
+  pct: number;
+  phase: string;
+  message: string;
+  log: string[];
+}
