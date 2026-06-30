@@ -1,0 +1,96 @@
+name: Build and Publish Release
+permissions:
+  contents: write
+  packages: write
+
+on:
+  push:
+    tags: ['*']
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup pnpm
+        # Version is taken from the "packageManager" field in package.json.
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Setup Rust (MSVC)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Get tag
+        id: get_tag
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Build CLI (single static binary)
+        # +crt-static links the MSVC runtime in -> one self-contained dockwin.exe
+        # with no vcruntime DLL dependency. Workspace release profile already does
+        # lto + strip + opt-level=s, so the result is small.
+        env:
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: cargo build -p dockwin-cli --release --target x86_64-pc-windows-msvc
+
+      - name: Build GUI + NSIS installer
+        run: pnpm tauri build
+
+      - name: Stage release artifacts
+        shell: bash
+        run: |
+          V=${{ steps.get_tag.outputs.VERSION }}
+          mkdir -p dist-release
+          cp "target/x86_64-pc-windows-msvc/release/dockwin.exe" \
+             "dist-release/dockwin-${V}-x86_64-pc-windows-msvc.exe"
+          cp target/release/bundle/nsis/*-setup.exe dist-release/
+          ls -l dist-release
+
+      - name: Generate changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip all
+        env:
+          OUTPUT: CHANGELOG_BODY.md
+
+      - name: Assemble release notes
+        shell: bash
+        run: |
+          CUR=${{ steps.get_tag.outputs.VERSION }}
+
+          echo "## 🚀 Release $CUR" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          cat CHANGELOG_BODY.md >> RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_tag.outputs.VERSION }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            dist-release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
