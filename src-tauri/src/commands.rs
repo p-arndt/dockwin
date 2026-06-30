@@ -35,7 +35,14 @@ impl AppState {
             return Ok(c.clone());
         }
         let allow_tcp = *self.allow_tcp_fallback.lock().await;
-        let client = DockerClient::connect_default(allow_tcp)
+        let backend = dockwin_core::backend::detect();
+        let primary: crate::docker::Transport = backend.connection().into();
+        let fallback = if allow_tcp {
+            backend.fallback_connection().map(Into::into)
+        } else {
+            None
+        };
+        let client = DockerClient::connect_with_fallback(primary, fallback)
             .await
             .map_err(|e| e.to_string())?;
         *guard = Some(client.clone());
@@ -68,12 +75,14 @@ pub struct EngineStatusDto {
 pub async fn engine_status(state: tauri::State<'_, AppState>) -> Result<EngineStatusDto, String> {
     // If the dedicated distro isn't even registered, the engine is not
     // provisioned — a distinct state from "stopped".
-    let provisioned = tokio::task::spawn_blocking(|| {
-        dockwin_core::wsl::distro_exists(dockwin_core::wsl::DISTRO).unwrap_or(false)
+    let engine_state = tokio::task::spawn_blocking(|| {
+        dockwin_core::backend::detect()
+            .state()
+            .unwrap_or(dockwin_core::ops::EngineState::NotProvisioned)
     })
     .await
-    .unwrap_or(false);
-    if !provisioned {
+    .unwrap_or(dockwin_core::ops::EngineState::NotProvisioned);
+    if matches!(engine_state, dockwin_core::ops::EngineState::NotProvisioned) {
         return Ok(EngineStatusDto {
             status: "not_provisioned".to_string(),
             version: None,
@@ -121,7 +130,7 @@ pub async fn engine_version(state: tauri::State<'_, AppState>) -> Result<Version
 /// Boot the engine distro and start dockerd. Forces a fresh connection after.
 #[tauri::command]
 pub async fn engine_start(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    tokio::task::spawn_blocking(|| dockwin_core::ops::start(60))
+    tokio::task::spawn_blocking(|| dockwin_core::backend::detect().start(60))
         .await
         .map_err(|e| format!("engine_start task failed: {e}"))?
         .map_err(|e| format!("{e:#}"))?;
@@ -132,7 +141,7 @@ pub async fn engine_start(state: tauri::State<'_, AppState>) -> Result<(), Strin
 /// Stop dockerd inside the engine distro. Forces a reconnect on next call.
 #[tauri::command]
 pub async fn engine_stop(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    tokio::task::spawn_blocking(|| dockwin_core::ops::stop(false))
+    tokio::task::spawn_blocking(|| dockwin_core::backend::detect().stop(false))
         .await
         .map_err(|e| format!("engine_stop task failed: {e}"))?
         .map_err(|e| format!("{e:#}"))?;
@@ -181,7 +190,7 @@ pub async fn engine_provision(
                 },
             );
         };
-        dockwin_core::ops::install_reporting(
+        dockwin_core::backend::detect().install(
             dockwin_core::ops::InstallOpts {
                 enable_tcp,
                 ..Default::default()
@@ -235,7 +244,7 @@ pub async fn engine_teardown(
     backup: Option<bool>,
 ) -> Result<(), String> {
     let backup = backup.unwrap_or(false);
-    tokio::task::spawn_blocking(move || dockwin_core::ops::uninstall(backup, None, true))
+    tokio::task::spawn_blocking(move || dockwin_core::backend::detect().uninstall(backup, None, true))
         .await
         .map_err(|e| format!("engine_teardown task failed: {e}"))?
         .map_err(|e| format!("{e:#}"))?;
@@ -381,7 +390,7 @@ pub async fn compose_up(
         let mut emit = |line: &str| {
             let _ = app2.emit("compose://output", ComposeOutputDto { line: line.to_string() });
         };
-        dockwin_core::ops::compose_up(&file, detach, &mut emit)
+        dockwin_core::backend::detect().compose_up(&file, detach, &mut emit)
     })
     .await
     .map_err(|e| format!("compose_up task failed: {e}"))?;
@@ -408,7 +417,7 @@ pub async fn compose_down(
         let mut emit = |line: &str| {
             let _ = app2.emit("compose://output", ComposeOutputDto { line: line.to_string() });
         };
-        dockwin_core::ops::compose_down(&file, &mut emit)
+        dockwin_core::backend::detect().compose_down(&file, &mut emit)
     })
     .await
     .map_err(|e| format!("compose_down task failed: {e}"))?;
@@ -439,7 +448,7 @@ async fn compose_action(
         let mut emit = |line: &str| {
             let _ = app2.emit("compose://output", ComposeOutputDto { line: line.to_string() });
         };
-        dockwin_core::ops::compose_run(&file, &argv, &mut emit)
+        dockwin_core::backend::detect().compose_run(&file, &argv, &mut emit)
     })
     .await
     .map_err(|e| format!("compose_{what} task failed: {e}"))?;

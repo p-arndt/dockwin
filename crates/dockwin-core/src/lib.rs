@@ -5,5 +5,6 @@
 //! Tauri GUI depend on this crate so install / uninstall / start / stop / status
 //! exist in exactly one implementation — no PowerShell, no duplication.
 
+pub mod backend;
 pub mod ops;
 pub mod wsl;

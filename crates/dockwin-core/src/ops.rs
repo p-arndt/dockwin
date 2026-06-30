@@ -54,8 +54,9 @@ impl Progress {
 }
 
 /// The default reporter used by the public [`install`]: print to stdout/stderr
-/// exactly like the original CLI output.
-fn print_progress(p: &Progress) {
+/// exactly like the original CLI output. Public so callers driving a backend's
+/// [`crate::backend::EngineBackend::install`] can reuse the canonical CLI output.
+pub fn print_progress(p: &Progress) {
     match p.level {
         "warn" => eprintln!("    WARN: {}", p.message),
         "step" => println!("==> {}", p.message),

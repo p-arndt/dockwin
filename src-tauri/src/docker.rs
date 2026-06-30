@@ -26,18 +26,16 @@ use serde::Serialize;
 /// In bollard/npipe form the leading `\\.\pipe\` becomes `//./pipe/`.
 pub const DEFAULT_PIPE_ADDR: &str = "//./pipe/dockwin_engine";
 
-/// Loopback TCP fallback (INSECURE: unauthenticated, reachable by any local
-/// process / other WSL distro). Only used when explicitly selected.
-pub const DEFAULT_TCP_ADDR: &str = "tcp://127.0.0.1:2375";
-
 /// Connection/handshake timeout in seconds for the initial bollard connect.
 const CONNECT_TIMEOUT_SECS: u64 = 8;
 
 /// How dockwin should reach dockerd.
 #[derive(Debug, Clone)]
 pub enum Transport {
-    /// Primary: Windows named pipe relayed by dockwin-core.
+    /// Primary on Windows: named pipe relayed by dockwin-core.
     NamedPipe(String),
+    /// Direct unix domain socket (native Linux dockerd; future mac VM).
+    Unix(String),
     /// Fallback: loopback TCP (insecure).
     Tcp(String),
 }
@@ -45,6 +43,18 @@ pub enum Transport {
 impl Default for Transport {
     fn default() -> Self {
         Transport::NamedPipe(DEFAULT_PIPE_ADDR.to_string())
+    }
+}
+
+/// Map the backend's platform-neutral [`EngineConnection`] to a bollard transport.
+impl From<dockwin_core::backend::EngineConnection> for Transport {
+    fn from(c: dockwin_core::backend::EngineConnection) -> Self {
+        use dockwin_core::backend::EngineConnection as C;
+        match c {
+            C::NamedPipe(addr) => Transport::NamedPipe(addr),
+            C::Unix(path) => Transport::Unix(path.to_string_lossy().into_owned()),
+            C::Tcp(addr) => Transport::Tcp(addr),
+        }
     }
 }
 
@@ -142,6 +152,7 @@ impl DockerClient {
     pub async fn connect(transport: Transport) -> Result<Self> {
         let docker = match transport {
             Transport::NamedPipe(addr) => connect_named_pipe(&addr)?,
+            Transport::Unix(addr) => connect_unix(&addr)?,
             Transport::Tcp(addr) => connect_tcp(&addr)?,
         };
 
@@ -154,17 +165,24 @@ impl DockerClient {
         Ok(Self { inner: docker })
     }
 
-    /// Try the primary named pipe, then fall back to loopback TCP if requested.
-    pub async fn connect_default(allow_tcp_fallback: bool) -> Result<Self> {
-        match Self::connect(Transport::default()).await {
+    /// Connect over `primary`, falling back to `fallback` (if any) on failure.
+    /// The backend supplies both transports, so connection wiring follows
+    /// whichever engine backend [`dockwin_core::backend::detect`] selected.
+    pub async fn connect_with_fallback(
+        primary: Transport,
+        fallback: Option<Transport>,
+    ) -> Result<Self> {
+        match Self::connect(primary).await {
             Ok(c) => Ok(c),
-            Err(primary_err) if allow_tcp_fallback => {
-                log::warn!(
-                    "named-pipe connect failed ({primary_err}); trying insecure TCP fallback"
-                );
-                Self::connect(Transport::Tcp(DEFAULT_TCP_ADDR.to_string())).await
-            }
-            Err(e) => Err(e),
+            Err(primary_err) => match fallback {
+                Some(fb) => {
+                    log::warn!(
+                        "primary engine connect failed ({primary_err}); trying fallback transport"
+                    );
+                    Self::connect(fb).await
+                }
+                None => Err(primary_err),
+            },
         }
     }
 
@@ -361,6 +379,21 @@ fn connect_named_pipe(_addr: &str) -> Result<Docker> {
     // type-checks on non-Windows CI. TODO: route to unix socket for dev.
     Err(DockerError::Connect(
         "named-pipe transport is only available on Windows".to_string(),
+    ))
+}
+
+#[cfg(unix)]
+fn connect_unix(addr: &str) -> Result<Docker> {
+    // Native dockerd on a unix socket (Linux dev / future mac VM). No relay.
+    Docker::connect_with_unix(addr, CONNECT_TIMEOUT_SECS, bollard::API_DEFAULT_VERSION)
+        .map_err(|e| DockerError::Connect(e.to_string()))
+}
+
+#[cfg(not(unix))]
+fn connect_unix(_addr: &str) -> Result<Docker> {
+    // On Windows the engine is reached via the named-pipe relay instead.
+    Err(DockerError::Connect(
+        "unix-socket transport is only available on Unix".to_string(),
     ))
 }
 

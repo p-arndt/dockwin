@@ -137,24 +137,28 @@ fn main() -> ExitCode {
             wsl_conf,
             provision_script,
             enable_tcp,
-        } => ops::install(InstallOpts {
-            rootfs,
-            install_dir,
-            wsl_conf,
-            provision_script,
-            enable_tcp,
-        }),
-        Commands::Start { timeout } => ops::start(timeout),
-        Commands::Stop { terminate } => ops::stop(terminate),
+        } => {
+            let opts = InstallOpts {
+                rootfs,
+                install_dir,
+                wsl_conf,
+                provision_script,
+                enable_tcp,
+            };
+            dockwin_core::backend::detect()
+                .install(opts, &|p| dockwin_core::ops::print_progress(&p))
+        }
+        Commands::Start { timeout } => dockwin_core::backend::detect().start(timeout),
+        Commands::Stop { terminate } => dockwin_core::backend::detect().stop(terminate),
         Commands::Uninstall {
             backup,
             backup_path,
             yes,
-        } => ops::uninstall(backup, backup_path, yes),
+        } => dockwin_core::backend::detect().uninstall(backup, backup_path, yes),
         Commands::Up { file, foreground } => resolve_compose_file(file).and_then(|f| {
             println!("==> docker compose up{} ({})", if foreground { "" } else { " -d" }, f.display());
             let mut emit = |line: &str| println!("{line}");
-            ops::compose_up(&f, !foreground, &mut emit).and_then(|ok| {
+            dockwin_core::backend::detect().compose_up(&f, !foreground, &mut emit).and_then(|ok| {
                 if ok {
                     println!("==> compose up complete.");
                     Ok(())
@@ -166,7 +170,7 @@ fn main() -> ExitCode {
         Commands::Down { file } => resolve_compose_file(file).and_then(|f| {
             println!("==> docker compose down ({})", f.display());
             let mut emit = |line: &str| println!("{line}");
-            ops::compose_down(&f, &mut emit).and_then(|ok| {
+            dockwin_core::backend::detect().compose_down(&f, &mut emit).and_then(|ok| {
                 if ok {
                     println!("==> compose down complete.");
                     Ok(())
