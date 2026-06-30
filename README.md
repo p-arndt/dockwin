@@ -52,25 +52,33 @@ You can use dockwin commercially, at any org size, for free.
 dockwin is a thin Windows-native Rust core with a Tauri v2 GUI shell, driving a
 single dedicated WSL2 distro (`dockwin`) that runs stock `dockerd`.
 
-```
-  +------------------- Windows (host) -------------------+
-  |  dockwin-gui (Tauri v2)        dockwin.exe (CLI)     |
-  |     web frontend                                     |
-  |        | Tauri cmd/event           | args           |
-  |        v                           v                 |
-  |  +------------ dockwin-core (Rust lib) ----------+   |
-  |  |  engine lifecycle (wsl import/start/stop)     |   |
-  |  |  bollard client  --->  \\.\pipe\dockwin_engine|   |
-  |  |  named-pipe proxy (per-conn relay)            |   |
-  |  +-----------------------|-----------------------+   |
-  |                          | wsl.exe -e socat            
-  +--------------------------|---------------------------+
-                             v
-  +------------- WSL2 distro "dockwin" (Ubuntu) ---------+
-  |  systemd --> dockerd  (unix:///var/run/docker.sock) |
-  |  containers / images / volumes                      |
-  +-----------------------------------------------------+
-  (fallback path: dockerd tcp://127.0.0.1:2375 <- localhostForwarding -> Windows)
+```mermaid
+graph TD
+    subgraph Windows["Windows (host)"]
+        GUI["dockwin-gui<br/>(Tauri v2)<br/>web frontend"]
+        CLI["dockwin.exe<br/>(CLI)"]
+        Core["dockwin-core<br/>(Rust lib)<br/>- engine lifecycle<br/>- bollard client<br/>- named-pipe proxy"]
+        Pipe["\\.\pipe\dockwin_engine"]
+        
+        GUI -->|Tauri cmd/event| Core
+        CLI -->|args| Core
+        Core -->|connect| Pipe
+    end
+    
+    subgraph WSL["WSL2 distro 'dockwin' (Ubuntu)"]
+        Systemd["systemd"]
+        Dockerd["dockerd"]
+        Socket["unix:///var/run/docker.sock"]
+        Resources["containers / images / volumes"]
+        
+        Systemd -->|start| Dockerd
+        Dockerd -->|listen| Socket
+        Dockerd -->|manage| Resources
+    end
+    
+    Pipe -->|wsl.exe -e socat| Socket
+    
+    Note["fallback: dockerd tcp://127.0.0.1:2375<br/>← localhostForwarding → Windows"]
 ```
 
 ### The one wiring decision
