@@ -23,6 +23,7 @@
     errorMsg,
     compose,
     onStackAction,
+    setFooter,
   }: {
     stacks: Stack[];
     pending: Set<string>;
@@ -30,6 +31,7 @@
     errorMsg: string;
     compose: ComposeController;
     onStackAction: (action: "start" | "stop" | "restart", stack: Stack) => void;
+    setFooter?: (msg: string, isError?: boolean) => void;
   } = $props();
 
   let disabled = $derived(compose.busy || engineState !== "running");
@@ -96,6 +98,6 @@
         </div>
       </div>
     {/if}
-    <StackList {stacks} {pending} onStackAction={onStackAction} />
+    <StackList {stacks} {pending} onStackAction={onStackAction} {setFooter} />
   </div>
 </div>

@@ -12,4 +12,5 @@
   errorMsg={app.errorMsg}
   compose={app.compose}
   onStackAction={(action, stack) => app.handleStackAction(action, stack)}
+  setFooter={app.setFooter}
 />

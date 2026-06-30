@@ -15,6 +15,7 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Table from "$lib/components/ui/table/index.js";
   import { openExternal, openFolder, wslToWindowsPath } from "../api/external";
+  import { errText } from "../api";
   import type { Stack, NormalizedContainer, NormalizedPort } from "../types";
 
   type StackAction = "start" | "stop" | "restart";
@@ -23,10 +24,12 @@
     stacks = [],
     pending = new Set<string>(),
     onStackAction,
+    setFooter,
   }: {
     stacks: Stack[];
     pending: Set<string>;
     onStackAction?: (action: StackAction, stack: Stack) => void;
+    setFooter?: (msg: string, isError?: boolean) => void;
   } = $props();
 
   function stackBusy(s: Stack): boolean {
@@ -60,7 +63,13 @@
   }
   function openPort(p: NormalizedPort) {
     const url = p.url ?? `http://localhost:${p.host}`;
-    void openExternal(url);
+    openExternal(url).catch((e) => setFooter?.(`Couldn't open ${url}: ${errText(e)}`, true));
+  }
+
+  function openStackFolder(s: Stack) {
+    openFolder(s.workingDir!).catch((e) =>
+      setFooter?.(`Couldn't open ${wslToWindowsPath(s.workingDir!)}: ${errText(e)}`, true)
+    );
   }
 </script>
 
@@ -108,7 +117,7 @@
               size="sm"
               class="max-w-[360px] font-mono"
               title={`Open ${wslToWindowsPath(s.workingDir)} in Explorer`}
-              onclick={() => openFolder(s.workingDir!)}
+              onclick={() => openStackFolder(s)}
             >
               <FolderOpen aria-hidden="true" />
               <span class="truncate">{wslToWindowsPath(s.workingDir)}</span>
