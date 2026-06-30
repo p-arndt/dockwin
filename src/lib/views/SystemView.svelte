@@ -25,6 +25,8 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
+  import * as Alert from "$lib/components/ui/alert/index.js";
   import { confirmDialog } from "../state/confirm.svelte.js";
 
   interface Props {
@@ -211,25 +213,25 @@
   <div class="head">
     <h1>System</h1>
     {#if engineRunning}
-      <span class="chip">
+      <Badge variant="secondary" class="gap-1.5 font-normal">
         <span class="d"></span>Engine running
         {#if info?.server_version}<span class="x">·</span><b class="mono">{info.server_version}</b>{/if}
-      </span>
+      </Badge>
     {:else}
-      <span class="chip"><span class="dot-off"></span>{stateLabel}</span>
+      <Badge variant="secondary" class="gap-1.5 font-normal"><span class="dot-off"></span>{stateLabel}</Badge>
     {/if}
     {#if df && totalReclaimable > 0}
-      <span class="chip"><b class="num">{humanBytes(totalReclaimable)}</b> reclaimable</span>
+      <Badge variant="secondary" class="gap-1.5 font-normal"><b class="num">{humanBytes(totalReclaimable)}</b> reclaimable</Badge>
     {/if}
-    {#if loading}<span class="chip">Loading…</span>{/if}
+    {#if loading}<Badge variant="secondary" class="gap-1.5 font-normal">Loading…</Badge>{/if}
     <span class="sp"></span>
   </div>
 
   {#if errorMsg}
-    <div class="banner err">
+    <Alert.Root variant="destructive">
       <TriangleAlert aria-hidden="true" />
-      <span>{errorMsg}</span>
-    </div>
+      <Alert.Description>{errorMsg}</Alert.Description>
+    </Alert.Root>
   {/if}
 
   <!-- Disk usage -->
@@ -440,5 +442,18 @@
     border-radius: 50%;
     background: var(--off);
     flex: none;
+  }
+
+  /* running-dot + separator inside the header Badge (formerly .chip .d/.x) */
+  .d {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 7px var(--ok);
+    flex: none;
+  }
+  .x {
+    color: var(--text-4);
   }
 </style>

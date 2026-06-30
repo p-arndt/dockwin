@@ -23,6 +23,10 @@
   import type { ImageLayer } from "../api/images";
   import type { EngineState, ImageDto } from "../types";
   import { Button } from "$lib/components/ui/button/index.js";
+  import { Input } from "$lib/components/ui/input/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
+  import * as Table from "$lib/components/ui/table/index.js";
+  import * as Alert from "$lib/components/ui/alert/index.js";
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
   import * as Tabs from "$lib/components/ui/tabs/index.js";
@@ -381,39 +385,39 @@
     }
   }
 
-  // Image table column template (shared by header + rows).
-  const COLS = "minmax(220px,2.4fr) 1.1fr 0.8fr 1fr";
 </script>
 
 <div class="page">
   <!-- ===== Page header ===== -->
   <div class="head">
     <h1>Images</h1>
-    <span class="chip">
+    <Badge variant="secondary" class="gap-1.5 font-normal">
       <b class="num">{images.length}</b> images
       {#if totalSize > 0}
         <span class="x">·</span>
         <b class="num">{imagesApi.humanBytes(totalSize)}</b>
       {/if}
-    </span>
+    </Badge>
     <span class="sp"></span>
-    <label class="search">
-      <Search aria-hidden="true" />
-      <input placeholder="Filter images…" bind:value={filter} />
-    </label>
+    <div class="relative w-[220px]">
+      <Search class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+      <Input class="pl-8" placeholder="Filter images…" bind:value={filter} aria-label="Filter images" />
+    </div>
   </div>
 
   <!-- ===== Toolbar: pull (primary) + prune ===== -->
   <div class="img-toolbar">
-    <label class="search img-pull">
-      <Download aria-hidden="true" />
-      <input
+    <div class="img-pull relative">
+      <Download class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+      <Input
+        class="pl-8"
         placeholder="Pull an image, e.g. nginx:latest"
         bind:value={pullRef}
         disabled={pulling || engineState !== "running"}
         onkeydown={onPullKeydown}
+        aria-label="Pull an image"
       />
-    </label>
+    </div>
     <Button
       disabled={pulling || engineState !== "running" || !pullRef.trim()}
       onclick={doPull}
@@ -455,100 +459,122 @@
   {/if}
 
   {#if errorMsg}
-    <div class="banner err">
+    <Alert.Root variant="destructive">
       <Info aria-hidden="true" />
-      <span>{errorMsg}</span>
-    </div>
+      <Alert.Description>{errorMsg}</Alert.Description>
+    </Alert.Root>
   {/if}
 
   <!-- ===== List + detail drawer ===== -->
   <div class="img-split" class:has-detail={selected}>
-    <div class="table">
-      <div class="thead" style="--cols:{COLS}">
-        <span>Repository : Tag</span>
-        <span>Image ID</span>
-        <span>Size</span>
-        <span>Created</span>
-      </div>
-
-      {#if shown.length === 0}
-        <div class="empty">
-          {#if loading}
-            Loading images…
-          {:else if engineState === "running"}
-            {filter.trim() ? "No images match the filter." : "No images yet — pull one to get started."}
-          {:else}
-            Engine not running.
-          {/if}
-        </div>
-      {:else}
-        {#each shown as img (img.id)}
-          {@const acting = pending.has(img.id)}
-          {@const dangling = isDangling(img)}
-          <div
-            class="trow"
-            class:sel={selectedId === img.id}
-            style="--cols:{COLS}; {acting ? 'opacity:.55' : ''}"
-            role="button"
-            tabindex="0"
-            onclick={() => selectImage(img)}
-            onkeydown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                selectImage(img);
-              }
-            }}
-          >
-            <div class="cell-name">
-              <span class="av"><Layers aria-hidden="true" /></span>
-              <div style="min-width:0">
-                <div class="nm-row">
-                  <span class="nm" title={repoTag(img)}>{primaryTag(img)}</span>
-                  {#if isOfficial(img)}
-                    <span class="official"><Check aria-hidden="true" />Official</span>
-                  {/if}
-                  {#if dangling}
-                    <span class="pill warn"><span class="d"></span>Untagged</span>
-                  {/if}
-                </div>
-                {#if cleanTags(img).length > 1}
-                  <div class="id">+{cleanTags(img).length - 1} more tag{cleanTags(img).length - 1 === 1 ? "" : "s"}</div>
+    <div class="card overflow-hidden">
+      <Table.Root class="table-fixed">
+        <Table.Header>
+          <Table.Row class="hover:bg-transparent">
+            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider" style="width:42%">Repository : Tag</Table.Head>
+            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider" style="width:19%">Image ID</Table.Head>
+            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider" style="width:14%">Size</Table.Head>
+            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider" style="width:17%">Created</Table.Head>
+            <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider" style="width:8%"></Table.Head>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {#if shown.length === 0}
+            <Table.Row class="hover:bg-transparent">
+              <Table.Cell colspan={5} class="py-7 text-center text-muted-foreground">
+                {#if loading}
+                  Loading images…
+                {:else if engineState === "running"}
+                  {filter.trim() ? "No images match the filter." : "No images yet — pull one to get started."}
+                {:else}
+                  Engine not running.
                 {/if}
-              </div>
-            </div>
-
-            <span class="id" title={img.id}>{imagesApi.shortId(img.id)}</span>
-            <span class="num muted">{imagesApi.humanBytes(img.size)}</span>
-            <span class="muted num" title={imagesApi.fullDate(img.created)}
-              >{imagesApi.relativeTime(img.created)}</span
-            >
-
-            <div class="rowact">
-              <button
-                title="Tag"
-                disabled={acting}
-                onclick={(e) => { e.stopPropagation(); selectImage(img, "overview"); }}
-              ><Tag aria-hidden="true" /></button>
-              <button
-                title="History"
-                disabled={acting}
-                onclick={(e) => { e.stopPropagation(); selectImage(img, "history"); }}
-              ><History aria-hidden="true" /></button>
-              <button
-                title="Inspect"
-                disabled={acting}
-                onclick={(e) => { e.stopPropagation(); selectImage(img, "inspect"); }}
-              ><Info aria-hidden="true" /></button>
-              <button
-                class="dng"
-                title="Remove"
-                disabled={acting}
-                onclick={(e) => { e.stopPropagation(); doRemove(img); }}
-              ><Trash2 aria-hidden="true" /></button>
-            </div>
-          </div>
-        {/each}
-      {/if}
+              </Table.Cell>
+            </Table.Row>
+          {:else}
+            {#each shown as img (img.id)}
+              {@const acting = pending.has(img.id)}
+              {@const dangling = isDangling(img)}
+              <Table.Row
+                class="group relative cursor-pointer data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--lime)]"
+                data-sel={selectedId === img.id}
+                style={acting ? "opacity:.55" : undefined}
+                role="button"
+                tabindex={0}
+                aria-busy={acting}
+                onclick={() => selectImage(img)}
+                onkeydown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    selectImage(img);
+                  }
+                }}
+              >
+                <Table.Cell>
+                  <div class="cell-name">
+                    <span class="av"><Layers aria-hidden="true" /></span>
+                    <div style="min-width:0">
+                      <div class="nm-row">
+                        <span class="nm" title={repoTag(img)}>{primaryTag(img)}</span>
+                        {#if isOfficial(img)}
+                          <span class="official"><Check aria-hidden="true" />Official</span>
+                        {/if}
+                        {#if dangling}
+                          <span class="pill warn"><span class="d"></span>Untagged</span>
+                        {/if}
+                      </div>
+                      {#if cleanTags(img).length > 1}
+                        <div class="id">+{cleanTags(img).length - 1} more tag{cleanTags(img).length - 1 === 1 ? "" : "s"}</div>
+                      {/if}
+                    </div>
+                  </div>
+                </Table.Cell>
+                <Table.Cell><span class="id" title={img.id}>{imagesApi.shortId(img.id)}</span></Table.Cell>
+                <Table.Cell><span class="num muted">{imagesApi.humanBytes(img.size)}</span></Table.Cell>
+                <Table.Cell>
+                  <span class="muted num" title={imagesApi.fullDate(img.created)}>{imagesApi.relativeTime(img.created)}</span>
+                </Table.Cell>
+                <Table.Cell class="text-right">
+                  <div
+                    class="inline-flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 data-[sel=true]:opacity-100"
+                    data-sel={selectedId === img.id}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      title="Tag"
+                      disabled={acting}
+                      onclick={(e) => { e.stopPropagation(); selectImage(img, "overview"); }}
+                    ><Tag aria-hidden="true" /></Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      title="History"
+                      disabled={acting}
+                      onclick={(e) => { e.stopPropagation(); selectImage(img, "history"); }}
+                    ><History aria-hidden="true" /></Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      title="Inspect"
+                      disabled={acting}
+                      onclick={(e) => { e.stopPropagation(); selectImage(img, "inspect"); }}
+                    ><Info aria-hidden="true" /></Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      class="text-muted-foreground hover:text-destructive"
+                      title="Remove"
+                      disabled={acting}
+                      onclick={(e) => { e.stopPropagation(); doRemove(img); }}
+                    ><Trash2 aria-hidden="true" /></Button>
+                  </div>
+                </Table.Cell>
+              </Table.Row>
+            {/each}
+          {/if}
+        </Table.Body>
+      </Table.Root>
     </div>
 
     <!-- ===== Detail drawer ===== -->
@@ -572,9 +598,9 @@
               </div>
             </div>
             <div class="dt-head-acts">
-              <button class="dt-x" title="Close" onclick={closeDetail}>
+              <Button variant="outline" size="icon-sm" title="Close" aria-label="Close" onclick={closeDetail}>
                 <X aria-hidden="true" />
-              </button>
+              </Button>
             </div>
           </div>
           <div class="dt-acts">
@@ -599,10 +625,10 @@
 
         <div class="dt-body">
           {#if detailError}
-            <div class="banner err">
+            <Alert.Root variant="destructive">
               <Info aria-hidden="true" />
-              <span>{detailError}</span>
-            </div>
+              <Alert.Description>{detailError}</Alert.Description>
+            </Alert.Root>
           {/if}
 
           {#if detailTab === "overview"}
@@ -611,10 +637,12 @@
               <div class="r">
                 <span class="k">Image ID</span>
                 <span class="v copy mono"
-                  >{imagesApi.shortId(sel.id)}<button
-                    class="copy-btn"
+                  >{imagesApi.shortId(sel.id)}<Button
+                    variant="ghost"
+                    size="icon-xs"
+                    class="text-muted-foreground"
                     title="Copy full ID"
-                    onclick={() => copyText(sel.id)}><Copy aria-hidden="true" /></button
+                    onclick={() => copyText(sel.id)}><Copy aria-hidden="true" /></Button
                   ></span
                 >
               </div>
@@ -634,7 +662,7 @@
                   {#if cleanTags(sel).length}
                     <span class="chips">
                       {#each cleanTags(sel) as t (t)}
-                        <span class="tag mono">{t}</span>
+                        <Badge variant="outline" class="font-mono font-normal">{t}</Badge>
                       {/each}
                     </span>
                   {:else}
@@ -647,13 +675,14 @@
             <div class="kv">
               <div class="sec">Tag image</div>
               <div class="tag-form">
-                <input
-                  class="inp"
+                <Input
+                  class="flex-1"
                   placeholder="repository (e.g. myrepo/app)"
                   bind:value={tagRepo}
+                  aria-label="Repository"
                 />
                 <span class="tag-sep">:</span>
-                <input class="inp inp-tag" placeholder="tag" bind:value={tagTag} />
+                <Input class="w-[96px]" placeholder="tag" bind:value={tagTag} aria-label="Tag" />
                 <Button
                   variant="outline"
                   disabled={detailLoading || !tagRepo.trim()}
@@ -690,9 +719,9 @@
                   <Boxes aria-hidden="true" />
                   <span>Inspect</span>
                   <span style="flex:1"></span>
-                  <button class="copy-btn" title="Copy JSON" onclick={() => copyText(inspectData)}>
+                  <Button variant="ghost" size="icon-xs" class="text-muted-foreground" title="Copy JSON" onclick={() => copyText(inspectData)}>
                     <Copy aria-hidden="true" />
-                  </button>
+                  </Button>
                 </div>
                 <pre class="body-out">{inspectData}</pre>
               </div>
@@ -765,48 +794,7 @@
     flex-wrap: wrap;
     gap: 8px;
   }
-  .inp {
-    flex: 1;
-    min-width: 150px;
-    background: var(--s2);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 6px 10px;
-    color: var(--text);
-    font: inherit;
-    font-size: 12.5px;
-    outline: none;
-    box-shadow: inset 0 1px 0 var(--hi);
-  }
-  .inp-tag {
-    flex: 0 0 96px;
-    min-width: 72px;
-  }
-  .inp:focus {
-    border-color: var(--text-4);
-  }
-  .inp::placeholder {
-    color: var(--text-3);
-  }
   .tag-sep {
     color: var(--text-4);
-  }
-
-  /* small inline copy button (reuses kv .copy svg sizing) */
-  .copy-btn {
-    display: inline-grid;
-    place-items: center;
-    background: transparent;
-    border: 0;
-    padding: 0;
-    cursor: pointer;
-    color: var(--text-4);
-  }
-  .copy-btn:hover {
-    color: var(--text-2);
-  }
-  .copy-btn :global(svg) {
-    width: 13px;
-    height: 13px;
   }
 </style>

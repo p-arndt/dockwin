@@ -36,7 +36,12 @@
     type ContainerStatsDto,
     type ContainerTopDto,
   } from "../api/containers";
+  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import { Button } from "$lib/components/ui/button/index.js";
+  import { Input } from "$lib/components/ui/input/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
+  import * as Table from "$lib/components/ui/table/index.js";
+  import * as Alert from "$lib/components/ui/alert/index.js";
   import * as Tabs from "$lib/components/ui/tabs/index.js";
 
   interface Props {
@@ -393,26 +398,27 @@
         </div>
       </div>
       <div class="dt-head-acts">
-        <button
-          class="dt-x"
+        <Button
+          variant="outline"
+          size="icon-sm"
           type="button"
           onclick={onToggleFull}
           title={full ? "Collapse to drawer" : "Expand to full page"}
           aria-label={full ? "Collapse to drawer" : "Expand to full page"}
         >
           {#if full}<Minimize2 aria-hidden="true" />{:else}<Maximize2 aria-hidden="true" />{/if}
-        </button>
-        <button class="dt-x" type="button" onclick={onClose} title="Close" aria-label="Close">
+        </Button>
+        <Button variant="outline" size="icon-sm" type="button" onclick={onClose} title="Close" aria-label="Close">
           <X aria-hidden="true" />
-        </button>
+        </Button>
       </div>
     </div>
 
     <!-- action row (pause/unpause + rename) -->
     {#if renaming}
       <div class="dt-acts">
-        <input
-          class="rename-input mono"
+        <Input
+          class="flex-1 font-mono"
           bind:value={renameValue}
           onkeydown={onRenameKey}
           disabled={busyAction}
@@ -448,7 +454,10 @@
   </div>
 
   {#if actionError}
-    <div class="banner err" style="margin:12px 20px 0">{actionError}</div>
+    <Alert.Root variant="destructive" class="mx-5 mt-3">
+      <TriangleAlert aria-hidden="true" />
+      <Alert.Description>{actionError}</Alert.Description>
+    </Alert.Root>
   {/if}
 
   <!-- ===== tabs ===== -->
@@ -469,7 +478,10 @@
           {#if !running}
             <div class="empty">Container is not running — no live stats.</div>
           {:else if statsError}
-            <div class="banner err">{statsError}</div>
+            <Alert.Root variant="destructive">
+              <TriangleAlert aria-hidden="true" />
+              <Alert.Description>{statsError}</Alert.Description>
+            </Alert.Root>
           {:else if !stats}
             <div class="empty">Loading stats…</div>
           {:else}
@@ -538,10 +550,10 @@
             <div class="r">
               <span class="k">Container ID</span>
               <span class="v">
-                <button class="copy mono" type="button" onclick={copyId} title="Copy full ID">
+                <Button variant="ghost" size="icon-xs" class="text-muted-foreground w-auto gap-1 px-1 font-mono" type="button" onclick={copyId} title="Copy full ID">
                   {id.slice(0, 16)}
                   {#if copied}<Check aria-hidden="true" />{:else}<Copy aria-hidden="true" />{/if}
-                </button>
+                </Button>
               </span>
             </div>
             <div class="r">
@@ -565,11 +577,11 @@
                   <span class="chips">
                     {#each container.ports as p, i (i)}
                       {#if p.url}
-                        <button class="port" type="button" style="cursor:pointer" title={portTitle(p)} onclick={() => openPort(p.url!)}>
+                        <Button variant="outline" size="xs" class="h-6 gap-1 px-2 font-mono text-[11px]" type="button" title={portTitle(p)} onclick={() => openPort(p.url!)}>
                           {portLabel(p)}<ExternalLink aria-hidden="true" />
-                        </button>
+                        </Button>
                       {:else}
-                        <span class="port" title={portTitle(p)}>{portLabel(p)}</span>
+                        <Badge variant="outline" class="h-6 px-2 font-mono text-[11px] font-normal" title={portTitle(p)}>{portLabel(p)}</Badge>
                       {/if}
                     {/each}
                   </span>
@@ -631,10 +643,10 @@
             {/if}
           </div>
           {#if info}
-            <button class="show-adv" type="button" onclick={() => (showAdv = !showAdv)}>
+            <Button variant="link" size="sm" class="h-auto self-start p-0 text-[var(--lime)]" type="button" onclick={() => (showAdv = !showAdv)}>
               <ChevronDown aria-hidden="true" style={showAdv ? "transform:rotate(180deg)" : undefined} />
               {showAdv ? "Hide advanced information" : "Show advanced information"}
-            </button>
+            </Button>
           {/if}
         </div>
       </div>
@@ -642,7 +654,10 @@
       {#if inspectLoading && inspectText === null}
         <div class="empty">Loading inspect…</div>
       {:else if inspectError}
-        <div class="banner err">{inspectError}</div>
+        <Alert.Root variant="destructive">
+          <TriangleAlert aria-hidden="true" />
+          <Alert.Description>{inspectError}</Alert.Description>
+        </Alert.Root>
         <Button variant="outline" size="sm" type="button" style="align-self:flex-start" onclick={() => loadInspect(id)}>
           Retry
         </Button>
@@ -659,21 +674,30 @@
       {:else if topLoading && top === null}
         <div class="empty">Loading processes…</div>
       {:else if topError}
-        <div class="banner err">{topError}</div>
+        <Alert.Root variant="destructive">
+          <TriangleAlert aria-hidden="true" />
+          <Alert.Description>{topError}</Alert.Description>
+        </Alert.Root>
       {:else if top && top.processes.length > 0}
-        <div class="table">
-          <div class="thead" style="--cols:repeat({top.titles.length},minmax(0,1fr))">
-            {#each top.titles as title, i (i)}
-              <span>{title}</span>
-            {/each}
-          </div>
-          {#each top.processes as row, ri (ri)}
-            <div class="toprow" style="--cols:repeat({top.titles.length},minmax(0,1fr))">
-              {#each row as cell, ci (ci)}
-                <span class="mono">{cell}</span>
+        <div class="card overflow-hidden">
+          <Table.Root class="table-fixed">
+            <Table.Header>
+              <Table.Row class="hover:bg-transparent">
+                {#each top.titles as title, i (i)}
+                  <Table.Head class="h-9 text-[10.5px] font-semibold uppercase tracking-wider">{title}</Table.Head>
+                {/each}
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {#each top.processes as row, ri (ri)}
+                <Table.Row class="hover:bg-transparent">
+                  {#each row as cell, ci (ci)}
+                    <Table.Cell class="truncate font-mono text-[11px]">{cell}</Table.Cell>
+                  {/each}
+                </Table.Row>
               {/each}
-            </div>
-          {/each}
+            </Table.Body>
+          </Table.Root>
         </div>
       {:else}
         <div class="empty">No processes reported.</div>
@@ -704,30 +728,6 @@
     gap: 12px;
   }
 
-  .rename-input {
-    flex: 1;
-    min-width: 0;
-    background: var(--s2);
-    border: 1px solid var(--line);
-    border-radius: var(--r-sm);
-    padding: 7px 10px;
-    color: var(--text);
-    font-size: 12.5px;
-    box-shadow: inset 0 1px 0 var(--hi);
-    outline: none;
-  }
-  .rename-input:focus {
-    border-color: var(--lime-line);
-  }
-
-  /* copy button styled as the kv copy affordance */
-  .copy {
-    background: transparent;
-    border: 0;
-    cursor: pointer;
-    padding: 0;
-  }
-
   .inspect-pre {
     margin: 0;
     flex: 1;
@@ -742,25 +742,5 @@
     white-space: pre;
     user-select: text;
     box-shadow: inset 0 1px 0 var(--hi);
-  }
-
-  /* process table rows (Top) reuse the table chrome from app.css */
-  .toprow {
-    display: grid;
-    grid-template-columns: var(--cols);
-    gap: 10px;
-    align-items: center;
-    padding: 8px 18px;
-    border-bottom: 1px solid var(--line-soft);
-    font-size: 11px;
-    color: var(--text-2);
-  }
-  .toprow:last-child {
-    border-bottom: 0;
-  }
-  .toprow span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 </style>

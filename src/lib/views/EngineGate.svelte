@@ -15,6 +15,7 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
+  import * as Alert from "$lib/components/ui/alert/index.js";
   import type { EngineState, ProvisionUi } from "../types";
 
   let {
@@ -162,14 +163,14 @@
         </div>
       </div>
 
-      <div class="banner err" style="margin-top:14px">
+      <Alert.Root variant="destructive" class="mt-[14px]">
         <TriangleAlert aria-hidden="true" />
-        <span>
+        <Alert.Description>
           The dockwin WSL distro is registered but its disk image is missing.
           Reset it to unregister the dangling distro, then set the engine up
           again to reprovision.
-        </span>
-      </div>
+        </Alert.Description>
+      </Alert.Root>
 
       <div class="g-acts">
         <Button

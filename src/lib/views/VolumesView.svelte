@@ -13,6 +13,10 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
+  import { Input } from "$lib/components/ui/input/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
+  import * as Table from "$lib/components/ui/table/index.js";
+  import * as Alert from "$lib/components/ui/alert/index.js";
   import { confirmDialog } from "../state/confirm.svelte.js";
   import { errText } from "../api";
   import {
@@ -234,28 +238,30 @@
     if (Number.isNaN(d.getTime())) return created;
     return d.toLocaleString();
   }
-
-  // Shared grid template for header + rows (Name / Driver / Mountpoint / Created).
-  const COLS = "minmax(180px,1.6fr) 110px minmax(200px,2fr) 170px";
 </script>
 
 <div class="page">
   <div class="head">
     <h1>Volumes</h1>
     {#if volumes.length}
-      <span class="chip"><b class="num">{volumes.length}</b> total</span>
+      <Badge variant="secondary" class="gap-1.5 font-normal"
+        ><b class="num">{volumes.length}</b> total</Badge
+      >
     {/if}
     <span class="sp"></span>
 
-    <label class="search" style="width:220px">
-      <Search aria-hidden="true" />
-      <input
-        type="text"
+    <div class="relative w-[220px]">
+      <Search
+        class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+        aria-hidden="true"
+      />
+      <Input
+        class="pl-8"
         placeholder="Filter volumes"
         bind:value={filter}
         aria-label="Filter volumes"
       />
-    </label>
+    </div>
 
     <div class="field" title="Force removal even when a volume is in use">
       <Checkbox id="vol-force-remove" bind:checked={forceRemove} />
@@ -283,42 +289,43 @@
   </div>
 
   {#if errorMsg}
-    <div class="banner err">
+    <Alert.Root variant="destructive">
       <CircleAlert aria-hidden="true" />
-      <span>{errorMsg}</span>
-    </div>
+      <Alert.Description>{errorMsg}</Alert.Description>
+    </Alert.Root>
   {/if}
 
   {#if pruneMsg}
-    <div class="banner">
+    <Alert.Root>
       <Info aria-hidden="true" />
-      <span>{pruneMsg}</span>
-    </div>
+      <Alert.Description>{pruneMsg}</Alert.Description>
+    </Alert.Root>
   {/if}
 
   {#if showCreate}
     <form class="card card-pad" onsubmit={onCreate}>
       <div class="section-title" style="margin-bottom:12px">New volume</div>
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
-        <label class="search" style="flex:1;min-width:200px">
-          <HardDrive aria-hidden="true" />
-          <input
-            type="text"
+        <div class="relative flex-1" style="min-width:200px">
+          <HardDrive
+            class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            class="pl-8"
             placeholder="volume name"
             bind:value={newName}
             disabled={creating || engineState !== "running"}
             aria-label="New volume name"
           />
-        </label>
-        <label class="search" style="width:170px">
-          <input
-            type="text"
-            placeholder="driver (local)"
-            bind:value={newDriver}
-            disabled={creating || engineState !== "running"}
-            aria-label="Volume driver (optional)"
-          />
-        </label>
+        </div>
+        <Input
+          class="w-[170px]"
+          placeholder="driver (local)"
+          bind:value={newDriver}
+          disabled={creating || engineState !== "running"}
+          aria-label="Volume driver (optional)"
+        />
         <Button
           type="submit"
           disabled={creating || engineState !== "running" || newName.trim() === ""}
@@ -337,113 +344,156 @@
     </form>
   {/if}
 
-  <div class="table">
-    <div class="thead" style="--cols:{COLS}">
-      <span>Name</span>
-      <span>Driver</span>
-      <span>Mountpoint</span>
-      <span>Created</span>
-    </div>
-
-    {#if shown.length === 0}
-      <div class="empty">
-        {#if loading}
-          Loading volumes…
-        {:else if engineState !== "running"}
-          Engine not running.
-        {:else if filter.trim()}
-          No volumes match “{filter.trim()}”.
-        {:else}
-          No volumes yet.
-        {/if}
-      </div>
-    {:else}
-      {#each shown as v (v.name)}
-        {@const acting = busy.has(v.name)}
-        {@const open = inspectName === v.name}
-        <div
-          class="trow"
-          class:sel={open}
-          style="--cols:{COLS};{acting ? 'opacity:.55' : ''}"
-          role="button"
-          tabindex="0"
-          onclick={() => onInspect(v)}
-          onkeydown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onInspect(v);
-            }
-          }}
-        >
-          <div class="cell-name">
-            <span class="av"><HardDrive aria-hidden="true" /></span>
-            <div style="min-width:0">
-              <div class="nm" title={v.name}>{v.name}</div>
-              {#if v.scope}
-                <div class="id">{v.scope}</div>
-              {/if}
-            </div>
-          </div>
-
-          <span class="text-2">{v.driver || "—"}</span>
-
-          <span
-            class="mono text-3"
-            title={v.mountpoint}
-            style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-            >{v.mountpoint || "—"}</span
+  <div class="card overflow-hidden">
+    <Table.Root class="table-fixed">
+      <Table.Header>
+        <Table.Row class="hover:bg-transparent">
+          <Table.Head
+            class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+            style="width:30%">Name</Table.Head
           >
-
-          <span class="num text-3">{fmtCreated(v.created)}</span>
-
-          <div class="rowact">
-            <button
-              title={open ? "Hide inspect" : "Inspect"}
-              disabled={acting}
-              onclick={(e) => {
-                e.stopPropagation();
-                onInspect(v);
+          <Table.Head
+            class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+            style="width:12%">Driver</Table.Head
+          >
+          <Table.Head
+            class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+            style="width:38%">Mountpoint</Table.Head
+          >
+          <Table.Head
+            class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+            style="width:12%">Created</Table.Head
+          >
+          <Table.Head
+            class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+            style="width:8%"></Table.Head
+          >
+        </Table.Row>
+      </Table.Header>
+      <Table.Body>
+        {#if shown.length === 0}
+          <Table.Row class="hover:bg-transparent">
+            <Table.Cell colspan={5} class="py-7 text-center text-muted-foreground">
+              {#if loading}
+                Loading volumes…
+              {:else if engineState !== "running"}
+                Engine not running.
+              {:else if filter.trim()}
+                No volumes match “{filter.trim()}”.
+              {:else}
+                No volumes yet.
+              {/if}
+            </Table.Cell>
+          </Table.Row>
+        {:else}
+          {#each shown as v (v.name)}
+            {@const acting = busy.has(v.name)}
+            {@const open = inspectName === v.name}
+            <Table.Row
+              class="group relative cursor-pointer data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--lime)]"
+              data-sel={open}
+              style={acting ? "opacity:.55" : undefined}
+              role="button"
+              tabindex={0}
+              aria-busy={acting}
+              onclick={() => onInspect(v)}
+              onkeydown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onInspect(v);
+                }
               }}
             >
-              <Search aria-hidden="true" />
-            </button>
-            <button
-              class="dng"
-              title="Remove volume"
-              disabled={acting}
-              onclick={(e) => {
-                e.stopPropagation();
-                onRemove(v);
-              }}
-            >
-              <Trash2 aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+              <Table.Cell>
+                <div class="cell-name">
+                  <span class="av"><HardDrive aria-hidden="true" /></span>
+                  <div style="min-width:0">
+                    <div class="nm" title={v.name}>{v.name}</div>
+                    {#if v.scope}
+                      <div class="id">{v.scope}</div>
+                    {/if}
+                  </div>
+                </div>
+              </Table.Cell>
 
-        {#if open}
-          <div style="padding:12px 18px;border-bottom:1px solid var(--line-soft)">
-            <div class="outpane">
-              <div class="bar">
-                <Search aria-hidden="true" />
-                <span>Inspect · <span class="mono">{v.name}</span></span>
-                <span style="flex:1"></span>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  title="Close"
-                  onclick={() => onInspect(v)}
+              <Table.Cell><span class="text-2">{v.driver || "—"}</span></Table.Cell>
+
+              <Table.Cell>
+                <span
+                  class="mono text-3"
+                  title={v.mountpoint}
+                  style="display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                  >{v.mountpoint || "—"}</span
                 >
-                  <X aria-hidden="true" />
-                </Button>
-              </div>
-              <pre class="body-out" style="white-space:pre">{inspecting
-                  ? "Loading inspect…"
-                  : inspectJson}</pre>
-            </div>
-          </div>
+              </Table.Cell>
+
+              <Table.Cell><span class="num text-3">{fmtCreated(v.created)}</span></Table.Cell>
+
+              <Table.Cell class="text-right">
+                <div
+                  class="inline-flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 data-[sel=true]:opacity-100"
+                  data-sel={open}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title={open ? "Hide inspect" : "Inspect"}
+                    disabled={acting}
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      onInspect(v);
+                    }}
+                  >
+                    <Search aria-hidden="true" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    class="text-muted-foreground hover:text-destructive"
+                    title="Remove volume"
+                    disabled={acting}
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      onRemove(v);
+                    }}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </div>
+              </Table.Cell>
+            </Table.Row>
+
+            {#if open}
+              <Table.Row class="hover:bg-transparent">
+                <Table.Cell colspan={5} class="p-0">
+                  <div
+                    style="padding:12px 18px;border-bottom:1px solid var(--line-soft)"
+                  >
+                    <div class="outpane">
+                      <div class="bar">
+                        <Search aria-hidden="true" />
+                        <span>Inspect · <span class="mono">{v.name}</span></span>
+                        <span style="flex:1"></span>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          title="Close"
+                          onclick={() => onInspect(v)}
+                        >
+                          <X aria-hidden="true" />
+                        </Button>
+                      </div>
+                      <pre class="body-out" style="white-space:pre">{inspecting
+                          ? "Loading inspect…"
+                          : inspectJson}</pre>
+                    </div>
+                  </div>
+                </Table.Cell>
+              </Table.Row>
+            {/if}
+          {/each}
         {/if}
-      {/each}
-    {/if}
+      </Table.Body>
+    </Table.Root>
   </div>
 </div>

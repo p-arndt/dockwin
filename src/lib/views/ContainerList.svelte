@@ -9,6 +9,9 @@
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import ExternalLink from "@lucide/svelte/icons/external-link";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
+  import * as Table from "$lib/components/ui/table/index.js";
   import { openExternal } from "../api/external";
   import type { NormalizedContainer, NormalizedPort } from "../types";
 
@@ -27,10 +30,6 @@
     onAction,
     onSelect,
   }: Props = $props();
-
-  // Shared grid template (Name · Image · Status · Ports · actions gutter).
-  const COLS =
-    "minmax(190px,1.7fr) minmax(120px,1.2fr) minmax(112px,1fr) minmax(120px,1.3fr) 96px";
 
   function act(e: MouseEvent, action: Action, c: NormalizedContainer) {
     e.stopPropagation();
@@ -77,115 +76,157 @@
   }
 </script>
 
-<div class="table">
-  <div class="thead" style="--cols:{COLS}">
-    <span>Name</span>
-    <span>Image</span>
-    <span>Status</span>
-    <span>Ports</span>
-    <span></span>
-  </div>
-
-  {#if containers.length === 0}
-    <div class="empty">No containers.</div>
-  {:else}
-    {#each containers as c (c.id)}
-      {@const acting = pending.has(c.id)}
-      {@const st = statusOf(c)}
-      <div
-        class="trow"
-        style="--cols:{COLS}"
-        style:opacity={acting ? 0.55 : undefined}
-        role="button"
-        tabindex="0"
-        aria-busy={acting}
-        onclick={() => onSelect?.(c)}
-        onkeydown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onSelect?.(c);
-          }
-        }}
-      >
-        <div class="cell-name">
-          <span class="lamp {st.lamp}"></span>
-          <span class="av"><Box aria-hidden="true" /></span>
-          <div style="min-width:0">
-            <div class="nm" title={c.name}>{c.name}</div>
-            <div class="id" title={c.id}>{c.shortId}</div>
-          </div>
-        </div>
-
-        <span class="img" title={c.image}>{c.image}</span>
-
-        <div class="st {st.tone}">
-          <span class="l"><span class="d"></span>{st.word}</span>
-          {#if c.status}<span class="sub">{c.status}</span>{/if}
-        </div>
-
-        <div class="ports">
-          {#if c.ports.length === 0}
-            <span class="muted">—</span>
-          {:else}
-            {#each c.ports as p, i (i)}
-              {#if p.url}
-                <button
-                  class="port"
-                  type="button"
-                  style="cursor:pointer"
-                  title={`Open ${p.url} (forwarded to Windows localhost)`}
-                  onclick={(e) => openPort(e, p.url!)}
-                >
-                  :{p.host}<ExternalLink aria-hidden="true" />
-                </button>
-              {:else}
-                <span class="port" title={portTitle(p)}
-                  >{p.host}:{p.container}/{p.proto}</span
-                >
-              {/if}
-            {/each}
-          {/if}
-        </div>
-
-        <div class="rowact">
-          {#if c.running}
-            <button
-              type="button"
-              title="Stop"
-              disabled={acting}
-              onclick={(e) => act(e, "stop", c)}
-            >
-              <Square aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              title="Restart"
-              disabled={acting}
-              onclick={(e) => act(e, "restart", c)}
-            >
-              <RotateCw aria-hidden="true" />
-            </button>
-          {:else}
-            <button
-              type="button"
-              title="Start"
-              disabled={acting}
-              onclick={(e) => act(e, "start", c)}
-            >
-              <Play aria-hidden="true" />
-            </button>
-          {/if}
-          <button
-            class="dng"
-            type="button"
-            title="Remove"
-            disabled={acting}
-            onclick={(e) => act(e, "remove", c)}
+<div class="card overflow-hidden">
+  <Table.Root class="table-fixed">
+    <Table.Header>
+      <Table.Row class="hover:bg-transparent">
+        <Table.Head
+          class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+          style="width:30%">Name</Table.Head
+        >
+        <Table.Head
+          class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+          style="width:22%">Image</Table.Head
+        >
+        <Table.Head
+          class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+          style="width:16%">Status</Table.Head
+        >
+        <Table.Head
+          class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+          style="width:24%">Ports</Table.Head
+        >
+        <Table.Head
+          class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+          style="width:8%"
+        ></Table.Head>
+      </Table.Row>
+    </Table.Header>
+    <Table.Body>
+      {#if containers.length === 0}
+        <Table.Row class="hover:bg-transparent">
+          <Table.Cell colspan={5} class="py-7 text-center text-muted-foreground"
+            >No containers.</Table.Cell
           >
-            <Trash2 aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-    {/each}
-  {/if}
+        </Table.Row>
+      {:else}
+        {#each containers as c (c.id)}
+          {@const acting = pending.has(c.id)}
+          {@const st = statusOf(c)}
+          <Table.Row
+            class="group relative cursor-pointer data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--lime)]"
+            style={acting ? "opacity:.55" : undefined}
+            role="button"
+            tabindex={0}
+            aria-busy={acting}
+            onclick={() => onSelect?.(c)}
+            onkeydown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect?.(c);
+              }
+            }}
+          >
+            <Table.Cell>
+              <div class="cell-name">
+                <span class="lamp {st.lamp}"></span>
+                <span class="av"><Box aria-hidden="true" /></span>
+                <div style="min-width:0">
+                  <div class="nm" title={c.name}>{c.name}</div>
+                  <div class="id" title={c.id}>{c.shortId}</div>
+                </div>
+              </div>
+            </Table.Cell>
+
+            <Table.Cell>
+              <span class="img" title={c.image}>{c.image}</span>
+            </Table.Cell>
+
+            <Table.Cell>
+              <div class="st {st.tone}">
+                <span class="l"><span class="d"></span>{st.word}</span>
+                {#if c.status}<span class="sub">{c.status}</span>{/if}
+              </div>
+            </Table.Cell>
+
+            <Table.Cell>
+              <div class="ports">
+                {#if c.ports.length === 0}
+                  <span class="muted">—</span>
+                {:else}
+                  {#each c.ports as p, i (i)}
+                    {#if p.url}
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        class="h-6 gap-1 px-2 font-mono text-[11px]"
+                        title={`Open ${p.url} (forwarded to Windows localhost)`}
+                        onclick={(e) => openPort(e, p.url!)}
+                      >
+                        :{p.host}<ExternalLink aria-hidden="true" />
+                      </Button>
+                    {:else}
+                      <Badge
+                        variant="outline"
+                        class="font-mono text-[11px] font-normal"
+                        title={portTitle(p)}
+                        >{p.host}:{p.container}/{p.proto}</Badge
+                      >
+                    {/if}
+                  {/each}
+                {/if}
+              </div>
+            </Table.Cell>
+
+            <Table.Cell class="text-right">
+              <div
+                class="inline-flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+              >
+                {#if c.running}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Stop"
+                    disabled={acting}
+                    onclick={(e) => act(e, "stop", c)}
+                  >
+                    <Square aria-hidden="true" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Restart"
+                    disabled={acting}
+                    onclick={(e) => act(e, "restart", c)}
+                  >
+                    <RotateCw aria-hidden="true" />
+                  </Button>
+                {:else}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Start"
+                    disabled={acting}
+                    onclick={(e) => act(e, "start", c)}
+                  >
+                    <Play aria-hidden="true" />
+                  </Button>
+                {/if}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  class="text-muted-foreground hover:text-destructive"
+                  title="Remove"
+                  disabled={acting}
+                  onclick={(e) => act(e, "remove", c)}
+                >
+                  <Trash2 aria-hidden="true" />
+                </Button>
+              </div>
+            </Table.Cell>
+          </Table.Row>
+        {/each}
+      {/if}
+    </Table.Body>
+  </Table.Root>
 </div>

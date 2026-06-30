@@ -15,7 +15,11 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
+  import { Input } from "$lib/components/ui/input/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Select from "$lib/components/ui/select/index.js";
+  import * as Table from "$lib/components/ui/table/index.js";
+  import * as Alert from "$lib/components/ui/alert/index.js";
   import { confirmDialog } from "../state/confirm.svelte.js";
 
   interface Props {
@@ -206,19 +210,22 @@
         )
       : networks
   );
-
-  const COLS = "minmax(200px,1.7fr) 0.9fr 0.8fr 0.8fr 0.7fr";
 </script>
 
 <section class="page netview">
   <div class="head">
     <h1>Networks</h1>
-    <span class="chip"><b class="num">{networks.length}</b> total</span>
+    <Badge variant="secondary" class="gap-1.5 font-normal"
+      ><b class="num">{networks.length}</b> total</Badge
+    >
     <span class="sp"></span>
-    <div class="search">
-      <Search aria-hidden="true" />
-      <input
-        type="text"
+    <div class="relative w-[220px]">
+      <Search
+        class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+        aria-hidden="true"
+      />
+      <Input
+        class="pl-8"
         placeholder="Filter networks"
         bind:value={query}
         disabled={engineState !== "running"}
@@ -237,11 +244,17 @@
   </div>
 
   {#if errorMsg}
-    <div class="banner err">{errorMsg}</div>
+    <Alert.Root variant="destructive">
+      <X aria-hidden="true" />
+      <Alert.Description>{errorMsg}</Alert.Description>
+    </Alert.Root>
   {/if}
 
   {#if pruneMsg}
-    <div class="banner">{pruneMsg}</div>
+    <Alert.Root>
+      <Eraser aria-hidden="true" />
+      <Alert.Description>{pruneMsg}</Alert.Description>
+    </Alert.Root>
   {/if}
 
   <!-- Create network form -->
@@ -249,9 +262,7 @@
     <form class="card card-pad createbar" onsubmit={createNetwork}>
       <label class="fieldcol">
         <span class="flabel">Name</span>
-        <span class="search inputwrap">
-          <input type="text" placeholder="my_network" bind:value={newName} />
-        </span>
+        <Input class="w-[200px]" placeholder="my_network" bind:value={newName} />
       </label>
       <div class="fieldcol">
         <span class="flabel">Driver</span>
@@ -274,103 +285,142 @@
     </form>
   {/if}
 
-  {#if filtered.length === 0}
-    <div class="table">
-      <div class="empty">
-        {#if loading}
-          Loading networks…
-        {:else if engineState !== "running"}
-          Engine not running.
-        {:else if query.trim()}
-          No networks match “{query.trim()}”.
-        {:else}
-          No networks.
-        {/if}
-      </div>
-    </div>
-  {:else}
-    <div class="table">
-      <div class="thead" style="--cols:{COLS}">
-        <span>Name</span>
-        <span>Driver</span>
-        <span>Scope</span>
-        <span>Internal</span>
-        <span>Containers</span>
-      </div>
-
-      {#each filtered as n (n.id)}
-        {@const acting = pending.has(n.id)}
-        {@const inspecting = pending.has(`inspect:${n.id}`)}
-        {@const open = inspectId === n.id}
-        <div
-          class="trow"
-          class:sel={open}
-          style="--cols:{COLS}; {acting ? 'opacity:.55' : ''}"
-        >
-          <div class="cell-name">
-            <span class="lamp" class:run={n.containers > 0}></span>
-            <span class="av"><Network aria-hidden="true" /></span>
-            <div style="min-width:0">
-              <div class="nm-line">
-                <span class="nm" title={n.name}>{n.name}</span>
-                {#if n.builtin}
-                  <span class="tag">built-in</span>
-                {/if}
-              </div>
-              <div class="id" title={n.id}>{shortId(n.id) || "—"}</div>
-            </div>
-          </div>
-
-          <span class="cell-text">{n.driver || "—"}</span>
-          <span class="cell-dim">{n.scope || "—"}</span>
-          <span>
-            {#if n.internal}
-              <span class="tag">yes</span>
-            {:else}
-              <span class="muted">no</span>
-            {/if}
-          </span>
-          <span class="num cell-text">{n.containers}</span>
-
-          <div class="rowact">
-            <button
-              title={open ? "Hide inspect" : "Inspect"}
-              disabled={inspecting}
-              onclick={() => toggleInspect(n)}
-            >
-              {#if open}<X aria-hidden="true" />{:else}<Braces aria-hidden="true" />{/if}
-            </button>
-            {#if !n.builtin}
-              <button
-                class="dng"
-                title="Remove network"
-                disabled={acting}
-                onclick={() => removeNetwork(n)}
-              >
-                <Trash2 aria-hidden="true" />
-              </button>
-            {/if}
-          </div>
-        </div>
-
-        {#if open}
-          <div class="inspect-pane">
-            <div class="outpane">
-              <div class="bar">
-                <Search aria-hidden="true" />
-                <span>Inspect · <span class="mono">{n.name}</span></span>
-              </div>
-              {#if inspecting}
-                <div class="body-out">Loading…</div>
+  <div class="card overflow-hidden">
+    <Table.Root class="table-fixed">
+      <Table.Header>
+        <Table.Row class="hover:bg-transparent">
+          <Table.Head
+            class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+            style="width:32%">Name</Table.Head
+          >
+          <Table.Head
+            class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+            style="width:16%">Driver</Table.Head
+          >
+          <Table.Head
+            class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+            style="width:15%">Scope</Table.Head
+          >
+          <Table.Head
+            class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+            style="width:15%">Internal</Table.Head
+          >
+          <Table.Head
+            class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+            style="width:12%">Containers</Table.Head
+          >
+          <Table.Head class="h-9" style="width:10%"></Table.Head>
+        </Table.Row>
+      </Table.Header>
+      <Table.Body>
+        {#if filtered.length === 0}
+          <Table.Row class="hover:bg-transparent">
+            <Table.Cell colspan={6} class="py-7 text-center text-muted-foreground">
+              {#if loading}
+                Loading networks…
+              {:else if engineState !== "running"}
+                Engine not running.
+              {:else if query.trim()}
+                No networks match “{query.trim()}”.
               {:else}
-                <pre class="body-out">{inspectJson}</pre>
+                No networks.
               {/if}
-            </div>
-          </div>
+            </Table.Cell>
+          </Table.Row>
+        {:else}
+          {#each filtered as n (n.id)}
+            {@const acting = pending.has(n.id)}
+            {@const inspecting = pending.has(`inspect:${n.id}`)}
+            {@const open = inspectId === n.id}
+            <Table.Row
+              class="group relative data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--lime)]"
+              data-sel={open}
+              style={acting ? "opacity:.55" : undefined}
+              aria-busy={acting}
+            >
+              <Table.Cell>
+                <div class="cell-name">
+                  <span class="lamp" class:run={n.containers > 0}></span>
+                  <span class="av"><Network aria-hidden="true" /></span>
+                  <div style="min-width:0">
+                    <div class="nm-line">
+                      <span class="nm" title={n.name}>{n.name}</span>
+                      {#if n.builtin}
+                        <Badge variant="outline" class="font-normal">built-in</Badge>
+                      {/if}
+                    </div>
+                    <div class="id" title={n.id}>{shortId(n.id) || "—"}</div>
+                  </div>
+                </div>
+              </Table.Cell>
+
+              <Table.Cell class="text-2 text-[13px]">{n.driver || "—"}</Table.Cell>
+              <Table.Cell class="text-3 text-[13px]">{n.scope || "—"}</Table.Cell>
+              <Table.Cell>
+                {#if n.internal}
+                  <Badge variant="outline" class="font-normal">yes</Badge>
+                {:else}
+                  <span class="muted">no</span>
+                {/if}
+              </Table.Cell>
+              <Table.Cell class="num text-2 text-[13px]">{n.containers}</Table.Cell>
+
+              <Table.Cell class="text-right">
+                <div
+                  class="inline-flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 data-[sel=true]:opacity-100"
+                  data-sel={open}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title={open ? "Hide inspect" : "Inspect"}
+                    disabled={inspecting}
+                    onclick={() => toggleInspect(n)}
+                  >
+                    {#if open}<X aria-hidden="true" />{:else}<Braces
+                        aria-hidden="true"
+                      />{/if}
+                  </Button>
+                  {#if !n.builtin}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      class="text-muted-foreground hover:text-destructive"
+                      title="Remove network"
+                      disabled={acting}
+                      onclick={() => removeNetwork(n)}
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
+                  {/if}
+                </div>
+              </Table.Cell>
+            </Table.Row>
+
+            {#if open}
+              <Table.Row class="hover:bg-transparent">
+                <Table.Cell colspan={6} class="p-0">
+                  <div class="inspect-pane">
+                    <div class="outpane">
+                      <div class="bar">
+                        <Search aria-hidden="true" />
+                        <span>Inspect · <span class="mono">{n.name}</span></span>
+                      </div>
+                      {#if inspecting}
+                        <div class="body-out">Loading…</div>
+                      {:else}
+                        <pre class="body-out">{inspectJson}</pre>
+                      {/if}
+                    </div>
+                  </div>
+                </Table.Cell>
+              </Table.Row>
+            {/if}
+          {/each}
         {/if}
-      {/each}
-    </div>
-  {/if}
+      </Table.Body>
+    </Table.Root>
+  </div>
 </section>
 
 <style>
@@ -393,23 +443,8 @@
     text-transform: uppercase;
     color: var(--text-4);
   }
-  /* Reuse .search chrome as a text-input shell (Name field). */
-  .inputwrap {
-    width: 200px;
-    padding: 6px 11px;
-  }
   .internalbox {
     padding-bottom: 7px;
-  }
-
-  /* Plain table cell text using tokens (no raw colors). */
-  .cell-text {
-    color: var(--text-2);
-    font-size: 13px;
-  }
-  .cell-dim {
-    color: var(--text-3);
-    font-size: 13px;
   }
 
   .nm-line {
@@ -420,13 +455,6 @@
   }
   .nm-line .nm {
     min-width: 0;
-  }
-  .nm-line .tag {
-    flex: none;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: var(--text-3);
   }
 
   /* Full-width inspect drawer sits between grid rows inside .table. */

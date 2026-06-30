@@ -51,6 +51,8 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
+  import * as Alert from "$lib/components/ui/alert/index.js";
 
   const POLL_MS = 3000;
 
@@ -675,15 +677,17 @@
           {#each NAV.filter((n) => n.section === section) as item (item.id)}
             {@const ItemIcon = item.icon}
             {@const count = navCount(item.id)}
-            <button
-              class:on={activeView === item.id}
+            <Button
+              variant="ghost"
+              data-active={activeView === item.id}
               aria-current={activeView === item.id ? "page" : undefined}
               onclick={() => setView(item.id)}
+              class="relative w-full justify-start gap-2.5 font-medium text-muted-foreground hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground data-[active=true]:shadow-[inset_2px_0_0_var(--lime)] [&_svg]:text-muted-foreground data-[active=true]:[&_svg]:text-[var(--lime)]"
             >
               <ItemIcon aria-hidden="true" />
               {item.label}
-              {#if count !== null}<span class="ct">{count}</span>{/if}
-            </button>
+              {#if count !== null}<span class="ml-auto text-[11px] tabular-nums text-muted-foreground">{count}</span>{/if}
+            </Button>
           {/each}
         </nav>
       {/each}
@@ -755,21 +759,33 @@
         {:else}
           <div class="head">
             <h1>Containers</h1>
-            <span class="chip">
-              <span class="d"></span><b class="num">{runningCount}</b> running
-              <span class="x">·</span><b class="num">{containers.length}</b> total
-            </span>
+            <Badge variant="secondary" class="gap-1.5 font-normal">
+              <span class="size-1.5 rounded-full bg-[var(--ok)] shadow-[0_0_7px_var(--ok)]"></span>
+              <b class="num text-foreground">{runningCount}</b> running
+              <span class="text-muted-foreground">·</span>
+              <b class="num text-foreground">{containers.length}</b> total
+            </Badge>
             <span class="sp"></span>
-            <div class="search" aria-hidden="true">
-              <Search aria-hidden="true" /><span>Search</span><kbd>Ctrl K</kbd>
+            <div class="relative w-[260px]" aria-hidden="true">
+              <Search
+                class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <div
+                class="flex h-8 items-center gap-2 rounded-lg border border-input bg-card pl-9 pr-2 text-[12.5px] text-muted-foreground"
+              >
+                <span>Search</span>
+                <kbd class="ml-auto rounded border border-border px-1 font-mono text-[10px]">Ctrl K</kbd>
+              </div>
             </div>
           </div>
           <div class="body" class:split={!!selectedContainer}>
             <div class="list">
               {#if errorMsg}
-                <div class="banner err" style="margin-bottom:14px">
-                  <TriangleAlert aria-hidden="true" />{errorMsg}
-                </div>
+                <Alert.Root variant="destructive" class="mb-3.5">
+                  <TriangleAlert aria-hidden="true" />
+                  <Alert.Description>{errorMsg}</Alert.Description>
+                </Alert.Root>
               {/if}
               <ContainerList
                 {containers}
@@ -791,10 +807,10 @@
       {:else if activeView === "stacks"}
         <div class="head">
           <h1>Stacks</h1>
-          <span class="chip">
-            <b class="num">{stacks.length}</b>
+          <Badge variant="secondary" class="gap-1.5 font-normal">
+            <b class="num text-foreground">{stacks.length}</b>
             {stacks.length === 1 ? "project" : "projects"}
-          </span>
+          </Badge>
           <span class="sp"></span>
           <Button
             title="Pick a docker-compose.yml and run it on the dockwin engine"
@@ -848,7 +864,10 @@
               </p>
             {/if}
             {#if errorMsg}
-              <div class="banner err"><TriangleAlert aria-hidden="true" />{errorMsg}</div>
+              <Alert.Root variant="destructive">
+                <TriangleAlert aria-hidden="true" />
+                <Alert.Description>{errorMsg}</Alert.Description>
+              </Alert.Root>
             {/if}
             {#if composeOpen && composeLog.length}
               <div class="outpane">

@@ -12,6 +12,8 @@
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Pill from "../components/Pill.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
+  import * as Table from "$lib/components/ui/table/index.js";
   import { openExternal, openFolder, wslToWindowsPath } from "../api/external";
   import type { Stack, NormalizedContainer, NormalizedPort } from "../types";
 
@@ -26,10 +28,6 @@
     pending: Set<string>;
     onStackAction?: (action: StackAction, stack: Stack) => void;
   } = $props();
-
-  // Shared grid template for each stack's service table (header + rows).
-  const COLS =
-    "minmax(160px,1.5fr) minmax(120px,1.3fr) minmax(120px,1fr) minmax(150px,1.2fr)";
 
   function stackBusy(s: Stack): boolean {
     return s.containers.some((c) => pending.has(c.id));
@@ -78,7 +76,7 @@
     {#each stacks as s (s.project)}
       {@const busy = stackBusy(s)}
       {@const allRunning = s.running === s.total}
-      <section class="table">
+      <section class="card overflow-hidden">
         <header class="shead">
           <span class="av"><Package aria-hidden="true" /></span>
           <span class="nm" title={s.project}>{s.project}</span>
@@ -88,15 +86,16 @@
             > running
           </Pill>
           {#if s.workingDir}
-            <button
-              class="shead-dir"
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
+              class="max-w-[360px] font-mono"
               title={`Open ${wslToWindowsPath(s.workingDir)} in Explorer`}
               onclick={() => openFolder(s.workingDir!)}
             >
               <FolderOpen aria-hidden="true" />
               <span class="shead-dir-path">{wslToWindowsPath(s.workingDir)}</span>
-            </button>
+            </Button>
           {/if}
           <div class="shead-acts">
             <Button
@@ -129,56 +128,86 @@
           </div>
         </header>
 
-        <div class="thead" style="--cols:{COLS}">
-          <span>Service</span><span>Image</span><span>Status</span><span
-            >Ports</span
-          >
-        </div>
+        <Table.Root class="table-fixed">
+          <Table.Header>
+            <Table.Row class="hover:bg-transparent">
+              <Table.Head
+                class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+                style="width:30%">Service</Table.Head
+              >
+              <Table.Head
+                class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+                style="width:26%">Image</Table.Head
+              >
+              <Table.Head
+                class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+                style="width:20%">Status</Table.Head
+              >
+              <Table.Head
+                class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
+                style="width:24%">Ports</Table.Head
+              >
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {#each s.containers as c (c.id)}
+              <Table.Row
+                class="hover:bg-transparent"
+                style={pending.has(c.id) ? "opacity:.55" : undefined}
+              >
+                <Table.Cell>
+                  <div class="cell-name">
+                    <span class="lamp" class:run={c.running}></span>
+                    <span class="av"><Box aria-hidden="true" /></span>
+                    <div style="min-width:0">
+                      <div class="nm">{c.name}</div>
+                      <div class="id">{c.shortId}</div>
+                    </div>
+                  </div>
+                </Table.Cell>
 
-        {#each s.containers as c (c.id)}
-          <div
-            class="trow"
-            style="--cols:{COLS};cursor:default"
-            class:busy={pending.has(c.id)}
-          >
-            <div class="cell-name">
-              <span class="lamp" class:run={c.running}></span>
-              <span class="av"><Box aria-hidden="true" /></span>
-              <div style="min-width:0">
-                <div class="nm">{c.name}</div>
-                <div class="id">{c.shortId}</div>
-              </div>
-            </div>
+                <Table.Cell>
+                  <span class="img" title={c.image}>{c.image}</span>
+                </Table.Cell>
 
-            <span class="img" title={c.image}>{c.image}</span>
+                <Table.Cell>
+                  <div class="st" class:run={c.running} class:exit={!c.running}>
+                    <span class="l"><span class="d"></span>{stateWord(c)}</span>
+                    {#if c.status}<span class="sub">{c.status}</span>{/if}
+                  </div>
+                </Table.Cell>
 
-            <div class="st" class:run={c.running} class:exit={!c.running}>
-              <span class="l"><span class="d"></span>{stateWord(c)}</span>
-              {#if c.status}<span class="sub">{c.status}</span>{/if}
-            </div>
-
-            <div class="ports">
-              {#if c.ports.length === 0}
-                <span class="muted">—</span>
-              {:else}
-                {#each c.ports as p, i (i)}
-                  {#if p.url}
-                    <button
-                      class="port port-link"
-                      onclick={() => openPort(p)}
-                      title={portTitle(p)}
-                    >
-                      {portLabel(p)}<ExternalLink aria-hidden="true" />
-                    </button>
-                  {:else}
-                    <span class="port" title={portTitle(p)}>{portLabel(p)}</span
-                    >
-                  {/if}
-                {/each}
-              {/if}
-            </div>
-          </div>
-        {/each}
+                <Table.Cell>
+                  <div class="ports">
+                    {#if c.ports.length === 0}
+                      <span class="muted">—</span>
+                    {:else}
+                      {#each c.ports as p, i (i)}
+                        {#if p.url}
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            class="h-6 gap-1 px-2 font-mono text-[11px]"
+                            onclick={() => openPort(p)}
+                            title={portTitle(p)}
+                          >
+                            {portLabel(p)}<ExternalLink aria-hidden="true" />
+                          </Button>
+                        {:else}
+                          <Badge
+                            variant="outline"
+                            class="font-mono text-[11px] font-normal"
+                            title={portTitle(p)}>{portLabel(p)}</Badge
+                          >
+                        {/if}
+                      {/each}
+                    {/if}
+                  </div>
+                </Table.Cell>
+              </Table.Row>
+            {/each}
+          </Table.Body>
+        </Table.Root>
       </section>
     {/each}
   </div>
@@ -220,32 +249,7 @@
     gap: 6px;
   }
 
-  /* Open-the-compose-folder chip: quiet, monospace path, brightens on hover. */
-  .shead-dir {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    max-width: 360px;
-    padding: 4px 9px;
-    border: 1px solid var(--line);
-    border-radius: var(--r-sm);
-    background: var(--s2);
-    color: var(--text-3);
-    font-family: var(--mono);
-    font-size: 11.5px;
-    cursor: pointer;
-    transition: color 0.13s var(--ease), border-color 0.13s var(--ease);
-  }
-  .shead-dir:hover {
-    color: var(--text);
-    border-color: var(--text-4);
-  }
-  .shead-dir :global(svg) {
-    width: 13px;
-    height: 13px;
-    flex: none;
-    color: var(--text-4);
-  }
+  /* Open-the-compose-folder chip: keep the monospace path truncating. */
   .shead-dir-path {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -256,29 +260,5 @@
   .x {
     color: var(--text-4);
     margin: 0 1px;
-  }
-
-  /* Service rows are read-only here (no detail routing). */
-  .trow.busy {
-    opacity: 0.55;
-  }
-
-  /* Clickable published-port chip — neutral, brightens on hover. */
-  .port-link {
-    font: inherit;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    transition: color 0.13s var(--ease), border-color 0.13s var(--ease);
-  }
-  .port-link:hover {
-    color: var(--text);
-    border-color: var(--text-4);
-  }
-  .port-link :global(svg) {
-    width: 11px;
-    height: 11px;
-    color: var(--text-4);
   }
 </style>
