@@ -697,6 +697,29 @@ pub fn uninstall(backup: bool, backup_path: Option<PathBuf>, assume_yes: bool) -
     } else {
         warn("unregister failed; the distro may already be gone.");
     }
+
+    // `wsl --unregister` deletes the ext4.vhdx but leaves the import directory
+    // behind — and on a partial/failed unregister (lock, distro still busy) the
+    // vhdx itself can linger. `install` created this dir, so teardown removes it
+    // here to stay symmetric. Best-effort: warn (don't fail) if it can't.
+    let install_dir = default_install_dir();
+    if install_dir.exists() {
+        match fs::remove_dir_all(&install_dir) {
+            Ok(()) => {
+                ok(&format!("removed install directory {}", install_dir.display()));
+                // Drop the now-empty parent (%LOCALAPPDATA%\dockwin); `remove_dir`
+                // only succeeds when empty, so a shared/non-empty parent is left be.
+                if let Some(parent) = install_dir.parent() {
+                    let _ = fs::remove_dir(parent);
+                }
+            }
+            Err(e) => warn(&format!(
+                "could not remove {} ({e}); delete it manually",
+                install_dir.display()
+            )),
+        }
+    }
+
     println!("dockwin uninstall complete.");
     Ok(())
 }
