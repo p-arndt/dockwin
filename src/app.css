@@ -311,33 +311,7 @@
     display: inline-block;
     background: var(--off);
   }
-  .dot-ok {
-    background: var(--ok);
-    box-shadow: 0 0 0 3px var(--ok-dim);
-  }
   .dot-off {
-    background: var(--off);
-  }
-  .dot-warn {
-    background: var(--warn);
-    box-shadow: 0 0 0 3px var(--warn-dim);
-  }
-  .dot-unknown {
-    background: var(--off);
-    opacity: 0.6;
-  }
-  .cdot {
-    width: 9px;
-    height: 9px;
-    border-radius: 9999px;
-    display: inline-block;
-    background: var(--off);
-  }
-  .cdot-on {
-    background: var(--ok);
-    box-shadow: 0 0 0 3px var(--ok-dim);
-  }
-  .cdot-off {
     background: var(--off);
   }
 }
@@ -834,27 +808,6 @@
 .dt-sub .mono {
   color: var(--text-4);
 }
-/* header buttons (expand-to-full / close) */
-.dt-x {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--s2);
-  color: var(--text-3);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  flex: none;
-}
-.dt-x:hover {
-  color: var(--text);
-  border-color: var(--text-4);
-}
-.dt-x svg {
-  width: 15px;
-  height: 15px;
-}
 .dt-head-acts {
   margin-left: auto;
   display: flex;
@@ -1047,24 +1000,6 @@
   color: var(--text-4);
 }
 
-/* "show advanced" disclosure (accent text affordance) */
-.show-adv {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--lime);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  padding-top: 4px;
-  background: transparent;
-  border: 0;
-}
-.show-adv svg {
-  width: 14px;
-  height: 14px;
-}
-
 /* official image badge */
 .official {
   display: inline-flex;
@@ -1176,60 +1111,6 @@
   flex: none;
 }
 
-/* quick-action card (system / dashboards) */
-.qgrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 12px;
-}
-.qa {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: var(--r);
-  background: var(--s1);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-sm), inset 0 1px 0 var(--hi);
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  color: var(--text);
-  transition: 0.14s var(--ease);
-}
-.qa:hover:not(:disabled) {
-  border-color: var(--text-4);
-  transform: translateY(-1px);
-}
-.qa:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.qa .ico {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  flex: none;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(180deg, var(--s3), var(--s2));
-  border: 1px solid var(--line);
-  color: var(--text-2);
-  box-shadow: inset 0 1px 0 var(--hi);
-}
-.qa .ico svg {
-  width: 18px;
-  height: 18px;
-}
-.qa .qt {
-  font-size: 13px;
-  font-weight: 600;
-}
-.qa .qs {
-  font-size: 11.5px;
-  color: var(--text-3);
-}
-
 /* settings field rows */
 .field {
   display: flex;
@@ -1327,28 +1208,6 @@
   }
   100% {
     background-position: -200% 0;
-  }
-}
-
-/* legacy provisioning bar (kept working; token-driven) */
-@layer utilities {
-  .provision-bar {
-    background-image: linear-gradient(
-      100deg,
-      var(--lime-deep) 0%,
-      var(--lime-bright) 50%,
-      var(--lime-deep) 100%
-    );
-    background-size: 200% 100%;
-    animation: provision-sheen 1.6s linear infinite;
-  }
-  @keyframes provision-sheen {
-    0% {
-      background-position: 200% 0;
-    }
-    100% {
-      background-position: -200% 0;
-    }
   }
 }
 
