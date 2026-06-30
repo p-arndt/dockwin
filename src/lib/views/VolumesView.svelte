@@ -10,6 +10,10 @@
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import Info from "@lucide/svelte/icons/info";
   import X from "@lucide/svelte/icons/x";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Checkbox } from "$lib/components/ui/checkbox/index.js";
+  import { Label } from "$lib/components/ui/label/index.js";
+  import { confirmDialog } from "../state/confirm.svelte.js";
   import { errText } from "../api";
   import {
     volumeList,
@@ -132,10 +136,18 @@
 
   async function onRemove(v: Volume) {
     if (busy.has(v.name)) return;
-    const msg = forceRemove
+    const desc = forceRemove
       ? `Force-remove volume "${v.name}"? This deletes its data even if in use.`
       : `Remove volume "${v.name}"? This permanently deletes its data.`;
-    if (!confirm(msg)) return;
+    if (
+      !(await confirmDialog({
+        title: "Remove volume?",
+        description: desc,
+        destructive: true,
+        confirmText: forceRemove ? "Force remove" : "Remove",
+      }))
+    )
+      return;
     setBusy(v.name, true);
     errorMsg = "";
     try {
@@ -175,9 +187,15 @@
 
   async function onPrune() {
     if (pruning) return;
-    if (!confirm("Remove all unused (dangling) volumes? This cannot be undone.")) {
+    if (
+      !(await confirmDialog({
+        title: "Prune unused volumes?",
+        description: "Remove all unused (dangling) volumes? This cannot be undone.",
+        destructive: true,
+        confirmText: "Prune",
+      }))
+    )
       return;
-    }
     pruning = true;
     pruneMsg = "";
     errorMsg = "";
@@ -239,30 +257,29 @@
       />
     </label>
 
-    <label class="field" title="Force removal even when a volume is in use">
-      <input type="checkbox" bind:checked={forceRemove} />
-      Force remove
-    </label>
+    <div class="field" title="Force removal even when a volume is in use">
+      <Checkbox id="vol-force-remove" bind:checked={forceRemove} />
+      <Label for="vol-force-remove">Force remove</Label>
+    </div>
 
-    <button
-      class="btn btn-danger"
+    <Button
+      variant="destructive"
       disabled={pruning || engineState !== "running"}
       onclick={onPrune}
       title="Remove all unused volumes"
     >
       <Eraser aria-hidden="true" />
       {pruning ? "Pruning…" : "Prune unused"}
-    </button>
+    </Button>
 
-    <button
-      class="btn btn-soft"
-      class:on={showCreate}
+    <Button
+      variant={showCreate ? "secondary" : "outline"}
       disabled={engineState !== "running"}
       onclick={() => (showCreate = !showCreate)}
     >
       <Plus aria-hidden="true" />
       New volume
-    </button>
+    </Button>
   </div>
 
   {#if errorMsg}
@@ -302,21 +319,20 @@
             aria-label="Volume driver (optional)"
           />
         </label>
-        <button
-          class="btn btn-pri"
+        <Button
           type="submit"
           disabled={creating || engineState !== "running" || newName.trim() === ""}
         >
           <Plus aria-hidden="true" />
           {creating ? "Creating…" : "Create volume"}
-        </button>
-        <button
-          class="btn btn-soft"
+        </Button>
+        <Button
+          variant="outline"
           type="button"
           onclick={() => (showCreate = false)}
         >
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   {/if}
@@ -412,13 +428,14 @@
                 <Search aria-hidden="true" />
                 <span>Inspect · <span class="mono">{v.name}</span></span>
                 <span style="flex:1"></span>
-                <button
-                  class="btn btn-icon sm"
+                <Button
+                  variant="outline"
+                  size="icon-sm"
                   title="Close"
                   onclick={() => onInspect(v)}
                 >
                   <X aria-hidden="true" />
-                </button>
+                </Button>
               </div>
               <pre class="body-out" style="white-space:pre">{inspecting
                   ? "Loading inspect…"

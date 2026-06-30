@@ -46,6 +46,11 @@
   import SystemView from "./lib/views/SystemView.svelte";
   import ContainerDetails from "./lib/views/ContainerDetails.svelte";
   import UpdateBanner from "./lib/views/UpdateBanner.svelte";
+  import ConfirmHost from "./lib/components/ConfirmHost.svelte";
+  import { confirmDialog } from "./lib/state/confirm.svelte";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Checkbox } from "$lib/components/ui/checkbox/index.js";
+  import { Label } from "$lib/components/ui/label/index.js";
 
   const POLL_MS = 3000;
 
@@ -253,10 +258,15 @@
   async function handleAction(action: EngineAction, c: NormalizedContainer) {
     if (pending.has(c.id)) return;
     if (action === "remove") {
-      const note = c.running
-        ? `Remove running container "${c.name}"? It will be stopped and deleted.`
-        : `Remove container "${c.name}"?`;
-      if (!confirm(note)) return;
+      const ok = await confirmDialog({
+        title: `Remove container "${c.name}"?`,
+        description: c.running
+          ? "It is running — it will be stopped and then deleted."
+          : "This permanently removes the container.",
+        destructive: true,
+        confirmText: "Remove",
+      });
+      if (!ok) return;
     }
 
     markPending(c.id, true);
@@ -447,11 +457,15 @@
   // Tear down the engine: permanently unregister the WSL distro + remove contexts.
   async function teardownEngine() {
     if (working) return;
-    const note =
-      "Remove the dockwin engine? This permanently deletes the WSL distro 'dockwin' " +
-      "and all its containers and images." +
-      (withBackup ? " A .tar backup is exported to your user folder first." : "");
-    if (!confirm(note)) return;
+    const ok = await confirmDialog({
+      title: "Remove the dockwin engine?",
+      description:
+        "This permanently deletes the WSL distro 'dockwin' and all its containers and images." +
+        (withBackup ? " A .tar backup is exported to your user folder first." : ""),
+      destructive: true,
+      confirmText: "Remove engine",
+    });
+    if (!ok) return;
     working = true;
     setFooter("Removing engine…");
     try {
@@ -470,10 +484,14 @@
   // image is missing. Unregister the dangling distro so it can be reprovisioned.
   async function repairEngine() {
     if (repairing || working) return;
-    const note =
-      "Reset the broken dockwin engine? This unregisters the dangling WSL distro " +
-      "'dockwin' so you can set it up again from scratch.";
-    if (!confirm(note)) return;
+    const ok = await confirmDialog({
+      title: "Reset the broken engine?",
+      description:
+        "This unregisters the dangling WSL distro 'dockwin' so you can set it up again from scratch.",
+      destructive: true,
+      confirmText: "Reset",
+    });
+    if (!ok) return;
     repairing = true;
     errorMsg = "";
     setFooter("Resetting engine…");
@@ -577,19 +595,26 @@
 </script>
 
 {#snippet themeControls()}
-  <div class="seg" aria-label="Theme">
-    <button
+  <div
+    class="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5"
+    aria-label="Theme"
+  >
+    <Button
+      variant={theme.theme === "dark" ? "secondary" : "ghost"}
+      size="sm"
       aria-pressed={theme.theme === "dark"}
       onclick={() => theme.setTheme("dark")}
     >
       <Moon aria-hidden="true" />Dark
-    </button>
-    <button
+    </Button>
+    <Button
+      variant={theme.theme === "light" ? "secondary" : "ghost"}
+      size="sm"
       aria-pressed={theme.theme === "light"}
       onclick={() => theme.setTheme("light")}
     >
       <Sun aria-hidden="true" />Light
-    </button>
+    </Button>
   </div>
 {/snippet}
 
@@ -609,14 +634,15 @@
       <span class="sp"></span>
       {@render themeControls()}
       <span class="sep"></span>
-      <button
-        class="btn btn-icon"
+      <Button
+        variant="outline"
+        size="icon"
         title="Refresh"
         disabled={working}
         onclick={manualRefresh}
       >
         <RefreshCw aria-hidden="true" />
-      </button>
+      </Button>
     </div>
     <EngineGate
       {engineState}
@@ -682,25 +708,26 @@
         <span class="sp"></span>
         {@render themeControls()}
         <span class="sep"></span>
-        <button
-          class="btn btn-icon"
-          class:on={activeView === "settings"}
+        <Button
+          variant={activeView === "settings" ? "secondary" : "outline"}
+          size="icon"
           title="Settings"
           onclick={() => setView("settings")}
         >
           <Settings aria-hidden="true" />
-        </button>
-        <button
-          class="btn btn-icon"
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
           title="Refresh"
           disabled={working}
           onclick={manualRefresh}
         >
           <RefreshCw aria-hidden="true" />
-        </button>
+        </Button>
         {#if engineState === "running" || engineState === "stopped"}
-          <button
-            class="btn btn-soft"
+          <Button
+            variant="outline"
             style="min-width:74px;justify-content:center"
             disabled={engineToggleDisabled}
             onclick={toggleEngine}
@@ -710,7 +737,7 @@
             {:else}
               <PlayCircle aria-hidden="true" />{engineBusy ? "Starting…" : "Start"}
             {/if}
-          </button>
+          </Button>
         {/if}
       </div>
 
@@ -769,49 +796,46 @@
             {stacks.length === 1 ? "project" : "projects"}
           </span>
           <span class="sp"></span>
-          <span class="btn-split">
-            <button
-              class="btn btn-pri"
-              title="Pick a docker-compose.yml and run it on the dockwin engine"
-              disabled={composeBusy || engineState !== "running"}
-              onclick={composeUp}
-            >
-              <FileUp aria-hidden="true" />
-              {composeBusy ? "Working…" : "Compose up"}
-            </button>
-          </span>
-          <button
-            class="btn btn-soft"
+          <Button
+            title="Pick a docker-compose.yml and run it on the dockwin engine"
+            disabled={composeBusy || engineState !== "running"}
+            onclick={composeUp}
+          >
+            <FileUp aria-hidden="true" />
+            {composeBusy ? "Working…" : "Compose up"}
+          </Button>
+          <Button
+            variant="outline"
             title="docker compose down"
             disabled={composeBusy || engineState !== "running"}
             onclick={composeDown}
           >
             <FileDown aria-hidden="true" />Down
-          </button>
-          <button
-            class="btn btn-soft"
+          </Button>
+          <Button
+            variant="outline"
             title="docker compose pull"
             disabled={composeBusy || engineState !== "running"}
             onclick={() => runComposeExtra("pull", api.composePull)}
           >
             <Download aria-hidden="true" />Pull
-          </button>
-          <button
-            class="btn btn-soft"
+          </Button>
+          <Button
+            variant="outline"
             title="docker compose build"
             disabled={composeBusy || engineState !== "running"}
             onclick={() => runComposeExtra("build", api.composeBuild)}
           >
             <Hammer aria-hidden="true" />Build
-          </button>
-          <button
-            class="btn btn-soft"
+          </Button>
+          <Button
+            variant="outline"
             title="docker compose logs (tail)"
             disabled={composeBusy || engineState !== "running"}
             onclick={() => runComposeExtra("logs", (f) => api.composeLogs(f))}
           >
             <ScrollText aria-hidden="true" />Logs
-          </button>
+          </Button>
         </div>
         <div class="body">
           <div class="page" style="padding-top:0">
@@ -836,13 +860,14 @@
                       {lastComposeFile}
                     </span>
                   {/if}
-                  <button
-                    class="btn btn-soft sm"
+                  <Button
+                    variant="outline"
+                    size="sm"
                     style="margin-left:auto"
                     onclick={() => (composeOpen = false)}
                   >
                     Hide
-                  </button>
+                  </Button>
                 </div>
                 <div class="body-out">
                   {#each composeLog as line, i (i)}
@@ -874,20 +899,7 @@
                     <div class="setrow-t">Theme</div>
                     <div class="setrow-s">Dark is the hero; light is first-class.</div>
                   </div>
-                  <div class="seg" aria-label="Theme">
-                    <button
-                      aria-pressed={theme.theme === "dark"}
-                      onclick={() => theme.setTheme("dark")}
-                    >
-                      <Moon aria-hidden="true" />Dark
-                    </button>
-                    <button
-                      aria-pressed={theme.theme === "light"}
-                      onclick={() => theme.setTheme("light")}
-                    >
-                      <Sun aria-hidden="true" />Light
-                    </button>
-                  </div>
+                  {@render themeControls()}
                 </div>
                 <div class="setrow">
                   <div>
@@ -916,18 +928,20 @@
                   if you opted in during setup — it is not recommended for normal
                   use.
                 </p>
-                <label class="field">
-                  <input type="checkbox" bind:checked={withBackup} />
-                  Export a <code class="code">.tar</code> backup before removing
-                </label>
+                <div class="field">
+                  <Checkbox id="opt-backup" bind:checked={withBackup} />
+                  <Label for="opt-backup">
+                    Export a <code class="code">.tar</code> backup before removing
+                  </Label>
+                </div>
                 <div>
-                  <button
-                    class="btn btn-danger"
+                  <Button
+                    variant="destructive"
                     disabled={working}
                     onclick={teardownEngine}
                   >
                     <Trash2 aria-hidden="true" />Remove engine
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -942,3 +956,6 @@
 
 <!-- In-app update toast (app + engine). Fixed-position; checks on mount. -->
 <UpdateBanner />
+
+<!-- Single mounted host for the shared confirm dialog (confirmDialog()). -->
+<ConfirmHost />

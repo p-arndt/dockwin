@@ -11,6 +11,7 @@
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Pill from "../components/Pill.svelte";
+  import { Button } from "$lib/components/ui/button/index.js";
   import { openExternal, openFolder, wslToWindowsPath } from "../api/external";
   import type { Stack, NormalizedContainer, NormalizedPort } from "../types";
 
@@ -98,30 +99,33 @@
             </button>
           {/if}
           <div class="shead-acts">
-            <button
-              class="btn btn-soft sm"
+            <Button
+              variant="outline"
+              size="sm"
               disabled={busy || allRunning}
               onclick={() => act("start", s)}
               title="Start the whole stack"
             >
               <Play aria-hidden="true" /> Start
-            </button>
-            <button
-              class="btn btn-soft sm"
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               disabled={busy || s.running === 0}
               onclick={() => act("stop", s)}
               title="Stop the whole stack"
             >
               <Square aria-hidden="true" /> Stop
-            </button>
-            <button
-              class="btn btn-soft sm"
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               disabled={busy || s.running === 0}
               onclick={() => act("restart", s)}
               title="Restart the whole stack"
             >
               <RotateCw aria-hidden="true" /> Restart
-            </button>
+            </Button>
           </div>
         </header>
 

@@ -1,3 +1,4 @@
+import path from "node:path";
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
@@ -8,6 +9,12 @@ const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
   plugins: [svelte(), tailwindcss()],
+  // $lib path alias (shadcn-svelte convention) so component imports resolve.
+  resolve: {
+    alias: {
+      $lib: path.resolve("./src/lib"),
+    },
+  },
   // Prevent Vite from obscuring Rust errors.
   clearScreen: false,
   server: {

@@ -12,6 +12,9 @@
   import Hammer from "@lucide/svelte/icons/hammer";
   import Terminal from "@lucide/svelte/icons/terminal";
   import StatusDot from "../components/StatusDot.svelte";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Checkbox } from "$lib/components/ui/checkbox/index.js";
+  import { Label } from "$lib/components/ui/label/index.js";
   import type { EngineState, ProvisionUi } from "../types";
 
   let {
@@ -103,16 +106,18 @@
         minutes; you can keep this window open.
       </p>
 
-      <label class="field" style="margin-top:16px">
-        <input type="checkbox" bind:checked={enableTcp} disabled={working} />
-        Also enable insecure loopback TCP (127.0.0.1:2375) — not recommended
-      </label>
+      <div class="field" style="margin-top:16px">
+        <Checkbox id="enable-tcp" bind:checked={enableTcp} disabled={working} />
+        <Label for="enable-tcp">
+          Also enable insecure loopback TCP (127.0.0.1:2375) — not recommended
+        </Label>
+      </div>
 
       <div class="g-acts">
-        <button class="btn btn-pri" disabled={working} onclick={onProvision}>
+        <Button disabled={working} onclick={onProvision}>
           <DownloadCloud aria-hidden="true" />
           {working ? "Setting up…" : "Set up engine"}
-        </button>
+        </Button>
       </div>
     </section>
   {:else if engineState === "stopped"}
@@ -136,14 +141,10 @@
       </p>
 
       <div class="g-acts">
-        <button
-          class="btn btn-pri"
-          disabled={engineBusy || working}
-          onclick={onStart}
-        >
+        <Button disabled={engineBusy || working} onclick={onStart}>
           <PlayCircle aria-hidden="true" />
           {engineBusy ? "Starting…" : "Start engine"}
-        </button>
+        </Button>
       </div>
     </section>
   {:else if engineState === "broken"}
@@ -171,14 +172,14 @@
       </div>
 
       <div class="g-acts">
-        <button
-          class="btn btn-danger"
+        <Button
+          variant="destructive"
           disabled={repairing || working}
           onclick={onRepair}
         >
           <Hammer aria-hidden="true" />
           {repairing ? "Resetting…" : "Repair engine"}
-        </button>
+        </Button>
       </div>
     </section>
   {:else}
@@ -201,10 +202,10 @@
       </p>
 
       <div class="g-acts">
-        <button class="btn btn-soft" disabled={working} onclick={onRetry}>
+        <Button variant="outline" disabled={working} onclick={onRetry}>
           <RefreshCw aria-hidden="true" />
           Retry
-        </button>
+        </Button>
       </div>
     </section>
   {/if}

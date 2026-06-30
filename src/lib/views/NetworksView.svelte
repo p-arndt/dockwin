@@ -12,6 +12,11 @@
   import { errText } from "../api";
   import * as net from "../api/networks";
   import type { EngineState } from "../types";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Checkbox } from "$lib/components/ui/checkbox/index.js";
+  import { Label } from "$lib/components/ui/label/index.js";
+  import * as Select from "$lib/components/ui/select/index.js";
+  import { confirmDialog } from "../state/confirm.svelte.js";
 
   interface Props {
     engineState?: EngineState;
@@ -115,7 +120,15 @@
 
   async function removeNetwork(n: net.NetworkDto) {
     if (n.builtin) return;
-    if (!confirm(`Remove network "${n.name}"? This cannot be undone.`)) return;
+    if (
+      !(await confirmDialog({
+        title: "Remove network?",
+        description: `Remove network "${n.name}"? This cannot be undone.`,
+        destructive: true,
+        confirmText: "Remove",
+      }))
+    )
+      return;
     setPending(n.id, true);
     errorMsg = "";
     try {
@@ -153,7 +166,15 @@
   }
 
   async function pruneNetworks() {
-    if (!confirm("Remove all unused networks?")) return;
+    if (
+      !(await confirmDialog({
+        title: "Prune unused networks?",
+        description: "Remove all unused networks?",
+        destructive: true,
+        confirmText: "Prune",
+      }))
+    )
+      return;
     setPending("__prune__", true);
     errorMsg = "";
     pruneMsg = "";
@@ -204,15 +225,15 @@
         aria-label="Filter networks by name"
       />
     </div>
-    <button
-      class="btn btn-danger"
+    <Button
+      variant="destructive"
       disabled={pruning || engineState !== "running"}
       onclick={pruneNetworks}
       title="Remove all unused networks"
     >
       <Eraser aria-hidden="true" />
       {pruning ? "Pruning…" : "Prune unused"}
-    </button>
+    </Button>
   </div>
 
   {#if errorMsg}
@@ -232,23 +253,24 @@
           <input type="text" placeholder="my_network" bind:value={newName} />
         </span>
       </label>
-      <label class="fieldcol">
+      <div class="fieldcol">
         <span class="flabel">Driver</span>
-        <span class="search inputwrap selwrap">
-          <select bind:value={newDriver}>
-            <option value="bridge">bridge</option>
-            <option value="macvlan">macvlan</option>
-          </select>
-        </span>
-      </label>
-      <label class="field internalbox">
-        <input type="checkbox" bind:checked={newInternal} />
-        <span>Internal</span>
-      </label>
-      <button class="btn btn-pri" type="submit" disabled={creating}>
+        <Select.Root type="single" bind:value={newDriver}>
+          <Select.Trigger class="w-[150px]">{newDriver}</Select.Trigger>
+          <Select.Content>
+            <Select.Item value="bridge" label="bridge">bridge</Select.Item>
+            <Select.Item value="macvlan" label="macvlan">macvlan</Select.Item>
+          </Select.Content>
+        </Select.Root>
+      </div>
+      <div class="field internalbox">
+        <Checkbox id="net-internal" bind:checked={newInternal} />
+        <Label for="net-internal">Internal</Label>
+      </div>
+      <Button type="submit" disabled={creating} class="ml-auto">
         <Plus aria-hidden="true" />
         {creating ? "Creating…" : "Create network"}
-      </button>
+      </Button>
     </form>
   {/if}
 
@@ -371,33 +393,13 @@
     text-transform: uppercase;
     color: var(--text-4);
   }
-  /* Reuse .search chrome as a text/select input shell. */
+  /* Reuse .search chrome as a text-input shell (Name field). */
   .inputwrap {
     width: 200px;
     padding: 6px 11px;
   }
-  .selwrap {
-    width: 150px;
-  }
-  .inputwrap select {
-    border: 0;
-    background: transparent;
-    color: var(--text);
-    font: inherit;
-    font-size: 12.5px;
-    outline: none;
-    width: 100%;
-    cursor: pointer;
-  }
-  .inputwrap select option {
-    background: var(--s2);
-    color: var(--text);
-  }
   .internalbox {
     padding-bottom: 7px;
-  }
-  .createbar .btn-pri {
-    margin-left: auto;
   }
 
   /* Plain table cell text using tokens (no raw colors). */

@@ -22,6 +22,10 @@
     type SystemInfoDto,
   } from "../api/system";
   import type { EngineState } from "../types";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Checkbox } from "$lib/components/ui/checkbox/index.js";
+  import { Label } from "$lib/components/ui/label/index.js";
+  import { confirmDialog } from "../state/confirm.svelte.js";
 
   interface Props {
     engineState?: EngineState;
@@ -94,8 +98,15 @@
     if (pruning || engineState !== "running") return;
     const parts = ["stopped containers", allImages ? "all unused images" : "dangling images", "unused networks"];
     if (pruneVolumes) parts.push("unused volumes");
-    const ok = confirm(`This will permanently remove: ${parts.join(", ")}.\n\nContinue?`);
-    if (!ok) return;
+    if (
+      !(await confirmDialog({
+        title: "Prune unused data?",
+        description: `This will permanently remove: ${parts.join(", ")}.`,
+        destructive: true,
+        confirmText: "Prune",
+      }))
+    )
+      return;
     pruning = true;
     pruneResult = "";
     errorMsg = "";
@@ -256,32 +267,31 @@
       </div>
     </div>
 
-    <label class="field">
-      <input
-        type="checkbox"
+    <div class="field">
+      <Checkbox
+        id="prune-all-images"
         bind:checked={allImages}
         disabled={pruning || !engineRunning}
       />
-      Remove ALL unused images, not just dangling
-    </label>
-    <label class="field">
-      <input
-        type="checkbox"
+      <Label for="prune-all-images">Remove ALL unused images, not just dangling</Label>
+    </div>
+    <div class="field">
+      <Checkbox
+        id="prune-volumes"
         bind:checked={pruneVolumes}
         disabled={pruning || !engineRunning}
       />
-      Also remove unused volumes
-    </label>
+      <Label for="prune-volumes">Also remove unused volumes</Label>
+    </div>
 
     <div class="reclaim-acts">
-      <button
-        class="btn btn-pri"
+      <Button
         disabled={pruning || !engineRunning}
         onclick={runPrune}
       >
         <Trash2 aria-hidden="true" />
         {pruning ? "Pruning…" : "Prune unused"}
-      </button>
+      </Button>
       {#if pruneResult}
         <span class="prune-ok"><CircleCheck aria-hidden="true" />{pruneResult}</span>
       {/if}

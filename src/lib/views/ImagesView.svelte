@@ -22,6 +22,11 @@
   import * as imagesApi from "../api/images";
   import type { ImageLayer } from "../api/images";
   import type { EngineState, ImageDto } from "../types";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Checkbox } from "$lib/components/ui/checkbox/index.js";
+  import { Label } from "$lib/components/ui/label/index.js";
+  import * as Tabs from "$lib/components/ui/tabs/index.js";
+  import { confirmDialog } from "../state/confirm.svelte.js";
 
   interface Props {
     engineState?: EngineState;
@@ -186,7 +191,15 @@
   async function doRemove(img: ImageDto) {
     if (pending.has(img.id)) return;
     const label = repoTag(img);
-    if (!confirm(`Remove image "${label}"?`)) return;
+    if (
+      !(await confirmDialog({
+        title: "Remove image?",
+        description: `Remove image "${label}"?`,
+        destructive: true,
+        confirmText: "Remove",
+      }))
+    )
+      return;
     markPending(img.id, true);
     errorMsg = "";
     try {
@@ -195,7 +208,14 @@
       await load();
     } catch (e) {
       // Likely in use or has multiple tags — offer a force removal.
-      if (confirm(`Remove failed: ${imagesApi.errText(e)}\n\nForce remove "${label}"?`)) {
+      if (
+        await confirmDialog({
+          title: "Force remove image?",
+          description: `Remove failed: ${imagesApi.errText(e)}\n\nForce remove "${label}"?`,
+          destructive: true,
+          confirmText: "Force remove",
+        })
+      ) {
         try {
           await imagesApi.imageRemove(img.id, true);
           if (selectedId === img.id) closeDetail();
@@ -299,7 +319,15 @@
     const note = pruneAll
       ? "Remove ALL unused images (not just dangling)? This cannot be undone."
       : "Remove dangling (untagged) images? This cannot be undone.";
-    if (!confirm(note)) return;
+    if (
+      !(await confirmDialog({
+        title: "Prune images?",
+        description: note,
+        destructive: true,
+        confirmText: "Prune",
+      }))
+    )
+      return;
     pruning = true;
     pruneResult = "";
     errorMsg = "";
@@ -386,29 +414,28 @@
         onkeydown={onPullKeydown}
       />
     </label>
-    <button
-      class="btn btn-pri"
+    <Button
       disabled={pulling || engineState !== "running" || !pullRef.trim()}
       onclick={doPull}
     >
       <Download aria-hidden="true" />
       {pulling ? "Pulling…" : "Pull"}
-    </button>
+    </Button>
 
     <span class="sp"></span>
 
-    <label class="field">
-      <input type="checkbox" bind:checked={pruneAll} disabled={pruning} />
-      All unused
-    </label>
-    <button
-      class="btn btn-danger"
+    <div class="field">
+      <Checkbox id="prune-all" bind:checked={pruneAll} disabled={pruning} />
+      <Label for="prune-all">All unused</Label>
+    </div>
+    <Button
+      variant="destructive"
       disabled={pruning || engineState !== "running"}
       onclick={doPrune}
     >
       <Trash2 aria-hidden="true" />
       {pruning ? "Pruning…" : "Prune"}
-    </button>
+    </Button>
   </div>
 
   <!-- Pull progress / status -->
@@ -551,21 +578,24 @@
             </div>
           </div>
           <div class="dt-acts">
-            <button
-              class="btn dng"
+            <Button
+              variant="destructive"
+              size="sm"
               disabled={pending.has(sel.id)}
               onclick={() => doRemove(sel)}
             >
               <Trash2 aria-hidden="true" />Remove
-            </button>
+            </Button>
           </div>
         </div>
 
-        <div class="tabs">
-          <button class:on={detailTab === "overview"} onclick={() => setTab("overview")}>Overview</button>
-          <button class:on={detailTab === "history"} onclick={() => setTab("history")}>History</button>
-          <button class:on={detailTab === "inspect"} onclick={() => setTab("inspect")}>Inspect</button>
-        </div>
+        <Tabs.Root value={detailTab} onValueChange={(v) => setTab(v as DetailTab)}>
+          <Tabs.List variant="line" class="mx-5">
+            <Tabs.Trigger value="overview" class="after:bg-[var(--lime)]">Overview</Tabs.Trigger>
+            <Tabs.Trigger value="history" class="after:bg-[var(--lime)]">History</Tabs.Trigger>
+            <Tabs.Trigger value="inspect" class="after:bg-[var(--lime)]">Inspect</Tabs.Trigger>
+          </Tabs.List>
+        </Tabs.Root>
 
         <div class="dt-body">
           {#if detailError}
@@ -624,14 +654,14 @@
                 />
                 <span class="tag-sep">:</span>
                 <input class="inp inp-tag" placeholder="tag" bind:value={tagTag} />
-                <button
-                  class="btn btn-soft"
+                <Button
+                  variant="outline"
                   disabled={detailLoading || !tagRepo.trim()}
                   onclick={applyTag}
                 >
                   <Tag aria-hidden="true" />
                   {detailLoading ? "Tagging…" : "Apply"}
-                </button>
+                </Button>
               </div>
             </div>
           {:else if detailTab === "history"}

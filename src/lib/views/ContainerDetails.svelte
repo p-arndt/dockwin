@@ -36,6 +36,8 @@
     type ContainerStatsDto,
     type ContainerTopDto,
   } from "../api/containers";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import * as Tabs from "$lib/components/ui/tabs/index.js";
 
   interface Props {
     container: NormalizedContainer;
@@ -418,27 +420,29 @@
           spellcheck="false"
           autocomplete="off"
         />
-        <button class="btn" type="button" onclick={commitRename} disabled={busyAction}>
+        <Button variant="outline" size="sm" class="flex-1" type="button" onclick={commitRename} disabled={busyAction}>
           Save
-        </button>
-        <button class="btn" type="button" onclick={() => (renaming = false)} disabled={busyAction}>
+        </Button>
+        <Button variant="outline" size="sm" class="flex-1" type="button" onclick={() => (renaming = false)} disabled={busyAction}>
           Cancel
-        </button>
+        </Button>
       </div>
     {:else}
       <div class="dt-acts">
-        <button
-          class="btn"
+        <Button
+          variant="outline"
+          size="sm"
+          class="flex-1"
           type="button"
           onclick={togglePause}
           disabled={busyAction || (!running && !paused)}
           title={paused ? "Resume container" : "Pause container"}
         >
           {#if paused}<Play aria-hidden="true" />Unpause{:else}<Pause aria-hidden="true" />Pause{/if}
-        </button>
-        <button class="btn" type="button" onclick={startRename} disabled={busyAction} title="Rename container">
+        </Button>
+        <Button variant="outline" size="sm" class="flex-1" type="button" onclick={startRename} disabled={busyAction} title="Rename container">
           <Pencil aria-hidden="true" />Rename
-        </button>
+        </Button>
       </div>
     {/if}
   </div>
@@ -448,13 +452,13 @@
   {/if}
 
   <!-- ===== tabs ===== -->
-  <div class="tabs">
-    {#each TABS as t (t.key)}
-      <button class:on={activeTab === t.key} type="button" onclick={() => (activeTab = t.key)}>
-        {t.label}
-      </button>
-    {/each}
-  </div>
+  <Tabs.Root bind:value={activeTab}>
+    <Tabs.List variant="line" class="mx-5">
+      {#each TABS as t (t.key)}
+        <Tabs.Trigger value={t.key} class="after:bg-[var(--lime)]">{t.label}</Tabs.Trigger>
+      {/each}
+    </Tabs.List>
+  </Tabs.Root>
 
   <!-- ===== body ===== -->
   <div class="dt-body" style:max-width={full ? "1120px" : undefined} style:width={full ? "100%" : undefined} style:margin={full ? "0 auto" : undefined}>
@@ -639,15 +643,15 @@
         <div class="empty">Loading inspect…</div>
       {:else if inspectError}
         <div class="banner err">{inspectError}</div>
-        <button class="btn btn-soft sm" type="button" style="align-self:flex-start" onclick={() => loadInspect(id)}>
+        <Button variant="outline" size="sm" type="button" style="align-self:flex-start" onclick={() => loadInspect(id)}>
           Retry
-        </button>
+        </Button>
       {:else if inspectText !== null}
         <pre class="inspect-pre mono">{inspectText}</pre>
       {:else}
-        <button class="btn btn-soft sm" type="button" style="align-self:flex-start" onclick={() => loadInspect(id)}>
+        <Button variant="outline" size="sm" type="button" style="align-self:flex-start" onclick={() => loadInspect(id)}>
           Load inspect
-        </button>
+        </Button>
       {/if}
     {:else if activeTab === "top"}
       {#if !running}

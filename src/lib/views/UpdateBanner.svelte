@@ -8,6 +8,8 @@
   import Download from "@lucide/svelte/icons/download";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import X from "@lucide/svelte/icons/x";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import * as Card from "$lib/components/ui/card/index.js";
   import * as api from "../api";
   import {
     checkAppUpdate,
@@ -126,26 +128,28 @@
 </script>
 
 {#if visible}
-  <div
-    class="fixed bottom-9 right-4 z-50 w-[340px] select-text rounded-lg border border-[#2f81f74d] bg-[#161b22] shadow-xl shadow-black/40"
+  <Card.Root
+    class="fixed bottom-9 right-4 z-50 w-[340px] select-text gap-0 py-0 shadow-xl"
     role="status"
   >
-    <div class="flex items-center gap-2 border-b border-[#262b34] px-3.5 py-2.5">
-      <Download size={15} class="text-[#2f81f7]" aria-hidden="true" />
+    <div class="flex items-center gap-2 border-b border-border px-3.5 py-2.5">
+      <Download size={15} class="text-primary" aria-hidden="true" />
       <span class="text-[13px] font-semibold">Updates available</span>
-      <button
-        class="ml-auto cursor-pointer rounded p-0.5 text-[#9aa3af] hover:bg-[#21262d] hover:text-[#e6e8eb]"
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        class="ml-auto"
         title="Dismiss"
         onclick={() => (dismissed = true)}
       >
         <X size={14} aria-hidden="true" />
-      </button>
+      </Button>
     </div>
 
     <div class="flex flex-col gap-3 px-3.5 py-3">
       {#if errorMsg}
         <div
-          class="rounded-md border border-[#f8514966] bg-[#f851491a] px-2.5 py-1.5 text-[12px] text-[#ff9b95]"
+          class="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-[12px] text-destructive"
         >
           {errorMsg}
         </div>
@@ -154,66 +158,60 @@
       <!-- App (GUI) update -->
       {#if appUpdate}
         <div class="flex flex-col gap-1.5">
-          <div class="text-[12.5px] text-[#c7ccd4]">
-            <span class="font-semibold text-[#e6e8eb]">dockwin {appUpdate.version}</span>
-            <span class="text-[#6e7681]"> · you have {appUpdate.currentVersion}</span>
+          <div class="text-[12.5px] text-muted-foreground">
+            <span class="font-semibold text-foreground">dockwin {appUpdate.version}</span>
+            <span class="text-muted-foreground"> · you have {appUpdate.currentVersion}</span>
           </div>
           {#if appInstalling}
-            <div class="h-1.5 overflow-hidden rounded-full bg-[#21262d]">
+            <div class="h-1.5 overflow-hidden rounded-full bg-muted">
               <div
-                class="h-full bg-[#2f81f7] transition-[width] duration-150"
+                class="h-full bg-primary transition-[width] duration-150"
                 style="width: {appPct}%"
               ></div>
             </div>
-            <span class="text-[11px] text-[#9aa3af]">
+            <span class="text-[11px] text-muted-foreground">
               {appPct ? `Downloading… ${appPct}%` : "Downloading…"}
             </span>
           {:else}
-            <button
-              class="flex items-center justify-center gap-1.5 rounded-md border border-[#2f81f7]/60 bg-[#2f81f71a] px-3 py-[6px] text-[12.5px] text-[#79b8ff] transition-colors hover:bg-[#2f81f726]"
-              onclick={doInstallApp}
-            >
+            <Button size="sm" class="w-full" onclick={doInstallApp}>
               <Download size={14} aria-hidden="true" /> Install &amp; restart
-            </button>
+            </Button>
           {/if}
         </div>
       {/if}
 
       {#if appUpdate && engineAvailable}
-        <div class="h-px bg-[#262b34]"></div>
+        <div class="h-px bg-border"></div>
       {/if}
 
       <!-- Engine (Docker) update -->
       {#if engineAvailable}
         <div class="flex flex-col gap-1.5">
-          <div class="text-[12.5px] text-[#c7ccd4]">
-            <span class="font-semibold text-[#e6e8eb]">
+          <div class="text-[12.5px] text-muted-foreground">
+            <span class="font-semibold text-foreground">
               Docker Engine {shortDocker(engineCandidate)}
             </span>
-            <span class="text-[#6e7681]">
+            <span class="text-muted-foreground">
               · running {shortDocker(engineInstalled)}
             </span>
           </div>
           {#if engineUpdating}
-            <div class="h-1.5 overflow-hidden rounded-full bg-[#21262d]">
+            <div class="h-1.5 overflow-hidden rounded-full bg-muted">
               <div
-                class="h-full bg-[#238636] transition-[width] duration-150"
+                class="h-full bg-primary transition-[width] duration-150"
                 style="width: {enginePct}%"
               ></div>
             </div>
-            <span class="truncate font-mono-app text-[11px] text-[#9aa3af]" title={engineMsg}>
+            <span class="truncate font-mono-app text-[11px] text-muted-foreground" title={engineMsg}>
               {engineMsg}
             </span>
           {:else}
-            <button
-              class="flex items-center justify-center gap-1.5 rounded-md border border-[#238636]/60 bg-[#2386361a] px-3 py-[6px] text-[12.5px] text-[#5ad17a] transition-colors hover:bg-[#23863626]"
-              onclick={doUpdateEngine}
-            >
+            <Button variant="outline" size="sm" class="w-full" onclick={doUpdateEngine}>
               <RefreshCw size={14} aria-hidden="true" /> Update engine
-            </button>
+            </Button>
           {/if}
         </div>
       {/if}
     </div>
-  </div>
+  </Card.Root>
 {/if}
