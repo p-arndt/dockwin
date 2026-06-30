@@ -101,6 +101,20 @@
       </span>
       <span class="word">dockwin</span>
     </div>
+    <script>
+      // The native window starts hidden (see tauri.conf.json) so the WebView2
+      // control's own default background can never flash before our splash
+      // does. Reveal it only once the splash has actually been composited —
+      // two animation frames is the standard way to guarantee a real paint
+      // happened, not just a DOM commit. No-ops outside of Tauri (e.g. `pnpm dev`).
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          if (window.__TAURI_INTERNALS__) {
+            window.__TAURI_INTERNALS__.invoke("reveal_main_window").catch(function () {});
+          }
+        });
+      });
+    </script>
     <div id="app">%sveltekit.body%</div>
   </body>
 </html>
