@@ -12,6 +12,7 @@
 				secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
 				ghost: "hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground",
 				destructive: "bg-destructive/10 hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/20 text-destructive focus-visible:border-destructive/40 dark:hover:bg-destructive/30",
+				success: "bg-[var(--ok-dim)] hover:bg-[color-mix(in_srgb,var(--ok)_26%,transparent)] focus-visible:ring-[color-mix(in_srgb,var(--ok)_30%,transparent)] text-[var(--ok)] focus-visible:border-[color-mix(in_srgb,var(--ok)_40%,transparent)]",
 				link: "text-primary underline-offset-4 hover:underline",
 			},
 			size: {

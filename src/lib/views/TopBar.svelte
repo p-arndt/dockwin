@@ -53,8 +53,8 @@
   </Button>
   {#if engineState === "running" || engineState === "stopped"}
     <Button
-      variant="outline"
-      style="min-width:74px;justify-content:center"
+      variant={engineState === "running" ? "destructive" : "success"}
+      style="min-width:86px;justify-content:center"
       disabled={engineToggleDisabled}
       onclick={onToggleEngine}
     >

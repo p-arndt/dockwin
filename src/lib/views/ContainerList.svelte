@@ -179,12 +179,11 @@
             </Table.Cell>
 
             <Table.Cell class="text-right">
-              <div
-                class="inline-flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-              >
+              <div class="inline-flex items-center justify-end gap-1">
+                <!-- primary lifecycle action: always visible, colour-coded -->
                 {#if c.running}
                   <Button
-                    variant="ghost"
+                    variant="destructive"
                     size="icon-sm"
                     title="Stop"
                     disabled={acting}
@@ -192,18 +191,9 @@
                   >
                     <Square aria-hidden="true" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    title="Restart"
-                    disabled={acting}
-                    onclick={(e) => act(e, "restart", c)}
-                  >
-                    <RotateCw aria-hidden="true" />
-                  </Button>
                 {:else}
                   <Button
-                    variant="ghost"
+                    variant="success"
                     size="icon-sm"
                     title="Start"
                     disabled={acting}
@@ -212,16 +202,32 @@
                     <Play aria-hidden="true" />
                   </Button>
                 {/if}
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  class="text-muted-foreground hover:text-destructive"
-                  title="Remove"
-                  disabled={acting}
-                  onclick={(e) => act(e, "remove", c)}
+                <!-- secondary actions: revealed on row hover/focus -->
+                <div
+                  class="inline-flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                 >
-                  <Trash2 aria-hidden="true" />
-                </Button>
+                  {#if c.running}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      title="Restart"
+                      disabled={acting}
+                      onclick={(e) => act(e, "restart", c)}
+                    >
+                      <RotateCw aria-hidden="true" />
+                    </Button>
+                  {/if}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    class="text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
+                    title="Remove"
+                    disabled={acting}
+                    onclick={(e) => act(e, "remove", c)}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </div>
               </div>
             </Table.Cell>
           </Table.Row>
