@@ -11,6 +11,7 @@
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
+  import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import * as Table from "$lib/components/ui/table/index.js";
   import { openExternal } from "../api/external";
   import type { NormalizedContainer, NormalizedPort } from "../types";
@@ -21,17 +22,30 @@
     containers?: NormalizedContainer[];
     pending?: Set<string>;
     emptyMessage?: string;
+    loaded?: boolean;
+    selectedId?: string | null;
+    checkedIds?: Set<string>;
     onAction?: (action: Action, c: NormalizedContainer) => void;
     onSelect?: (c: NormalizedContainer) => void;
+    onToggleChecked?: (id: string) => void;
+    onToggleCheckedAll?: () => void;
   }
 
   let {
     containers = [],
     pending = new Set<string>(),
     emptyMessage = "No containers.",
+    loaded = true,
+    selectedId = null,
+    checkedIds = new Set<string>(),
     onAction,
     onSelect,
+    onToggleChecked,
+    onToggleCheckedAll,
   }: Props = $props();
+
+  const allChecked = $derived(containers.length > 0 && containers.every((c) => checkedIds.has(c.id)));
+  const someChecked = $derived(!allChecked && containers.some((c) => checkedIds.has(c.id)));
 
   function act(e: MouseEvent, action: Action, c: NormalizedContainer) {
     e.stopPropagation();
@@ -84,33 +98,41 @@
   <Table.Root class="table-fixed">
     <Table.Header>
       <Table.Row class="hover:bg-transparent">
+        <Table.Head class="h-9 w-[34px]">
+          <Checkbox
+            checked={allChecked}
+            indeterminate={someChecked}
+            onCheckedChange={() => onToggleCheckedAll?.()}
+            aria-label="Select all containers"
+          />
+        </Table.Head>
         <Table.Head
           class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
-          style="width:30%">Name</Table.Head
+          style="width:28%">Name</Table.Head
         >
         <Table.Head
           class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
-          style="width:22%">Image</Table.Head
+          style="width:20%">Image</Table.Head
         >
         <Table.Head
           class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
-          style="width:16%">Status</Table.Head
+          style="width:15%">Status</Table.Head
         >
         <Table.Head
           class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
-          style="width:22%">Ports</Table.Head
+          style="width:19%">Ports</Table.Head
         >
         <Table.Head
           class="h-9 text-[10.5px] font-semibold uppercase tracking-wider"
-          style="width:10%"
+          style="width:9%"
         ></Table.Head>
       </Table.Row>
     </Table.Header>
     <Table.Body>
       {#if containers.length === 0}
         <Table.Row class="hover:bg-transparent">
-          <Table.Cell colspan={5} class="py-7 text-center text-muted-foreground"
-            >{emptyMessage}</Table.Cell
+          <Table.Cell colspan={6} class="py-7 text-center text-muted-foreground"
+            >{loaded ? emptyMessage : "Loading containers…"}</Table.Cell
           >
         </Table.Row>
       {:else}
@@ -119,6 +141,7 @@
           {@const st = statusOf(c)}
           <Table.Row
             class="group relative cursor-pointer data-[sel=true]:bg-muted data-[sel=true]:shadow-[inset_2px_0_0_var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:-outline-offset-2"
+            data-sel={selectedId === c.id}
             style={acting ? "opacity:.55" : undefined}
             role="button"
             tabindex={0}
@@ -131,6 +154,13 @@
               }
             }}
           >
+            <Table.Cell onclick={(e) => e.stopPropagation()}>
+              <Checkbox
+                checked={checkedIds.has(c.id)}
+                onCheckedChange={() => onToggleChecked?.(c.id)}
+                aria-label={`Select ${c.name}`}
+              />
+            </Table.Cell>
             <Table.Cell>
               <div class="flex min-w-0 items-center gap-[12px]">
                 <span

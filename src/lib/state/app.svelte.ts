@@ -28,6 +28,7 @@ export class AppController {
   // --- reactive state (Svelte 5 runes) ---
   engineState = $state<EngineState>("unknown");
   containers = $state<NormalizedContainer[]>([]);
+  containersLoaded = $state(false); // true once the first containers fetch resolves
   pending = $state<Set<string>>(new Set()); // container ids with an in-flight action
   errorMsg = $state("");
   footer = $state("Ready.");
@@ -135,6 +136,7 @@ export class AppController {
     if (this.working) return;
     if (this.engineState !== "running") {
       this.containers = [];
+      this.containersLoaded = false;
       if (this.engineState === "stopped") {
         this.errorMsg = "Engine is stopped. Start the engine to see containers.";
       } else if (this.engineState === "not-provisioned") {
@@ -153,6 +155,7 @@ export class AppController {
         return a.name.localeCompare(b.name);
       });
       this.containers = list;
+      this.containersLoaded = true;
       this.errorMsg = "";
       this.setFooter(`Updated ${new Date().toLocaleTimeString()}.`);
     } catch (e) {
@@ -222,6 +225,50 @@ export class AppController {
       this.errorMsg = `${action} failed: ${api.errText(e)}`;
     } finally {
       this.markPending(c.id, false);
+      await this.refreshAll();
+    }
+  }
+
+  // Apply a start/stop/remove to a set of selected containers at once (the
+  // Containers screen's bulk-action bar). Mirrors handleStackAction's
+  // filter-by-relevance + parallel-dispatch shape.
+  async handleBulkAction(action: EngineAction, targets: NormalizedContainer[]) {
+    const relevant = targets.filter((c) => {
+      if (action === "start") return !c.running;
+      if (action === "stop") return c.running;
+      return true; // remove/restart: every selected container
+    });
+    if (relevant.length === 0) return;
+
+    if (action === "remove") {
+      const ok = await confirmDialog({
+        title: `Remove ${relevant.length} container${relevant.length === 1 ? "" : "s"}?`,
+        description: relevant.some((c) => c.running)
+          ? "Running containers in the selection will be stopped and then deleted."
+          : "This permanently removes the selected containers.",
+        destructive: true,
+        confirmText: "Remove",
+      });
+      if (!ok) return;
+    }
+
+    for (const c of relevant) this.markPending(c.id, true);
+    this.setFooter(`${action} ${relevant.length} container${relevant.length === 1 ? "" : "s"}…`);
+    try {
+      await Promise.all(
+        relevant.map((c) => {
+          if (action === "start") return api.containerStart(c.id);
+          if (action === "stop") return api.containerStop(c.id);
+          if (action === "restart") return api.containerRestart(c.id);
+          return api.containerRemove(c.id, c.running);
+        })
+      );
+      this.setFooter(`${action} ${relevant.length} container${relevant.length === 1 ? "" : "s"} done.`);
+    } catch (e) {
+      this.setFooter(`${action} failed: ${api.errText(e)}`, true);
+      this.errorMsg = `${action} failed: ${api.errText(e)}`;
+    } finally {
+      for (const c of relevant) this.markPending(c.id, false);
       await this.refreshAll();
     }
   }

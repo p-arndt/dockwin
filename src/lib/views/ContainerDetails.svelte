@@ -68,14 +68,6 @@
   let localName = $state("");
   const name = $derived(localName || container.name);
 
-  // Heuristic: an "official" image has no registry/namespace prefix (e.g. nginx,
-  // postgres) — surfaces the small accent badge. Anything user/registry-scoped
-  // ("me/app", "ghcr.io/...") is not.
-  const isOfficial = $derived.by(() => {
-    if (!image) return false;
-    return !image.split(":")[0].includes("/");
-  });
-
   // A container can be running-but-paused (refined from the inspect payload).
   let paused = $state(false);
 
@@ -543,9 +535,6 @@
               <span class="text-[12.5px] text-muted-foreground">Image</span>
               <span class="text-left text-[12.5px] break-words text-foreground">
                 <span class="font-mono">{image || "—"}</span>
-                {#if isOfficial}
-                  <span class="inline-flex items-center gap-1 rounded-[5px] border border-border bg-muted px-[6px] py-px text-[10.5px] font-[650] text-muted-foreground"><Check class="size-[11px]" aria-hidden="true" />Official</span>
-                {/if}
               </span>
             </div>
             <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">

@@ -12,7 +12,9 @@
   errorMsg={app.errorMsg}
   selected={app.selectedContainer}
   detailFull={app.detailFull}
+  loaded={app.containersLoaded}
   onAction={(action, c) => app.handleAction(action, c)}
+  onBulkAction={(action, cs) => app.handleBulkAction(action, cs)}
   onSelect={(c) => app.selectContainer(c)}
   onCloseDetail={() => app.closeDetail()}
   onToggleFull={() => app.toggleDetailFull()}
