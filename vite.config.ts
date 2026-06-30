@@ -1,13 +1,14 @@
 import { defineConfig } from "vite";
-import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
 
-// Minimal Vite config tuned for Tauri v2.
-// Tauri expects a fixed dev port and the build output in ./dist.
+// Minimal Vite config tuned for Tauri v2 + SvelteKit (SPA).
+// Tauri expects a fixed dev port; the build output (./build) and asset paths are
+// owned by adapter-static (see svelte.config.js).
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
-  plugins: [svelte(), tailwindcss()],
+  plugins: [tailwindcss(), sveltekit()],
   // Prevent Vite from obscuring Rust errors.
   clearScreen: false,
   server: {
@@ -25,14 +26,5 @@ export default defineConfig({
       // Don't watch the Rust source tree.
       ignored: ["**/src-tauri/**"],
     },
-  },
-  // Produce a relative-path build so Tauri can load it from the bundled assets.
-  base: "./",
-  build: {
-    target: "esnext",
-    minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
-    sourcemap: !!process.env.TAURI_DEBUG,
-    outDir: "dist",
-    emptyOutDir: true,
   },
 });

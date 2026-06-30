@@ -48,6 +48,14 @@ fn hide_main_window(app: &tauri::AppHandle) {
     }
 }
 
+/// Reveal the main window once the frontend has painted its first frame.
+/// The window starts hidden (see `tauri.conf.json`) so the native WebView2
+/// control's own default background never flashes before our content does.
+#[tauri::command]
+fn reveal_main_window(app: tauri::AppHandle) {
+    show_main_window(&app);
+}
+
 /// Build the tray icon + context menu and wire its events.
 fn setup_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     // Menu items. IDs are matched in the menu event handler below.
@@ -124,6 +132,15 @@ fn main() {
                     log::error!("named-pipe relay exited: {e}");
                 }
             });
+            // Safety net: the frontend reveals the window itself once it has
+            // painted (see `reveal_main_window`), but if that signal is ever
+            // lost (e.g. a JS error before first paint) the window must not
+            // stay hidden forever.
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+                show_main_window(&handle);
+            });
             Ok(())
         })
         // Closing the window hides to tray instead of exiting; "Quit" exits.
@@ -135,6 +152,8 @@ fn main() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            // App shell
+            reveal_main_window,
             // Engine status / lifecycle
             commands::engine_status,
             commands::engine_version,

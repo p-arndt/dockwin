@@ -107,6 +107,10 @@ pub struct ContainerDto {
     pub status: String,
     /// Compose project label, if this container belongs to a compose project.
     pub compose_project: Option<String>,
+    /// Compose `working_dir` label (the folder compose was invoked from), if any.
+    /// As seen inside the engine, so typically a `/mnt/<drive>/…` WSL path; the
+    /// frontend translates it back to a Windows path before opening Explorer.
+    pub compose_working_dir: Option<String>,
     pub ports: Vec<PortMappingDto>,
 }
 
@@ -221,6 +225,12 @@ impl DockerClient {
                     .as_ref()
                     .and_then(|l| l.get("com.docker.compose.project").cloned());
 
+                let compose_working_dir = c
+                    .labels
+                    .as_ref()
+                    .and_then(|l| l.get("com.docker.compose.project.working_dir").cloned())
+                    .filter(|s| !s.is_empty());
+
                 let ports = c
                     .ports
                     .unwrap_or_default()
@@ -253,6 +263,7 @@ impl DockerClient {
                     state: c.state.unwrap_or_default(),
                     status: c.status.unwrap_or_default(),
                     compose_project,
+                    compose_working_dir,
                     ports,
                 }
             })

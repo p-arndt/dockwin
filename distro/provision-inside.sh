@@ -149,6 +149,14 @@ if [ -d /run/systemd/system ]; then
     systemctl daemon-reload
     systemctl enable docker.service containerd.service >/dev/null 2>&1 || \
         warn "systemctl enable reported a problem"
+    # NOTE: we deliberately do NOT try to disable docker-ce's sysv autostart
+    # here. On Debian `update-rc.d` and `systemctl enable` are kept in sync by
+    # systemd-sysv-install (disabling sysv also disables the unit, and vice
+    # versa), so you can't have systemd-on + sysv-off via these tools. It isn't
+    # needed anyway: a native docker.service makes systemd ignore the sysv
+    # runlevel links, so the ONLY path that can launch the pidfile-stealing bare
+    # `dockerd -p /var/run/docker.pid` is wsl.conf's `[boot] command=`, which
+    # waits for systemd before deciding so it can't race it (see distro/wsl.conf).
     systemctl restart docker.service
 else
     warn "systemd is NOT PID 1; using sysv 'service docker start' fallback"

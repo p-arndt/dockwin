@@ -82,6 +82,7 @@ export interface ContainerDto {
   state?: string;
   status?: string;
   compose_project?: string | null;
+  compose_working_dir?: string | null;
   ports?: PortMappingDto[];
   // Tolerated alternates (bollard / Docker API casing).
   Id?: string;
@@ -117,6 +118,8 @@ export interface NormalizedContainer {
   running: boolean;
   // Docker Compose project this container belongs to (null when standalone).
   composeProject: string | null;
+  // Compose working_dir (engine-side path, e.g. /mnt/e/proj), null when standalone.
+  composeWorkingDir: string | null;
 }
 
 // A group of containers belonging to one Docker Compose project.
@@ -125,6 +128,9 @@ export interface Stack {
   containers: NormalizedContainer[];
   running: number;
   total: number;
+  // Folder the stack's compose file lives in (engine-side path), if any container
+  // carries the compose working_dir label. Drives the "open folder" affordance.
+  workingDir: string | null;
 }
 
 // A provisioning progress update pushed from the backend during engine setup

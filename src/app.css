@@ -1,93 +1,253 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-/* dockwin — dark developer-tool theme. TailwindCSS v4, config-light. */
+@custom-variant dark (&:is(.dark *));
+
+/* shadcn-svelte's components style active state via `data-active:`, but bits-ui
+   emits `data-state="active"`. Register the variant so those classes actually
+   match (tabs active pill/underline, nav, etc.). */
+@custom-variant data-active (&[data-state="active"]);
+
+/* ============================================================
+   Theme tokens — standard shadcn-svelte layout.
+   Colours live DIRECTLY on the semantic tokens: :root is light,
+   .dark is the dark hero. The theme store toggles the `.dark`
+   class on <html>. dockwin's lime palette, placed on the tokens.
+   ============================================================ */
+:root {
+  --radius: 0.45rem;
+
+  --background: #f5f6f8;
+  --foreground: #161a20;
+  --card: #ffffff;
+  --card-foreground: #161a20;
+  --popover: #fafbfc;
+  --popover-foreground: #161a20;
+  --primary: #7fb53a;
+  --primary-foreground: #11210a;
+  --secondary: #fafbfc;
+  --secondary-foreground: #161a20;
+  --muted: #fafbfc;
+  --muted-foreground: #7b828d;
+  --accent: #fafbfc;
+  --accent-foreground: #161a20;
+  --destructive: #cf3f50;
+  --destructive-foreground: #161a20;
+  --border: rgba(16, 24, 40, 0.09);
+  --input: rgba(16, 24, 40, 0.09);
+  --ring: #7fb53a;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #525a66;
+  --sidebar-primary: #7fb53a;
+  --sidebar-primary-foreground: #11210a;
+  --sidebar-accent: #fafbfc;
+  --sidebar-accent-foreground: #161a20;
+  --sidebar-border: rgba(16, 24, 40, 0.09);
+  --sidebar-ring: #7fb53a;
+
+  --chart-1: #7fb53a;
+  --chart-2: #179a5f;
+  --chart-3: #b07816;
+  --chart-4: #cf3f50;
+  --chart-5: #9aa2ad;
+
+  /* dockwin extras: the soft backdrop behind the app shell */
+  --backdrop-grad: #eef0f4;
+  --backdrop-glow: 0.07;
+}
+
+.dark {
+  --background: #08090c;
+  --foreground: #f3f4f6;
+  --card: #15171d;
+  --card-foreground: #f3f4f6;
+  --popover: #1b1e26;
+  --popover-foreground: #f3f4f6;
+  --primary: #a6e35b;
+  --primary-foreground: #16240a;
+  --secondary: #1b1e26;
+  --secondary-foreground: #f3f4f6;
+  --muted: #1b1e26;
+  --muted-foreground: #727a86;
+  --accent: #1b1e26;
+  --accent-foreground: #f3f4f6;
+  --destructive: #e5727f;
+  --destructive-foreground: #f3f4f6;
+  --border: rgba(255, 255, 255, 0.065);
+  --input: rgba(255, 255, 255, 0.065);
+  --ring: #a6e35b;
+
+  --sidebar: #101216;
+  --sidebar-foreground: #aab1bb;
+  --sidebar-primary: #a6e35b;
+  --sidebar-primary-foreground: #16240a;
+  --sidebar-accent: #15181d;
+  --sidebar-accent-foreground: #f3f4f6;
+  --sidebar-border: rgba(255, 255, 255, 0.065);
+  --sidebar-ring: #a6e35b;
+
+  --chart-1: #a6e35b;
+  --chart-2: #54c98a;
+  --chart-3: #e0aa46;
+  --chart-4: #e5727f;
+  --chart-5: #5a626d;
+
+  --backdrop-grad: #0b0d11;
+  --backdrop-glow: 0.055;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --font-sans: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
 
 @layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  /* Tailwind v4 changed two defaults that regressed dockwin's look:
+       1. `border-*` utilities no longer imply a colour — they fall back to
+          `currentColor`, so uncolored borders rendered as bright near-white lines.
+       2. <button> lost its implicit `cursor: pointer`.
+     Restore both to the v3 behaviour the design was built against. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    @apply border-border;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  label[for],
+  select,
+  summary,
+  ::file-selector-button {
+    cursor: pointer;
+  }
   html,
   body {
     height: 100%;
-    margin: 0;
   }
-
   body {
-    background-color: #0f1115;
-    color: #e6e8eb;
-    font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-size: 14px;
+    @apply text-foreground font-sans;
+    background:
+      radial-gradient(1100px 520px at 88% -8%, rgba(166, 227, 91, var(--backdrop-glow)), transparent 60%),
+      linear-gradient(180deg, var(--backdrop-grad), var(--background) 40%);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-size: 13.5px;
+    line-height: 1.5;
+    overflow: hidden;
     -webkit-user-select: none;
     user-select: none;
   }
-
   #app {
-    display: flex;
-    flex-direction: column;
     height: 100vh;
   }
-}
-
-/* Tiny custom utilities that are clearer as one class than a pile of utilities. */
-@layer utilities {
-  .font-mono-app {
-    font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  svg {
+    display: block;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 22%, transparent);
   }
 
-  /* Status dots with a soft halo. */
-  .dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 9999px;
-    display: inline-block;
-    background: #6e7681;
-    box-shadow: 0 0 0 3px rgba(110, 118, 129, 0.15);
-  }
-  .dot-ok {
-    background: #3fb950;
-    box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.18);
-  }
-  .dot-off {
-    background: #6e7681;
-  }
-  .dot-warn {
-    background: #d29922;
-    box-shadow: 0 0 0 3px rgba(210, 153, 34, 0.18);
-  }
-  .dot-unknown {
-    background: #6e7681;
-    opacity: 0.6;
+  .eng-dot-ring {
+    animation: eng-dot-ring 1.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
   }
 
-  .cdot {
-    width: 9px;
-    height: 9px;
-    border-radius: 9999px;
-    display: inline-block;
-  }
-  .cdot-on {
-    background: #3fb950;
-    box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.15);
-  }
-  .cdot-off {
-    background: #6e7681;
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 
-  /* Provisioning progress bar: a determinate fill with a moving sheen so it
-     still reads as "alive" during long phases where the pct doesn't move. */
-  .provision-bar {
-    background-image: linear-gradient(
-      100deg,
-      #1f6feb 0%,
-      #58a6ff 50%,
-      #1f6feb 100%
-    );
-    background-size: 200% 100%;
-    animation: provision-sheen 1.6s linear infinite;
-  }
-  @keyframes provision-sheen {
+  @keyframes eng-dot-ring {
     0% {
-      background-position: 200% 0;
+      transform: scale(0.6);
+      opacity: 0.6;
     }
     100% {
-      background-position: -200% 0;
+      transform: scale(1.5);
+      opacity: 0;
     }
+  }
+
+  /* ===== scrollbars =====
+     Tauri's WebView2 ships a chunky white default bar. Replace it with a thin,
+     themed, overlay-style track that fades into the surface, firming on hover. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--muted-foreground) 45%, transparent);
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+    min-height: 36px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background: var(--muted-foreground);
+    background-clip: padding-box;
   }
 }

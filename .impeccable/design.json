@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-30T00:00:00Z",
+  "title": "Design System: dockwin",
+  "extensions": {
+    "colorMeta": {
+      "refined-lime-light": {
+        "role": "primary",
+        "displayName": "Refined Lime (light)",
+        "canonical": "#7fb53a",
+        "tonalRamp": ["#16240a", "#1f3010", "#335319", "#4a7a26", "#7fb53a", "#a6e35b", "#c3ed8f", "#e3f7c9"]
+      },
+      "refined-lime-dark": {
+        "role": "primary",
+        "displayName": "Refined Lime (dark)",
+        "canonical": "#a6e35b",
+        "tonalRamp": ["#16240a", "#1f3010", "#335319", "#4a7a26", "#7fb53a", "#a6e35b", "#c3ed8f", "#e3f7c9"]
+      },
+      "neutral-bg-light": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#f5f6f8",
+        "tonalRamp": ["#08090c", "#15171d", "#1b1e26", "#525a66", "#7b828d", "#aab1bb", "#e9eaed", "#f5f6f8"]
+      },
+      "neutral-bg-dark": {
+        "role": "neutral",
+        "displayName": "Void",
+        "canonical": "#08090c",
+        "tonalRamp": ["#08090c", "#15171d", "#1b1e26", "#525a66", "#7b828d", "#aab1bb", "#e9eaed", "#f5f6f8"]
+      },
+      "status-ok-light": {
+        "role": "status",
+        "displayName": "Running Emerald (light)",
+        "canonical": "#179a5f",
+        "tonalRamp": ["#0c3322", "#134a30", "#179a5f", "#1fae6c", "#2ec27e", "#54c98a", "#8fdcb4", "#c9f0dc"]
+      },
+      "status-ok-dark": {
+        "role": "status",
+        "displayName": "Running Emerald (dark)",
+        "canonical": "#54c98a",
+        "tonalRamp": ["#0c3322", "#134a30", "#179a5f", "#1fae6c", "#2ec27e", "#54c98a", "#8fdcb4", "#c9f0dc"]
+      },
+      "status-warn-light": {
+        "role": "status",
+        "displayName": "Paused Amber (light)",
+        "canonical": "#b07816",
+        "tonalRamp": ["#3a2606", "#52350a", "#7a4f10", "#b07816", "#cf9128", "#e0aa46", "#eec480", "#f6e2c0"]
+      },
+      "status-err-light": {
+        "role": "status",
+        "displayName": "Destructive Red (light)",
+        "canonical": "#cf3f50",
+        "tonalRamp": ["#3a0f15", "#5c1620", "#8a2230", "#b22f40", "#cf3f50", "#e5727f", "#f0a3ac", "#f8d1d6"]
+      },
+      "status-off-light": {
+        "role": "status",
+        "displayName": "Idle Slate (light)",
+        "canonical": "#9aa2ad",
+        "tonalRamp": ["#1f2227", "#33373e", "#4a4f58", "#5a626d", "#727a86", "#9aa2ad", "#c2c8d0", "#e6e8ec"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Section, panel, and dialog headings only — no oversized hero type." },
+      "body": { "displayName": "Body", "purpose": "Default reading size across every view; 13.5px, dense by design." },
+      "label": { "displayName": "Label", "purpose": "Uppercase table headers and structural metadata exclusively — never a decorative eyebrow." },
+      "mono": { "displayName": "Mono", "purpose": "IDs, hashes, ports, log tails, inspect JSON." }
+    },
+    "shadows": [
+      { "name": "card-elevation", "value": "0 1px 2px rgba(0,0,0,.45), 0 10px 28px -12px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.04)", "purpose": "Primary data surfaces — tables, main content cards. Not used on secondary chrome." },
+      { "name": "selection-rail", "value": "inset 2px 0 0 var(--primary)", "purpose": "Selected table row / active sidebar item indicator — inset rail, never a border-side stripe." },
+      { "name": "focus-ring", "value": "0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent)", "purpose": "Keyboard focus on buttons, inputs, interactive rows." }
+    ],
+    "motion": [
+      { "name": "eng-dot-ring", "value": "scale(0.6)→scale(1.5), opacity 0.6→0, ease-out", "purpose": "Soft pulsing halo on the live-engine status dot only." },
+      { "name": "button-press", "value": "translateY(1px) on :active", "purpose": "Tactile press feedback on buttons — a nudge, not a bounce or scale." }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single primary action per view — filled Refined Lime.",
+      "html": "<button class=\"ds-btn-primary\">Start engine</button>",
+      "css": ".ds-btn-primary { background: #7fb53a; color: #11210a; height: 32px; padding: 0 10px; border-radius: 0.45rem; font-size: 13px; font-weight: 500; border: none; transition: background-color .15s, transform .1s; } .ds-btn-primary:hover { background: color-mix(in srgb, #7fb53a 80%, transparent); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, #7fb53a 50%, transparent); } .ds-btn-primary:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Success Button",
+      "kind": "button",
+      "refersTo": "button-success",
+      "description": "Soft-filled lifecycle action — used for container start. Color encodes consequence, not brand.",
+      "html": "<button class=\"ds-btn-success\">Start</button>",
+      "css": ".ds-btn-success { background: color-mix(in srgb, #179a5f 10%, transparent); color: #179a5f; height: 32px; padding: 0 10px; border-radius: 0.45rem; font-size: 13px; font-weight: 500; border: none; transition: background-color .15s; } .ds-btn-success:hover { background: color-mix(in srgb, #179a5f 20%, transparent); }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Soft-filled lifecycle action — used for container stop / remove.",
+      "html": "<button class=\"ds-btn-destructive\">Stop</button>",
+      "css": ".ds-btn-destructive { background: color-mix(in srgb, #cf3f50 10%, transparent); color: #cf3f50; height: 32px; padding: 0 10px; border-radius: 0.45rem; font-size: 13px; font-weight: 500; border: none; transition: background-color .15s; } .ds-btn-destructive:hover { background: color-mix(in srgb, #cf3f50 20%, transparent); }"
+    },
+    {
+      "name": "Default Badge",
+      "kind": "chip",
+      "refersTo": "badge-default",
+      "description": "Pill-shaped label — compose-project tags, counts.",
+      "html": "<span class=\"ds-badge\">3 running</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; height: 20px; padding: 2px 8px; border-radius: 999px; background: #7fb53a; color: #11210a; font-size: 12px; font-weight: 500; white-space: nowrap; }"
+    },
+    {
+      "name": "Status Dot",
+      "kind": "custom",
+      "refersTo": "status-dot",
+      "description": "Quiet status indicator — always paired with a word + muted sub-line in markup. Never a glowing pill.",
+      "html": "<span class=\"ds-status-dot\" aria-hidden=\"true\"></span>",
+      "css": ".ds-status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 999px; background: #179a5f; flex-shrink: 0; }"
+    },
+    {
+      "name": "Data Table Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Primary data surface — container/image/volume/network tables. The one place the layered elevation shadow appears.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-row\"><span class=\"ds-status-dot\"></span><span>my-container</span></div></div>",
+      "css": ".ds-card { background: #15171d; border: 1px solid rgba(255,255,255,.065); border-radius: 0.65rem; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.45), 0 10px 28px -12px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.04); } .ds-card-row { display: flex; align-items: center; gap: 8px; padding: 13px; color: #f3f4f6; font-size: 13.5px; }"
+    },
+    {
+      "name": "Sidebar Nav Item (active)",
+      "kind": "nav",
+      "refersTo": "sidebar-nav-item",
+      "description": "Active sidebar entry — inset lime rail, never a border-side stripe.",
+      "html": "<button class=\"ds-nav-item ds-nav-item--active\">Containers</button>",
+      "css": ".ds-nav-item { display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 10px; border-radius: 0.45rem; background: transparent; color: #aab1bb; font-size: 13px; border: none; text-align: left; } .ds-nav-item--active { background: #15181d; color: #f3f4f6; box-shadow: inset 2px 0 0 #a6e35b; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Honest Workshop",
+    "overview": "dockwin's interface is the workshop of someone who builds tools for their own use first: dense, accurate data surfaces (container tables, live stats, log tails, inspect JSON) housed in a shell that's warm and rounded rather than terminal-cold, but never decorated past the point of usefulness. Every visual choice answers to the product's thesis — the wrapper around Docker Engine should be as free and unencumbered as the engine itself — which translates directly into design restraint: no chrome for chrome's sake, no upsell surfaces, no glow for glow's sake. The system explicitly rejects Docker Desktop's heavy, nag-laden chrome; it rejects the generic AI-tool aesthetic of ambient lime-on-dark glow and glowing filled status pill-bands; and it rejects the cookie-cutter SaaS admin template — identical card grids, gradient text, uppercase eyebrow labels. dockwin reads as crafted by a single attentive developer, not generated from a dashboard kit. Dark is the hero surface (the default), with light fully first-class — both driven by the same token set via the .dark class, so neither is a second-class afterthought.",
+    "keyCharacteristics": [
+      "Dense, table-and-stat-driven data views, not marketing-style whitespace",
+      "One accent color (lime), deployed in exactly four roles, never as ambient decoration",
+      "Quiet status communication: a small dot, one word, a muted sub-line — never a glowing badge",
+      "Native-desktop feel over webby SaaS feel: thin themed scrollbars, system typography, no user-select sprawl",
+      "Dark-first, light fully supported, both built from the same semantic token set"
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "Refined Lime appears in exactly four places per screen: primary action, active-nav rail, selected-row rail, one focused chart. Anywhere else it shows up is a bug, not a feature.", "section": "colors" },
+      { "name": "The Lifecycle Override", "body": "Start/stop container actions are the one deliberate exception to brand-accent restraint: start = emerald (success button variant), stop = destructive red — borrowed from status color, not lime — because the color needs to encode the action's consequence, not the brand.", "section": "colors" },
+      { "name": "The Structural Uppercase Rule", "body": "Uppercase, letter-spaced labels are reserved for table headers and structural metadata. They are never used as a decorative eyebrow above section headings.", "section": "typography" },
+      { "name": "The One Lift Rule", "body": "The layered card shadow is reserved for primary data surfaces (tables, main panels). Secondary chrome stays flush against its parent surface, distinguished by a hairline border, not a second shadow language.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep Refined Lime to its four roles: primary action, active-nav rail, selected-row rail, one focused chart.",
+      "Do use the soft-filled success/destructive button pattern for container start/stop — color encodes consequence, not brand.",
+      "Do communicate status with a dot + word + muted sub-line.",
+      "Do reserve uppercase, letter-spaced label type for structural metadata, never as decorative section eyebrows.",
+      "Do keep the layered card shadow exclusive to primary data surfaces; everything else stays flush with a hairline border.",
+      "Do support both themes as first-class — dark is the hero/default, light is fully realized."
+    ],
+    "donts": [
+      "Don't let lime become ambient decoration — no lime backgrounds, no lime glows beyond the single top-edge backdrop gradient.",
+      "Don't build glowing filled status pill-bands.",
+      "Don't reach for Docker Desktop's pattern of heavy chrome, nags, or upsell surfaces.",
+      "Don't ship identical card grids, gradient text, or tiny uppercase tracked eyebrow labels above section headings.",
+      "Don't use glassmorphism or backdrop-blur.",
+      "Don't use a border-left/border-right colored stripe as a status or selection indicator — use the inset shadow rail instead."
+    ]
+  }
+}

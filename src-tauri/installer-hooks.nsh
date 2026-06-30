@@ -5,11 +5,16 @@
 ; also define top-level Functions (used below for the PATH helpers).
 ;
 ; Two things happen here:
-;   1. PATH: add the install dir to the per-user PATH on install and remove it on
-;      uninstall, so the bundled `dockwin` CLI works from any shell. The common
-;      Tauri/NSIS recipe uses the EnVar plugin, but Tauri does not bundle it, so
-;      rather than vendoring a binary DLL we edit HKCU\Environment directly and
-;      broadcast WM_WININICHANGE. Scope is HKCU to match `installMode: currentUser`.
+;   1. PATH: add the install dir to the per-user PATH on install, so the bundled
+;      `dockwin` CLI works from any shell. The common Tauri/NSIS recipe uses the
+;      EnVar plugin, but Tauri does not bundle it, so rather than vendoring a
+;      binary DLL we edit HKCU\Environment directly and broadcast
+;      WM_WININICHANGE. Scope is HKCU to match `installMode: currentUser`.
+;      Deliberately NOT removed on uninstall: a read-modify-write against the
+;      shared per-user PATH can race with another installer doing the same
+;      thing at the same time, and the loser's write clobbers the winner's —
+;      in the worst case truncating the whole PATH down to one entry. A stale
+;      PATH entry after uninstall is harmless clutter; that failure mode is not.
 ;   2. ENGINE: before the app files are deleted, offer to tear down the dockwin
 ;      engine (the WSL2 distro + docker context + %LOCALAPPDATA%\dockwin\distro)
 ;      via the bundled CLI's own teardown — otherwise "Uninstall" leaves an
@@ -54,56 +59,6 @@ Function dockwinPathAdd
   Pop $0
 FunctionEnd
 
-; Uninstaller helper: append the accumulated token $2 to the rebuilt PATH $1,
-; dropping empty tokens and any token equal to our install dir.
-Function un.dockwinPathAppendToken
-  StrCmp $2 "" dockwin_pat_done            ; drop empty tokens (collapses ;;)
-  StrCmp $2 "$INSTDIR" dockwin_pat_done    ; drop our own install dir
-  StrCmp $1 "" 0 dockwin_pat_sep
-    StrCpy $1 "$2"
-    Goto dockwin_pat_done
-  dockwin_pat_sep:
-    StrCpy $1 "$1;$2"
-  dockwin_pat_done:
-FunctionEnd
-
-; Remove $INSTDIR from the per-user PATH by walking its ';'-separated tokens
-; (exact token match, so a sibling like `...\dockwin-old` is never touched).
-Function un.dockwinPathRemove
-  Push $0 ; original PATH
-  Push $1 ; rebuilt PATH
-  Push $2 ; current token
-  Push $3 ; current char
-  Push $4 ; scan index
-
-  ReadRegStr $0 HKCU "Environment" "Path"
-  StrCpy $1 ""
-  StrCpy $2 ""
-  StrCpy $4 0
-  dockwin_pr_loop:
-    StrCpy $3 $0 1 $4
-    StrCmp $3 "" dockwin_pr_end
-    StrCmp $3 ";" dockwin_pr_sep
-    StrCpy $2 "$2$3"
-    IntOp $4 $4 + 1
-    Goto dockwin_pr_loop
-  dockwin_pr_sep:
-    Call un.dockwinPathAppendToken
-    StrCpy $2 ""
-    IntOp $4 $4 + 1
-    Goto dockwin_pr_loop
-  dockwin_pr_end:
-    Call un.dockwinPathAppendToken
-    WriteRegExpandStr HKCU "Environment" "Path" "$1"
-    SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
-
-  Pop $4
-  Pop $3
-  Pop $2
-  Pop $1
-  Pop $0
-FunctionEnd
-
 ; ---------------------------------------------------------------------------
 ; Hooks
 ; ---------------------------------------------------------------------------
@@ -139,6 +94,6 @@ FunctionEnd
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
-  ; Remove our install dir from the per-user PATH again.
-  Call un.dockwinPathRemove
+  ; Intentionally not removing $INSTDIR from PATH here — see the comment at
+  ; the top of this file for why.
 !macroend

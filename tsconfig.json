@@ -1,18 +1,17 @@
 {
-  "extends": "@tsconfig/svelte/tsconfig.json",
+  // SvelteKit generates ./.svelte-kit/tsconfig.json (paths for $lib/$app, the
+  // route types, moduleResolution, etc.) on `svelte-kit sync`. Extend it and only
+  // layer on the project's stricter choices.
+  "extends": "./.svelte-kit/tsconfig.json",
   "compilerOptions": {
     "target": "ESNext",
-    "useDefineForClassFields": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "useDefineForClassFields": true,
     "resolveJsonModule": true,
-    "allowJs": false,
-    "checkJs": false,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "strict": true,
     "skipLibCheck": true
-  },
-  "include": ["src/**/*.ts", "src/**/*.svelte"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  }
 }

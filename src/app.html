@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'" />
+    <title>dockwin</title>
+    <script>
+      // Apply the persisted theme before first paint (no flash). Default: dark hero.
+      try {
+        var t = localStorage.getItem("dockwin.theme");
+        var dark = t !== "light";
+        document.documentElement.classList.toggle("dark", dark);
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      } catch (e) {}
+    </script>
+    %sveltekit.head%
+    <style>
+      /* Covers the gap between window creation and Svelte's first paint —
+         without it the WebView shows raw black/white for a beat. Removed by
+         +layout.svelte once the real shell has committed to the DOM. */
+      #initial-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background:
+          radial-gradient(1100px 520px at 88% -8%, rgba(166, 227, 91, var(--backdrop-glow)), transparent 60%),
+          linear-gradient(180deg, var(--backdrop-grad), var(--background) 40%);
+        transition: opacity 0.32s ease;
+      }
+      #initial-splash.is-hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #initial-splash .mark {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 88px;
+        height: 88px;
+      }
+      #initial-splash .mark::before {
+        content: "";
+        position: absolute;
+        inset: 6px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          color-mix(in srgb, var(--primary) 40%, transparent),
+          transparent 72%
+        );
+        animation: initial-splash-halo 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+      }
+      #initial-splash .mark img {
+        position: relative;
+        z-index: 1;
+        width: 72px;
+        height: 72px;
+        object-fit: contain;
+        filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.35));
+        animation: initial-splash-breathe 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+      }
+      #initial-splash .word {
+        font-family:
+          "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+        font-size: 15px;
+        font-weight: 680;
+        letter-spacing: -0.3px;
+        color: var(--foreground);
+      }
+      @keyframes initial-splash-halo {
+        0% {
+          transform: scale(0.7);
+          opacity: 0.7;
+        }
+        100% {
+          transform: scale(1.5);
+          opacity: 0;
+        }
+      }
+      @keyframes initial-splash-breathe {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.045);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="initial-splash" aria-hidden="true">
+      <span class="mark">
+        <img src="./dockwin-mark.png" alt="" width="72" height="72" />
+      </span>
+      <span class="word">dockwin</span>
+    </div>
+    <script>
+      // The native window starts hidden (see tauri.conf.json) so the WebView2
+      // control's own default background can never flash before our splash
+      // does. Reveal it only once the splash has actually been composited —
+      // two animation frames is the standard way to guarantee a real paint
+      // happened, not just a DOM commit. No-ops outside of Tauri (e.g. `pnpm dev`).
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          if (window.__TAURI_INTERNALS__) {
+            window.__TAURI_INTERNALS__.invoke("reveal_main_window").catch(function () {});
+          }
+        });
+      });
+    </script>
+    <div id="app">%sveltekit.body%</div>
+  </body>
+</html>

@@ -6,6 +6,22 @@ permissions:
 on:
   push:
     tags: ['*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build, e.g. 0.2.0 or 0.2.0-beta.1 ("v" prefix optional). Leave empty to use the package.json version with a -pre.<run> suffix'
+        required: false
+        type: string
+      prerelease:
+        description: 'Mark as a GitHub pre-release (skipped by the in-app updater, which only polls releases/latest)'
+        required: false
+        type: boolean
+        default: true
+      draft:
+        description: 'Create as a draft so you can review/publish it manually'
+        required: false
+        type: boolean
+        default: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -45,7 +61,28 @@ jobs:
       - name: Get tag
         id: get_tag
         shell: bash
-        run: echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+            if [ -z "$VERSION" ]; then
+              # No version given: derive one from package.json, suffixed with
+              # the standard semver pre-release identifier "-pre.<run number>"
+              # so each manual run gets its own, ever-incrementing version.
+              PKG_VERSION=$(node -p "require('./package.json').version")
+              VERSION="${PKG_VERSION}-pre.${{ github.run_number }}"
+            fi
+            [[ "$VERSION" == v* ]] || VERSION="v$VERSION"
+            PRERELEASE="${{ inputs.prerelease }}"
+            DRAFT="${{ inputs.draft }}"
+          else
+            VERSION="${GITHUB_REF_NAME}"
+            DRAFT=false
+            # Semver pre-release tags (e.g. v0.2.0-beta.1) are flagged automatically.
+            if [[ "$VERSION" == *-* ]]; then PRERELEASE=true; else PRERELEASE=false; fi
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "PRERELEASE=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "DRAFT=$DRAFT" >> "$GITHUB_OUTPUT"
 
       - name: Build CLI (single static binary)
         # +crt-static links the MSVC runtime in -> one self-contained dockwin.exe
@@ -91,7 +128,10 @@ jobs:
         uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
-          args: --latest --strip all
+          # On a tag push the tag already exists, so --latest covers it. On a
+          # manual run no tag exists yet (action-gh-release creates it below),
+          # so fall back to --unreleased to cover commits since the last tag.
+          args: ${{ github.event_name == 'workflow_dispatch' && '--unreleased --strip all' || '--latest --strip all' }}
         env:
           OUTPUT: CHANGELOG_BODY.md
 
@@ -99,8 +139,11 @@ jobs:
         shell: bash
         run: |
           CUR=${{ steps.get_tag.outputs.VERSION }}
-
-          echo "## 🚀 Release $CUR" > RELEASE_NOTES.md
+          if [ "${{ steps.get_tag.outputs.PRERELEASE }}" = "true" ]; then
+            echo "## 🧪 Pre-release $CUR" > RELEASE_NOTES.md
+          else
+            echo "## 🚀 Release $CUR" > RELEASE_NOTES.md
+          fi
           echo "" >> RELEASE_NOTES.md
           cat CHANGELOG_BODY.md >> RELEASE_NOTES.md
 
@@ -109,6 +152,8 @@ jobs:
         with:
           tag_name: ${{ steps.get_tag.outputs.VERSION }}
           body_path: RELEASE_NOTES.md
+          prerelease: ${{ steps.get_tag.outputs.PRERELEASE }}
+          draft: ${{ steps.get_tag.outputs.DRAFT }}
           files: |
             dist-release/*
         env:
