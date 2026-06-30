@@ -289,6 +289,7 @@
       <Button
         disabled={pruning || !engineRunning}
         onclick={runPrune}
+        variant={allImages ? "destructive" : "default"}
       >
         <Trash2 aria-hidden="true" />
         {pruning ? "Pruning…" : "Prune unused"}
