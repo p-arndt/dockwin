@@ -16,7 +16,7 @@
    --primary for free. Defined once: the referenced vars resolve per theme.
    ============================================================ */
 :root {
-  --radius: 0.6rem;
+  --radius: 0.45rem;
 
   --background: var(--bg);
   --foreground: var(--text);
@@ -118,10 +118,10 @@
    ============================================================ */
 
 :root {
-  --r-xs: 6px;
-  --r-sm: 9px;
-  --r: 12px;
-  --r-lg: 16px;
+  --r-xs: 5px;
+  --r-sm: 7px;
+  --r: 9px;
+  --r-lg: 11px;
   --font: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
   --mono: "Cascadia Code", "JetBrains Mono", ui-monospace, Consolas, monospace;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -230,6 +230,38 @@
   ::selection {
     background: var(--lime-soft);
   }
+
+  /* ===== scrollbars =====
+     Tauri's WebView2 ships a chunky white default bar (see the containers
+     table). Replace it with a thin, themed, overlay-style track that fades
+     into the surface and only firms up on hover. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--text-4) 55%, transparent);
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+    min-height: 36px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-4);
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background: var(--text-3);
+    background-clip: padding-box;
+  }
 }
 
 /* ===== tiny utilities ===== */
@@ -298,11 +330,9 @@
    ============================================================ */
 
 /* ===== shell ===== */
-.app {
-  display: grid;
-  grid-template-columns: 232px 1fr;
-  height: 100vh;
-}
+/* The management shell uses the shadcn <Sidebar> (Provider/Inset); the old
+   hand-rolled .app grid + .side aside are gone. .brand/.eng below are still
+   used by the engine-gate bar and the sidebar footer respectively. */
 /* engine-gate ("solo") layout: no sidebar, just a slim bar + the gate. */
 .solo {
   display: flex;
@@ -311,14 +341,7 @@
   min-height: 0;
 }
 
-/* ---- sidebar ---- */
-.side {
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(180deg, var(--s1), var(--bg));
-  border-right: 1px solid var(--line);
-  min-height: 0;
-}
+/* ---- brand (engine-gate bar + sidebar header reuse the logo treatment) ---- */
 .brand {
   display: flex;
   align-items: center;
@@ -350,22 +373,6 @@
   font-size: 11px;
   color: var(--text-3);
   letter-spacing: 0.1px;
-}
-
-.navsec {
-  padding: 6px 12px 2px;
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.9px;
-  text-transform: uppercase;
-  color: var(--text-4);
-  margin-top: 8px;
-}
-.nav {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 2px 10px;
 }
 
 .eng {

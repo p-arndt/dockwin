@@ -5,9 +5,6 @@
   // Talks to dockwin-core only through src/lib/api (no raw invoke).
   import { onMount, type Component } from "svelte";
   import Container from "@lucide/svelte/icons/container";
-  import Boxes from "@lucide/svelte/icons/boxes";
-  import Network from "@lucide/svelte/icons/network";
-  import Layers from "@lucide/svelte/icons/layers";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import PlayCircle from "@lucide/svelte/icons/circle-play";
   import CircleStop from "@lucide/svelte/icons/circle-stop";
@@ -18,9 +15,6 @@
   import FileUp from "@lucide/svelte/icons/file-up";
   import FileDown from "@lucide/svelte/icons/file-down";
   import Terminal from "@lucide/svelte/icons/terminal";
-  import HardDrive from "@lucide/svelte/icons/hard-drive";
-  import Waypoints from "@lucide/svelte/icons/waypoints";
-  import Gauge from "@lucide/svelte/icons/gauge";
   import Hammer from "@lucide/svelte/icons/hammer";
   import Download from "@lucide/svelte/icons/download";
   import ScrollText from "@lucide/svelte/icons/scroll-text";
@@ -53,19 +47,13 @@
   import { Label } from "$lib/components/ui/label/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Alert from "$lib/components/ui/alert/index.js";
+  import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+  import AppSidebar, { NAV, type View } from "./lib/components/AppSidebar.svelte";
 
   const POLL_MS = 3000;
 
   type EngineAction = "start" | "stop" | "restart" | "remove";
   type StackAction = "start" | "stop" | "restart";
-  type View =
-    | "containers"
-    | "stacks"
-    | "images"
-    | "volumes"
-    | "networks"
-    | "system"
-    | "settings";
 
   // --- reactive state (Svelte 5 runes) ---
   let engineState = $state<EngineState>("unknown");
@@ -144,30 +132,11 @@
   // Containers grouped into Docker Compose stacks (by project label).
   let stacks = $derived(api.groupStacks(containers));
 
-  // Sidebar nav model (grouped into Workloads / Resources sections).
-  type NavSection = "Workloads" | "Resources";
-  interface NavItem {
-    id: View;
-    label: string;
-    icon: Component;
-    section: NavSection;
-  }
-  const NAV: NavItem[] = [
-    { id: "containers", label: "Containers", icon: Boxes, section: "Workloads" },
-    { id: "stacks", label: "Stacks", icon: Network, section: "Workloads" },
-    { id: "images", label: "Images", icon: Layers, section: "Workloads" },
-    { id: "volumes", label: "Volumes", icon: HardDrive, section: "Resources" },
-    { id: "networks", label: "Networks", icon: Waypoints, section: "Resources" },
-    { id: "system", label: "System", icon: Gauge, section: "Resources" },
-  ];
-  const NAV_SECTIONS: NavSection[] = ["Workloads", "Resources"];
-
-  // Counts shown on the rail (null = not tracked here).
-  function navCount(id: View): number | null {
-    if (id === "containers") return containers.length;
-    if (id === "stacks") return stacks.length;
-    return null;
-  }
+  // Per-view counts shown as nav badges (AppSidebar owns the nav model itself).
+  let navCounts = $derived<Partial<Record<View, number>>>({
+    containers: containers.length,
+    stacks: stacks.length,
+  });
 
   function setView(view: View) {
     activeView = view;
@@ -660,54 +629,23 @@
     />
   </div>
 {:else}
-  <div class="app">
-    <!-- ===== SIDEBAR ===== -->
-    <aside class="side">
-      <div class="brand">
-        <span class="logo"><Container size={19} aria-hidden="true" /></span>
-        <div>
-          <div class="bt">dockwin</div>
-          <div class="bs">Docker workspace</div>
-        </div>
-      </div>
-
-      {#each NAV_SECTIONS as section (section)}
-        <div class="navsec">{section}</div>
-        <nav class="nav" aria-label={section}>
-          {#each NAV.filter((n) => n.section === section) as item (item.id)}
-            {@const ItemIcon = item.icon}
-            {@const count = navCount(item.id)}
-            <Button
-              variant="ghost"
-              data-active={activeView === item.id}
-              aria-current={activeView === item.id ? "page" : undefined}
-              onclick={() => setView(item.id)}
-              class="relative w-full justify-start gap-2.5 font-medium text-muted-foreground hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground data-[active=true]:shadow-[inset_2px_0_0_var(--lime)] [&_svg]:text-muted-foreground data-[active=true]:[&_svg]:text-[var(--lime)]"
-            >
-              <ItemIcon aria-hidden="true" />
-              {item.label}
-              {#if count !== null}<span class="ml-auto text-[11px] tabular-nums text-muted-foreground">{count}</span>{/if}
-            </Button>
-          {/each}
-        </nav>
-      {/each}
-
-      <div class="eng">
-        <div class="row">
-          <span class="dot {engineTone}"></span>
-          <div>
-            <div class="et">{engineLine}</div>
-            <div class="es">WSL2 backend</div>
-          </div>
-        </div>
-      </div>
-    </aside>
+  <Sidebar.Provider class="h-screen overflow-hidden">
+    <!-- ===== SIDEBAR (shadcn — collapsible down to an icon rail) ===== -->
+    <AppSidebar
+      {activeView}
+      counts={navCounts}
+      {engineTone}
+      {engineLine}
+      onSelect={setView}
+    />
 
     <!-- ===== MAIN ===== -->
-    <main class="main">
+    <Sidebar.Inset class="main">
       <!-- slim ctx bar — engine status lives in the sidebar pod, so the bar holds
            only the active context + the right-aligned controls. -->
       <div class="ctx">
+        <Sidebar.Trigger class="-ml-1 text-muted-foreground hover:text-foreground" />
+        <span class="sep"></span>
         <span class="ctx-view">{activeViewLabel}</span>
         <span class="sp"></span>
         {@render themeControls()}
@@ -969,8 +907,8 @@
       {/if}
 
       <div class="statusbar" class:err={footerErr}>{footer}</div>
-    </main>
-  </div>
+    </Sidebar.Inset>
+  </Sidebar.Provider>
 {/if}
 
 <!-- In-app update toast (app + engine). Fixed-position; checks on mount. -->
