@@ -65,25 +65,42 @@
 </script>
 
 {#if stacks.length === 0}
-  <div class="card card-pad">
-    <p class="prose" style="margin:0">
+  <div
+    class="bg-card border border-border rounded-[11px] shadow-sm py-[16px] px-[18px]"
+  >
+    <p
+      class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground"
+      style="margin:0"
+    >
       No Compose stacks. Containers started with
-      <code class="code">docker compose</code> appear here, grouped by project.
+      <code class="font-mono text-[0.92em] text-muted-foreground"
+        >docker compose</code
+      > appear here, grouped by project.
     </p>
   </div>
 {:else}
-  <div class="stacks">
+  <div class="flex flex-col gap-[16px]">
     {#each stacks as s (s.project)}
       {@const busy = stackBusy(s)}
       {@const allRunning = s.running === s.total}
-      <section class="card overflow-hidden">
-        <header class="shead">
-          <span class="av"><Package aria-hidden="true" /></span>
-          <span class="nm" title={s.project}>{s.project}</span>
+      <section
+        class="bg-card border border-border rounded-[11px] shadow-sm overflow-hidden"
+      >
+        <header
+          class="flex items-center gap-[12px] py-[12px] px-[16px] border-b border-border bg-muted/50"
+        >
+          <span
+            class="grid place-items-center size-[30px] rounded-[8px] shrink-0 bg-muted border border-border [&_svg]:size-[15px]"
+            ><Package aria-hidden="true" /></span
+          >
+          <span
+            class="font-[650] text-[14px] tracking-[-0.2px] text-foreground truncate"
+            title={s.project}>{s.project}</span
+          >
           <Pill tone={stackTone(s)} dot={s.running > 0}>
-            <span class="num">{s.running}</span><span class="x">/</span><span
-              class="num">{s.total}</span
-            > running
+            <span class="tabular-nums">{s.running}</span><span
+              class="text-muted-foreground/70 mx-px">/</span
+            ><span class="tabular-nums">{s.total}</span> running
           </Pill>
           {#if s.workingDir}
             <Button
@@ -94,10 +111,10 @@
               onclick={() => openFolder(s.workingDir!)}
             >
               <FolderOpen aria-hidden="true" />
-              <span class="shead-dir-path">{wslToWindowsPath(s.workingDir)}</span>
+              <span class="truncate">{wslToWindowsPath(s.workingDir)}</span>
             </Button>
           {/if}
-          <div class="shead-acts">
+          <div class="ml-auto flex items-center gap-[6px]">
             <Button
               variant="outline"
               size="sm"
@@ -156,31 +173,61 @@
                 style={pending.has(c.id) ? "opacity:.55" : undefined}
               >
                 <Table.Cell>
-                  <div class="cell-name">
-                    <span class="lamp" class:run={c.running}></span>
-                    <span class="av"><Box aria-hidden="true" /></span>
+                  <div class="flex items-center gap-[12px] min-w-0">
+                    <span
+                      class="w-[7px] h-[7px] rounded-full shrink-0 {c.running
+                        ? 'bg-chart-2'
+                        : 'bg-chart-5'}"
+                    ></span>
+                    <span
+                      class="grid place-items-center size-[30px] rounded-[8px] shrink-0 bg-muted border border-border [&_svg]:size-[15px]"
+                      ><Box aria-hidden="true" /></span
+                    >
                     <div style="min-width:0">
-                      <div class="nm">{c.name}</div>
-                      <div class="id">{c.shortId}</div>
+                      <div
+                        class="font-semibold text-[13.5px] text-foreground tracking-[-0.1px] leading-[1.25] truncate"
+                      >
+                        {c.name}
+                      </div>
+                      <div
+                        class="font-mono text-[11px] text-muted-foreground/70 leading-[1.3]"
+                      >
+                        {c.shortId}
+                      </div>
                     </div>
                   </div>
                 </Table.Cell>
 
                 <Table.Cell>
-                  <span class="img" title={c.image}>{c.image}</span>
+                  <span
+                    class="font-mono text-[12px] text-muted-foreground block min-w-0 truncate"
+                    title={c.image}>{c.image}</span
+                  >
                 </Table.Cell>
 
                 <Table.Cell>
-                  <div class="st" class:run={c.running} class:exit={!c.running}>
-                    <span class="l"><span class="d"></span>{stateWord(c)}</span>
-                    {#if c.status}<span class="sub">{c.status}</span>{/if}
+                  <div class="flex flex-col gap-[2px] min-w-0">
+                    <span
+                      class="flex items-center gap-[7px] text-[12.5px] font-medium {c.running
+                        ? 'text-foreground'
+                        : 'text-muted-foreground'}"
+                      ><span
+                        class="w-[6px] h-[6px] rounded-full shrink-0 {c.running
+                          ? 'bg-chart-2'
+                          : 'bg-chart-5'}"
+                      ></span>{stateWord(c)}</span
+                    >
+                    {#if c.status}<span
+                        class="text-[11px] text-muted-foreground/70 tabular-nums truncate"
+                        >{c.status}</span
+                      >{/if}
                   </div>
                 </Table.Cell>
 
                 <Table.Cell>
-                  <div class="ports">
+                  <div class="flex gap-[5px] flex-wrap">
                     {#if c.ports.length === 0}
-                      <span class="muted">—</span>
+                      <span class="text-muted-foreground/70">—</span>
                     {:else}
                       {#each c.ports as p, i (i)}
                         {#if p.url}
@@ -212,53 +259,3 @@
     {/each}
   </div>
 {/if}
-
-<style>
-  .stacks {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  /* Per-stack header strip: project identity + whole-stack actions. */
-  .shead {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--line);
-    background: linear-gradient(180deg, var(--s2), transparent);
-  }
-  .shead .av {
-    width: 30px;
-    height: 30px;
-  }
-  .shead .nm {
-    font-weight: 650;
-    font-size: 14px;
-    letter-spacing: -0.2px;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .shead-acts {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  /* Open-the-compose-folder chip: keep the monospace path truncating. */
-  .shead-dir-path {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* Quieten the count separator inside the pill. */
-  .x {
-    color: var(--text-4);
-    margin: 0 1px;
-  }
-</style>

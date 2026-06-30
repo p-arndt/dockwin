@@ -212,13 +212,13 @@
   );
 </script>
 
-<section class="page netview">
-  <div class="head">
-    <h1>Networks</h1>
+<section class="flex flex-col gap-[16px] pt-[18px] px-[22px] pb-[24px] min-w-0">
+  <div class="flex items-end gap-[14px] pt-[22px] px-[22px] pb-[16px] shrink-0">
+    <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">Networks</h1>
     <Badge variant="secondary" class="gap-1.5 font-normal"
-      ><b class="num">{networks.length}</b> total</Badge
+      ><b class="tabular-nums">{networks.length}</b> total</Badge
     >
-    <span class="sp"></span>
+    <span class="flex-1"></span>
     <div class="relative w-[220px]">
       <Search
         class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -259,13 +259,22 @@
 
   <!-- Create network form -->
   {#if engineState === "running"}
-    <form class="card card-pad createbar" onsubmit={createNetwork}>
-      <label class="fieldcol">
-        <span class="flabel">Name</span>
+    <form
+      class="bg-card border border-border rounded-[11px] shadow-sm px-[18px] py-[16px] flex flex-wrap items-end gap-[12px]"
+      onsubmit={createNetwork}
+    >
+      <label class="flex flex-col gap-[6px]">
+        <span
+          class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70"
+          >Name</span
+        >
         <Input class="w-[200px]" placeholder="my_network" bind:value={newName} />
       </label>
-      <div class="fieldcol">
-        <span class="flabel">Driver</span>
+      <div class="flex flex-col gap-[6px]">
+        <span
+          class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70"
+          >Driver</span
+        >
         <Select.Root type="single" bind:value={newDriver}>
           <Select.Trigger class="w-[150px]">{newDriver}</Select.Trigger>
           <Select.Content>
@@ -274,7 +283,7 @@
           </Select.Content>
         </Select.Root>
       </div>
-      <div class="field internalbox">
+      <div class="flex items-center gap-[9px] text-[13px] text-muted-foreground pb-[7px]">
         <Checkbox id="net-internal" bind:checked={newInternal} />
         <Label for="net-internal">Internal</Label>
       </div>
@@ -285,7 +294,7 @@
     </form>
   {/if}
 
-  <div class="card overflow-hidden">
+  <div class="bg-card border border-border rounded-[11px] shadow-sm overflow-hidden">
     <Table.Root class="table-fixed">
       <Table.Header>
         <Table.Row class="hover:bg-transparent">
@@ -339,31 +348,46 @@
               aria-busy={acting}
             >
               <Table.Cell>
-                <div class="cell-name">
-                  <span class="lamp" class:run={n.containers > 0}></span>
-                  <span class="av"><Network aria-hidden="true" /></span>
-                  <div style="min-width:0">
-                    <div class="nm-line">
-                      <span class="nm" title={n.name}>{n.name}</span>
+                <div class="flex items-center gap-[12px] min-w-0">
+                  <span
+                    class="w-[7px] h-[7px] rounded-full shrink-0 {n.containers > 0
+                      ? 'bg-chart-2'
+                      : 'bg-chart-5'}"
+                  ></span>
+                  <span
+                    class="size-[30px] rounded-[8px] shrink-0 grid place-items-center bg-muted border border-border text-muted-foreground"
+                    ><Network class="size-[15px]" aria-hidden="true" /></span
+                  >
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-[8px] min-w-0">
+                      <span
+                        class="font-semibold text-[13.5px] text-foreground tracking-[-0.1px] leading-[1.25] truncate min-w-0"
+                        title={n.name}>{n.name}</span
+                      >
                       {#if n.builtin}
                         <Badge variant="outline" class="font-normal">built-in</Badge>
                       {/if}
                     </div>
-                    <div class="id" title={n.id}>{shortId(n.id) || "—"}</div>
+                    <div
+                      class="font-mono text-[11px] text-muted-foreground/70 leading-[1.3]"
+                      title={n.id}
+                    >
+                      {shortId(n.id) || "—"}
+                    </div>
                   </div>
                 </div>
               </Table.Cell>
 
-              <Table.Cell class="text-2 text-[13px]">{n.driver || "—"}</Table.Cell>
-              <Table.Cell class="text-3 text-[13px]">{n.scope || "—"}</Table.Cell>
+              <Table.Cell class="text-muted-foreground text-[13px]">{n.driver || "—"}</Table.Cell>
+              <Table.Cell class="text-muted-foreground text-[13px]">{n.scope || "—"}</Table.Cell>
               <Table.Cell>
                 {#if n.internal}
                   <Badge variant="outline" class="font-normal">yes</Badge>
                 {:else}
-                  <span class="muted">no</span>
+                  <span class="text-muted-foreground/70">no</span>
                 {/if}
               </Table.Cell>
-              <Table.Cell class="num text-2 text-[13px]">{n.containers}</Table.Cell>
+              <Table.Cell class="tabular-nums text-muted-foreground text-[13px]">{n.containers}</Table.Cell>
 
               <Table.Cell class="text-right">
                 <div
@@ -400,16 +424,25 @@
             {#if open}
               <Table.Row class="hover:bg-transparent">
                 <Table.Cell colspan={6} class="p-0">
-                  <div class="inspect-pane">
-                    <div class="outpane">
-                      <div class="bar">
+                  <div class="px-[18px] pb-[14px] border-b border-border">
+                    <div class="border border-border rounded-[9px] bg-background overflow-hidden">
+                      <div
+                        class="flex items-center gap-[8px] bg-muted border-b border-border px-[12px] py-[8px] text-[12px] text-muted-foreground"
+                      >
                         <Search aria-hidden="true" />
-                        <span>Inspect · <span class="mono">{n.name}</span></span>
+                        <span
+                          >Inspect · <span class="font-mono tabular-nums">{n.name}</span></span
+                        >
                       </div>
                       {#if inspecting}
-                        <div class="body-out">Loading…</div>
+                        <div
+                          class="max-h-[20rem] overflow-auto px-[12px] py-[10px] font-mono text-[11.5px] leading-[1.55] text-muted-foreground select-text whitespace-pre"
+                        >
+                          Loading…
+                        </div>
                       {:else}
-                        <pre class="body-out">{inspectJson}</pre>
+                        <pre
+                          class="max-h-[20rem] overflow-auto px-[12px] py-[10px] font-mono text-[11.5px] leading-[1.55] text-muted-foreground select-text whitespace-pre">{inspectJson}</pre>
                       {/if}
                     </div>
                   </div>
@@ -422,50 +455,3 @@
     </Table.Root>
   </div>
 </section>
-
-<style>
-  /* Create bar: reuse foundation surfaces; only layout lives here. */
-  .createbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 12px;
-  }
-  .fieldcol {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .flabel {
-    font-size: 10.5px;
-    font-weight: 650;
-    letter-spacing: 0.7px;
-    text-transform: uppercase;
-    color: var(--text-4);
-  }
-  .internalbox {
-    padding-bottom: 7px;
-  }
-
-  .nm-line {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-  }
-  .nm-line .nm {
-    min-width: 0;
-  }
-
-  /* Full-width inspect drawer sits between grid rows inside .table. */
-  .inspect-pane {
-    padding: 0 18px 14px;
-    border-bottom: 1px solid var(--line-soft);
-  }
-  .inspect-pane .body-out {
-    white-space: pre;
-    max-height: 20rem;
-    -webkit-user-select: text;
-    user-select: text;
-  }
-</style>

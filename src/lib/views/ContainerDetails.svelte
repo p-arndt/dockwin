@@ -380,24 +380,24 @@
   ];
 </script>
 
-<aside class="detail" class:full aria-label="Container details">
+<aside class="flex min-w-0 flex-col overflow-auto bg-card {full ? '' : 'border-l border-border'}" aria-label="Container details">
   <!-- ===== header ===== -->
-  <div class="dt-head">
-    <div class="dt-top">
-      <span class="dt-av"><Box aria-hidden="true" /></span>
-      <div style="min-width:0">
-        <div class="dt-name" title={name}>{name}</div>
-        <div class="dt-sub">
+  <div class="border-b border-border px-5 pt-[18px] pb-4">
+    <div class="flex items-center gap-3">
+      <span class="grid size-[38px] shrink-0 place-items-center rounded-[10px] border border-border bg-muted text-muted-foreground"><Box class="size-[19px]" aria-hidden="true" /></span>
+      <div class="min-w-0">
+        <div class="text-base font-[680] tracking-[-0.3px] leading-[1.15]" title={name}>{name}</div>
+        <div class="mt-[3px] flex flex-wrap items-center gap-2 text-[11.5px] text-muted-foreground">
           {#if running}
-            <span class="run"><span class="d"></span>{paused ? "Paused" : "Running"}</span>
+            <span class="inline-flex items-center gap-[5px] font-semibold text-chart-2"><span class="size-[6px] rounded-full bg-chart-2"></span>{paused ? "Paused" : "Running"}</span>
           {:else}
-            <span class="off"><span class="d"></span>Stopped</span>
+            <span class="inline-flex items-center gap-[5px] font-semibold text-muted-foreground"><span class="size-[6px] rounded-full bg-chart-5"></span>Stopped</span>
           {/if}
           {#if status}<span>·</span><span>{status}</span>{/if}
-          <span class="mono" title={id}>{shortId}</span>
+          <span class="font-mono text-muted-foreground/70" title={id}>{shortId}</span>
         </div>
       </div>
-      <div class="dt-head-acts">
+      <div class="ml-auto flex gap-[7px]">
         <Button
           variant="outline"
           size="icon-sm"
@@ -416,7 +416,7 @@
 
     <!-- action row (pause/unpause + rename) -->
     {#if renaming}
-      <div class="dt-acts">
+      <div class="mt-[15px] flex flex-wrap gap-[7px]">
         <Input
           class="flex-1 font-mono"
           bind:value={renameValue}
@@ -434,7 +434,7 @@
         </Button>
       </div>
     {:else}
-      <div class="dt-acts">
+      <div class="mt-[15px] flex flex-wrap gap-[7px]">
         <Button
           variant="outline"
           size="sm"
@@ -470,29 +470,29 @@
   </Tabs.Root>
 
   <!-- ===== body ===== -->
-  <div class="dt-body" style:max-width={full ? "1120px" : undefined} style:width={full ? "100%" : undefined} style:margin={full ? "0 auto" : undefined}>
+  <div class="flex flex-col gap-4 px-5 pt-4 pb-6" style:max-width={full ? "1120px" : undefined} style:width={full ? "100%" : undefined} style:margin={full ? "0 auto" : undefined}>
     {#if activeTab === "overview"}
       <div class="ov" class:ov-full={full}>
         <!-- live stat cards -->
         <div class="ov-stats">
           {#if !running}
-            <div class="empty">Container is not running — no live stats.</div>
+            <div class="px-[18px] py-7 text-center text-[13px] text-muted-foreground">Container is not running — no live stats.</div>
           {:else if statsError}
             <Alert.Root variant="destructive">
               <TriangleAlert aria-hidden="true" />
               <Alert.Description>{statsError}</Alert.Description>
             </Alert.Root>
           {:else if !stats}
-            <div class="empty">Loading stats…</div>
+            <div class="px-[18px] py-7 text-center text-[13px] text-muted-foreground">Loading stats…</div>
           {:else}
-            <div class="statgrid">
+            <div class="grid grid-cols-2 gap-[10px]">
               <!-- CPU — the one focused chart on this screen -->
-              <div class="stat focus">
-                <div class="k"><Cpu aria-hidden="true" />CPU</div>
-                <div class="big num">{cpuRounded}<small>%</small></div>
-                <div class="sub2">{stats.pids} PIDs</div>
+              <div class="relative overflow-hidden rounded-[9px] border border-border bg-card px-[14px] py-[13px] shadow-sm">
+                <div class="flex items-center gap-[6px] text-[11px] font-medium text-muted-foreground"><Cpu class="size-[13px] text-muted-foreground/70" aria-hidden="true" />CPU</div>
+                <div class="mt-2 text-[21px] font-[680] tracking-[-0.5px] tabular-nums">{cpuRounded}<small class="ml-[2px] text-[12px] font-medium text-muted-foreground">%</small></div>
+                <div class="mt-[2px] text-[11px] tabular-nums text-muted-foreground/70">{stats.pids} PIDs</div>
                 {#if spark.line}
-                  <svg class="spark" viewBox="0 0 {SPARK_W} {SPARK_H}" preserveAspectRatio="none" aria-hidden="true">
+                  <svg class="absolute inset-x-0 bottom-0 h-[34px] opacity-90" viewBox="0 0 {SPARK_W} {SPARK_H}" preserveAspectRatio="none" aria-hidden="true">
                     <defs>
                       <linearGradient id="cpuspark" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0" stop-color="var(--lime)" stop-opacity="0.35" />
@@ -506,28 +506,28 @@
               </div>
 
               <!-- Memory -->
-              <div class="stat">
-                <div class="k"><MemoryStick aria-hidden="true" />Memory</div>
-                <div class="big num">{memRounded}<small>%</small></div>
-                <div class="sub2">{humanBytes(stats.mem_usage)} / {humanBytes(stats.mem_limit)}</div>
-                <div class="mbar"><i style="width:{clampPct(stats.mem_pct)}%"></i></div>
+              <div class="relative overflow-hidden rounded-[9px] border border-border bg-card px-[14px] py-[13px] shadow-sm">
+                <div class="flex items-center gap-[6px] text-[11px] font-medium text-muted-foreground"><MemoryStick class="size-[13px] text-muted-foreground/70" aria-hidden="true" />Memory</div>
+                <div class="mt-2 text-[21px] font-[680] tracking-[-0.5px] tabular-nums">{memRounded}<small class="ml-[2px] text-[12px] font-medium text-muted-foreground">%</small></div>
+                <div class="mt-[2px] text-[11px] tabular-nums text-muted-foreground/70">{humanBytes(stats.mem_usage)} / {humanBytes(stats.mem_limit)}</div>
+                <div class="relative mt-[9px] h-1 overflow-hidden rounded-[3px] bg-muted"><i class="absolute inset-y-0 left-0 rounded-[3px] bg-muted-foreground" style="width:{clampPct(stats.mem_pct)}%"></i></div>
               </div>
 
               <!-- Network I/O -->
-              <div class="stat">
-                <div class="k"><Activity aria-hidden="true" />Network I/O</div>
-                <div class="pair">
-                  <span><ArrowDown aria-hidden="true" /><b>{humanBytes(stats.net_rx)}</b> rx</span>
-                  <span><ArrowUp aria-hidden="true" /><b>{humanBytes(stats.net_tx)}</b> tx</span>
+              <div class="relative overflow-hidden rounded-[9px] border border-border bg-card px-[14px] py-[13px] shadow-sm">
+                <div class="flex items-center gap-[6px] text-[11px] font-medium text-muted-foreground"><Activity class="size-[13px] text-muted-foreground/70" aria-hidden="true" />Network I/O</div>
+                <div class="mt-2 flex flex-col gap-[5px]">
+                  <span class="flex items-center gap-[7px] text-[12.5px] tabular-nums text-muted-foreground"><ArrowDown class="size-[12px] text-muted-foreground/70" aria-hidden="true" /><b class="font-[650] text-foreground">{humanBytes(stats.net_rx)}</b> rx</span>
+                  <span class="flex items-center gap-[7px] text-[12.5px] tabular-nums text-muted-foreground"><ArrowUp class="size-[12px] text-muted-foreground/70" aria-hidden="true" /><b class="font-[650] text-foreground">{humanBytes(stats.net_tx)}</b> tx</span>
                 </div>
               </div>
 
               <!-- Block I/O -->
-              <div class="stat">
-                <div class="k"><HardDrive aria-hidden="true" />Block I/O</div>
-                <div class="pair">
-                  <span>R <b>{humanBytes(stats.blk_read)}</b></span>
-                  <span>W <b>{humanBytes(stats.blk_write)}</b></span>
+              <div class="relative overflow-hidden rounded-[9px] border border-border bg-card px-[14px] py-[13px] shadow-sm">
+                <div class="flex items-center gap-[6px] text-[11px] font-medium text-muted-foreground"><HardDrive class="size-[13px] text-muted-foreground/70" aria-hidden="true" />Block I/O</div>
+                <div class="mt-2 flex flex-col gap-[5px]">
+                  <span class="flex items-center gap-[7px] text-[12.5px] tabular-nums text-muted-foreground">R <b class="font-[650] text-foreground">{humanBytes(stats.blk_read)}</b></span>
+                  <span class="flex items-center gap-[7px] text-[12.5px] tabular-nums text-muted-foreground">W <b class="font-[650] text-foreground">{humanBytes(stats.blk_write)}</b></span>
                 </div>
               </div>
             </div>
@@ -536,45 +536,45 @@
 
         <!-- parsed details -->
         <div class="ov-details">
-          <div class="kv">
-            <div class="sec">Details</div>
-            <div class="r">
-              <span class="k">Image</span>
-              <span class="v">
-                <span class="mono">{image || "—"}</span>
+          <div class="flex flex-col">
+            <div class="pt-1 pb-[9px] text-[10.5px] font-[650] uppercase tracking-[0.7px] text-muted-foreground/70">Details</div>
+            <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
+              <span class="text-[12.5px] text-muted-foreground">Image</span>
+              <span class="text-left text-[12.5px] break-words text-foreground">
+                <span class="font-mono">{image || "—"}</span>
                 {#if isOfficial}
-                  <span class="official"><Check aria-hidden="true" />Official</span>
+                  <span class="inline-flex items-center gap-1 rounded-[5px] border border-primary/30 bg-primary/10 px-[6px] py-px text-[10.5px] font-[650] text-primary"><Check class="size-[11px]" aria-hidden="true" />Official</span>
                 {/if}
               </span>
             </div>
-            <div class="r">
-              <span class="k">Container ID</span>
-              <span class="v">
+            <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
+              <span class="text-[12.5px] text-muted-foreground">Container ID</span>
+              <span class="text-left text-[12.5px] break-words text-foreground">
                 <Button variant="ghost" size="icon-xs" class="text-muted-foreground w-auto gap-1 px-1 font-mono" type="button" onclick={copyId} title="Copy full ID">
                   {id.slice(0, 16)}
                   {#if copied}<Check aria-hidden="true" />{:else}<Copy aria-hidden="true" />{/if}
                 </Button>
               </span>
             </div>
-            <div class="r">
-              <span class="k">Status</span>
-              <span class="v">{status || "—"}</span>
+            <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
+              <span class="text-[12.5px] text-muted-foreground">Status</span>
+              <span class="text-left text-[12.5px] break-words text-foreground">{status || "—"}</span>
             </div>
-            <div class="r">
-              <span class="k">Created</span>
-              <span class="v num">{fmtCreated(info?.created ?? null) ?? "—"}</span>
+            <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
+              <span class="text-[12.5px] text-muted-foreground">Created</span>
+              <span class="text-left text-[12.5px] break-words text-foreground tabular-nums">{fmtCreated(info?.created ?? null) ?? "—"}</span>
             </div>
-            <div class="r">
-              <span class="k">Command</span>
-              <span class="v mono">{info?.command || "—"}</span>
+            <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
+              <span class="text-[12.5px] text-muted-foreground">Command</span>
+              <span class="text-left break-words text-foreground font-mono text-[11.5px]">{info?.command || "—"}</span>
             </div>
-            <div class="r">
-              <span class="k">Ports</span>
-              <span class="v">
+            <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
+              <span class="text-[12.5px] text-muted-foreground">Ports</span>
+              <span class="text-left text-[12.5px] break-words text-foreground">
                 {#if container.ports.length === 0}
-                  <span class="muted">—</span>
+                  <span class="text-muted-foreground/70">—</span>
                 {:else}
-                  <span class="chips">
+                  <span class="flex flex-wrap justify-start gap-[5px]">
                     {#each container.ports as p, i (i)}
                       {#if p.url}
                         <Button variant="outline" size="xs" class="h-6 gap-1 px-2 font-mono text-[11px]" type="button" title={portTitle(p)} onclick={() => openPort(p.url!)}>
@@ -588,57 +588,57 @@
                 {/if}
               </span>
             </div>
-            <div class="r">
-              <span class="k">Networks</span>
-              <span class="v">
+            <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
+              <span class="text-[12.5px] text-muted-foreground">Networks</span>
+              <span class="text-left text-[12.5px] break-words text-foreground">
                 {#if info && info.networks.length}
-                  <span class="chips">
+                  <span class="flex flex-wrap justify-start gap-[5px]">
                     {#each info.networks as n (n)}
-                      <span class="net"><Network aria-hidden="true" />{n}</span>
+                      <span class="inline-flex items-center gap-[5px] rounded-[5px] border border-border bg-muted px-[7px] py-[2px] font-mono text-[11px] text-muted-foreground"><Network class="size-[11px] text-muted-foreground/70" aria-hidden="true" />{n}</span>
                     {/each}
                   </span>
                 {:else}
-                  <span class="muted">—</span>
+                  <span class="text-muted-foreground/70">—</span>
                 {/if}
               </span>
             </div>
-            <div class="r">
-              <span class="k">Volumes</span>
-              <span class="v">
+            <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
+              <span class="text-[12.5px] text-muted-foreground">Volumes</span>
+              <span class="text-left text-[12.5px] break-words text-foreground">
                 {#if info && info.mounts.length}
-                  <span class="chips">
+                  <span class="flex flex-wrap justify-start gap-[5px]">
                     {#each info.mounts as m, i (i)}
-                      <span class="net" title={m.dest}>{m.name}</span>
+                      <span class="inline-flex items-center gap-[5px] rounded-[5px] border border-border bg-muted px-[7px] py-[2px] font-mono text-[11px] text-muted-foreground" title={m.dest}>{m.name}</span>
                     {/each}
                   </span>
                 {:else}
-                  <span class="muted">—</span>
+                  <span class="text-muted-foreground/70">—</span>
                 {/if}
               </span>
             </div>
             {#if container.composeProject}
-              <div class="r">
-                <span class="k">Compose</span>
-                <span class="v mono">{container.composeProject}</span>
+              <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
+                <span class="text-[12.5px] text-muted-foreground">Compose</span>
+                <span class="text-left break-words text-foreground font-mono text-[11.5px]">{container.composeProject}</span>
               </div>
             {/if}
 
             {#if showAdv && info}
-              <div class="r">
-                <span class="k">Entrypoint</span>
-                <span class="v mono">{info.entrypoint || "—"}</span>
+              <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
+                <span class="text-[12.5px] text-muted-foreground">Entrypoint</span>
+                <span class="text-left break-words text-foreground font-mono text-[11.5px]">{info.entrypoint || "—"}</span>
               </div>
-              <div class="r">
-                <span class="k">Working dir</span>
-                <span class="v mono">{info.workingDir || "—"}</span>
+              <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
+                <span class="text-[12.5px] text-muted-foreground">Working dir</span>
+                <span class="text-left break-words text-foreground font-mono text-[11.5px]">{info.workingDir || "—"}</span>
               </div>
-              <div class="r">
-                <span class="k">Restart policy</span>
-                <span class="v">{info.restart || "no"}</span>
+              <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
+                <span class="text-[12.5px] text-muted-foreground">Restart policy</span>
+                <span class="text-left text-[12.5px] break-words text-foreground">{info.restart || "no"}</span>
               </div>
-              <div class="r">
-                <span class="k">Env vars</span>
-                <span class="v num">{info.envCount}</span>
+              <div class="grid grid-cols-[120px_1fr] items-start gap-[10px] border-t border-border py-2">
+                <span class="text-[12.5px] text-muted-foreground">Env vars</span>
+                <span class="text-left text-[12.5px] break-words text-foreground tabular-nums">{info.envCount}</span>
               </div>
             {/if}
           </div>
@@ -652,7 +652,7 @@
       </div>
     {:else if activeTab === "inspect"}
       {#if inspectLoading && inspectText === null}
-        <div class="empty">Loading inspect…</div>
+        <div class="px-[18px] py-7 text-center text-[13px] text-muted-foreground">Loading inspect…</div>
       {:else if inspectError}
         <Alert.Root variant="destructive">
           <TriangleAlert aria-hidden="true" />
@@ -662,7 +662,7 @@
           Retry
         </Button>
       {:else if inspectText !== null}
-        <pre class="inspect-pre mono">{inspectText}</pre>
+        <pre class="inspect-pre font-mono">{inspectText}</pre>
       {:else}
         <Button variant="outline" size="sm" type="button" style="align-self:flex-start" onclick={() => loadInspect(id)}>
           Load inspect
@@ -670,16 +670,16 @@
       {/if}
     {:else if activeTab === "top"}
       {#if !running}
-        <div class="empty">Container is not running — no processes.</div>
+        <div class="px-[18px] py-7 text-center text-[13px] text-muted-foreground">Container is not running — no processes.</div>
       {:else if topLoading && top === null}
-        <div class="empty">Loading processes…</div>
+        <div class="px-[18px] py-7 text-center text-[13px] text-muted-foreground">Loading processes…</div>
       {:else if topError}
         <Alert.Root variant="destructive">
           <TriangleAlert aria-hidden="true" />
           <Alert.Description>{topError}</Alert.Description>
         </Alert.Root>
       {:else if top && top.processes.length > 0}
-        <div class="card overflow-hidden">
+        <div class="rounded-[11px] border border-border bg-card shadow-md overflow-hidden">
           <Table.Root class="table-fixed">
             <Table.Header>
               <Table.Row class="hover:bg-transparent">
@@ -700,7 +700,7 @@
           </Table.Root>
         </div>
       {:else}
-        <div class="empty">No processes reported.</div>
+        <div class="px-[18px] py-7 text-center text-[13px] text-muted-foreground">No processes reported.</div>
       {/if}
     {/if}
   </div>

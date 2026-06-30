@@ -387,18 +387,18 @@
 
 </script>
 
-<div class="page">
+<div class="flex flex-col gap-[16px] min-w-0 pt-[18px] px-[22px] pb-[24px]">
   <!-- ===== Page header ===== -->
-  <div class="head">
-    <h1>Images</h1>
+  <div class="flex items-end gap-[14px] pt-[22px] px-[22px] pb-[16px] shrink-0">
+    <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">Images</h1>
     <Badge variant="secondary" class="gap-1.5 font-normal">
-      <b class="num">{images.length}</b> images
+      <b class="tabular-nums">{images.length}</b> images
       {#if totalSize > 0}
-        <span class="x">·</span>
-        <b class="num">{imagesApi.humanBytes(totalSize)}</b>
+        <span class="text-muted-foreground/70">·</span>
+        <b class="tabular-nums">{imagesApi.humanBytes(totalSize)}</b>
       {/if}
     </Badge>
-    <span class="sp"></span>
+    <span class="flex-1"></span>
     <div class="relative w-[220px]">
       <Search class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
       <Input class="pl-8" placeholder="Filter images…" bind:value={filter} aria-label="Filter images" />
@@ -406,8 +406,8 @@
   </div>
 
   <!-- ===== Toolbar: pull (primary) + prune ===== -->
-  <div class="img-toolbar">
-    <div class="img-pull relative">
+  <div class="flex items-center gap-[10px] flex-wrap">
+    <div class="flex-1 min-w-[240px] max-w-[520px] relative">
       <Download class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
       <Input
         class="pl-8"
@@ -426,9 +426,9 @@
       {pulling ? "Pulling…" : "Pull"}
     </Button>
 
-    <span class="sp"></span>
+    <span class="flex-1"></span>
 
-    <div class="field">
+    <div class="flex items-center gap-[9px] text-[13px] text-muted-foreground">
       <Checkbox id="prune-all" bind:checked={pruneAll} disabled={pruning} />
       <Label for="prune-all">All unused</Label>
     </div>
@@ -444,18 +444,18 @@
 
   <!-- Pull progress / status -->
   {#if pulling || pullStatus}
-    <div class="pull-feed">
+    <div class="flex flex-col gap-[7px]">
       {#if pulling}
-        <div class="progress"><i style="width:100%"></i></div>
+        <div class="h-[10px] w-full rounded-full bg-muted overflow-hidden relative"><i class="progress-fill" style="width:100%"></i></div>
       {/if}
-      <p class="pull-status mono" title={pullStatus}>
+      <p class="text-[12px] text-muted-foreground truncate font-mono tabular-nums" title={pullStatus}>
         {pullStatus}{pullProgress ? `  ${pullProgress}` : ""}
       </p>
     </div>
   {/if}
 
   {#if pruneResult}
-    <p class="pull-status">{pruneResult}</p>
+    <p class="text-[12px] text-muted-foreground truncate">{pruneResult}</p>
   {/if}
 
   {#if errorMsg}
@@ -466,8 +466,8 @@
   {/if}
 
   <!-- ===== List + detail drawer ===== -->
-  <div class="img-split" class:has-detail={selected}>
-    <div class="card overflow-hidden">
+  <div class="grid gap-[16px] items-start min-w-0 {selected ? 'grid-cols-[minmax(0,1fr)_clamp(340px,34%,392px)]' : 'grid-cols-[minmax(0,1fr)]'}">
+    <div class="bg-card border border-border rounded-[11px] shadow-sm overflow-hidden">
       <Table.Root class="table-fixed">
         <Table.Header>
           <Table.Row class="hover:bg-transparent">
@@ -511,28 +511,28 @@
                 }}
               >
                 <Table.Cell>
-                  <div class="cell-name">
-                    <span class="av"><Layers aria-hidden="true" /></span>
+                  <div class="flex items-center gap-[12px] min-w-0">
+                    <span class="size-[30px] rounded-[8px] shrink-0 grid place-items-center bg-muted border border-border text-muted-foreground [&_svg]:size-[15px]"><Layers aria-hidden="true" /></span>
                     <div style="min-width:0">
-                      <div class="nm-row">
-                        <span class="nm" title={repoTag(img)}>{primaryTag(img)}</span>
+                      <div class="flex items-center gap-[8px] min-w-0">
+                        <span class="font-semibold text-[13.5px] text-foreground tracking-[-0.1px] leading-[1.25] truncate" title={repoTag(img)}>{primaryTag(img)}</span>
                         {#if isOfficial(img)}
-                          <span class="official"><Check aria-hidden="true" />Official</span>
+                          <span class="inline-flex items-center gap-[4px] text-[10.5px] font-[650] text-primary bg-primary/10 border border-primary/30 rounded-[5px] py-px px-[6px] [&_svg]:size-[11px]"><Check aria-hidden="true" />Official</span>
                         {/if}
                         {#if dangling}
-                          <span class="pill warn"><span class="d"></span>Untagged</span>
+                          <span class="inline-flex items-center gap-[6px] text-[11px] font-semibold py-[2px] px-[8px] rounded-[6px] tabular-nums text-chart-3 bg-chart-3/15 border border-chart-3/30"><span class="size-[6px] rounded-full shrink-0 bg-chart-3"></span>Untagged</span>
                         {/if}
                       </div>
                       {#if cleanTags(img).length > 1}
-                        <div class="id">+{cleanTags(img).length - 1} more tag{cleanTags(img).length - 1 === 1 ? "" : "s"}</div>
+                        <div class="font-mono text-[11px] text-muted-foreground/70 leading-[1.3]">+{cleanTags(img).length - 1} more tag{cleanTags(img).length - 1 === 1 ? "" : "s"}</div>
                       {/if}
                     </div>
                   </div>
                 </Table.Cell>
-                <Table.Cell><span class="id" title={img.id}>{imagesApi.shortId(img.id)}</span></Table.Cell>
-                <Table.Cell><span class="num muted">{imagesApi.humanBytes(img.size)}</span></Table.Cell>
+                <Table.Cell><span class="font-mono text-[11px] text-muted-foreground/70 leading-[1.3]" title={img.id}>{imagesApi.shortId(img.id)}</span></Table.Cell>
+                <Table.Cell><span class="tabular-nums text-muted-foreground/70">{imagesApi.humanBytes(img.size)}</span></Table.Cell>
                 <Table.Cell>
-                  <span class="muted num" title={imagesApi.fullDate(img.created)}>{imagesApi.relativeTime(img.created)}</span>
+                  <span class="text-muted-foreground/70 tabular-nums" title={imagesApi.fullDate(img.created)}>{imagesApi.relativeTime(img.created)}</span>
                 </Table.Cell>
                 <Table.Cell class="text-right">
                   <div
@@ -580,30 +580,30 @@
     <!-- ===== Detail drawer ===== -->
     {#if selected}
       {@const sel = selected}
-      <aside class="detail img-detail">
-        <div class="dt-head">
-          <div class="dt-top">
-            <span class="dt-av"><Layers aria-hidden="true" /></span>
+      <aside class="flex flex-col min-w-0 overflow-auto bg-card border border-border rounded-[11px] shadow-sm max-h-[calc(100vh-210px)] sticky top-0">
+        <div class="pt-[18px] px-[20px] pb-[16px] border-b border-border">
+          <div class="flex items-center gap-[12px]">
+            <span class="size-[38px] rounded-[10px] shrink-0 grid place-items-center bg-muted border border-border text-muted-foreground [&_svg]:size-[19px]"><Layers aria-hidden="true" /></span>
             <div style="min-width:0">
-              <div class="dt-name" title={repoTag(sel)}>{primaryTag(sel)}</div>
-              <div class="dt-sub">
+              <div class="text-[16px] font-[680] tracking-[-0.3px] leading-[1.15]" title={repoTag(sel)}>{primaryTag(sel)}</div>
+              <div class="flex items-center gap-[8px] text-[11.5px] text-muted-foreground mt-[3px] flex-wrap">
                 {#if isOfficial(sel)}
-                  <span class="official"><Check aria-hidden="true" />Official</span>
+                  <span class="inline-flex items-center gap-[4px] text-[10.5px] font-[650] text-primary bg-primary/10 border border-primary/30 rounded-[5px] py-px px-[6px] [&_svg]:size-[11px]"><Check aria-hidden="true" />Official</span>
                 {:else if isDangling(sel)}
-                  <span class="pill warn"><span class="d"></span>Untagged</span>
+                  <span class="inline-flex items-center gap-[6px] text-[11px] font-semibold py-[2px] px-[8px] rounded-[6px] tabular-nums text-chart-3 bg-chart-3/15 border border-chart-3/30"><span class="size-[6px] rounded-full shrink-0 bg-chart-3"></span>Untagged</span>
                 {/if}
-                <span class="mono">{imagesApi.shortId(sel.id)}</span>
+                <span class="font-mono tabular-nums text-muted-foreground/70">{imagesApi.shortId(sel.id)}</span>
                 <span>·</span>
-                <span class="num">{imagesApi.humanBytes(sel.size)}</span>
+                <span class="tabular-nums">{imagesApi.humanBytes(sel.size)}</span>
               </div>
             </div>
-            <div class="dt-head-acts">
+            <div class="ml-auto flex gap-[7px]">
               <Button variant="outline" size="icon-sm" title="Close" aria-label="Close" onclick={closeDetail}>
                 <X aria-hidden="true" />
               </Button>
             </div>
           </div>
-          <div class="dt-acts">
+          <div class="flex gap-[7px] mt-[15px] flex-wrap">
             <Button
               variant="destructive"
               size="sm"
@@ -623,7 +623,7 @@
           </Tabs.List>
         </Tabs.Root>
 
-        <div class="dt-body">
+        <div class="pt-[16px] px-[20px] pb-[24px] flex flex-col gap-[16px]">
           {#if detailError}
             <Alert.Root variant="destructive">
               <Info aria-hidden="true" />
@@ -632,11 +632,11 @@
           {/if}
 
           {#if detailTab === "overview"}
-            <div class="kv">
-              <div class="sec">Details</div>
-              <div class="r">
-                <span class="k">Image ID</span>
-                <span class="v copy mono"
+            <div class="flex flex-col">
+              <div class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70 pt-[4px] pb-[9px]">Details</div>
+              <div class="grid grid-cols-[120px_1fr] gap-[10px] py-[8px] border-t border-border items-start">
+                <span class="text-[12.5px] text-muted-foreground">Image ID</span>
+                <span class="text-[11.5px] text-foreground text-left break-words font-mono inline-flex items-center gap-[6px] justify-start [&_svg]:size-[13px]"
                   >{imagesApi.shortId(sel.id)}<Button
                     variant="ghost"
                     size="icon-xs"
@@ -646,42 +646,42 @@
                   ></span
                 >
               </div>
-              <div class="r">
-                <span class="k">Size</span>
-                <span class="v num">{imagesApi.humanBytes(sel.size)}</span>
+              <div class="grid grid-cols-[120px_1fr] gap-[10px] py-[8px] border-t border-border items-start">
+                <span class="text-[12.5px] text-muted-foreground">Size</span>
+                <span class="text-[12.5px] text-foreground text-left break-words tabular-nums">{imagesApi.humanBytes(sel.size)}</span>
               </div>
-              <div class="r">
-                <span class="k">Created</span>
-                <span class="v num" title={imagesApi.fullDate(sel.created)}
+              <div class="grid grid-cols-[120px_1fr] gap-[10px] py-[8px] border-t border-border items-start">
+                <span class="text-[12.5px] text-muted-foreground">Created</span>
+                <span class="text-[12.5px] text-foreground text-left break-words tabular-nums" title={imagesApi.fullDate(sel.created)}
                   >{imagesApi.relativeTime(sel.created)}</span
                 >
               </div>
-              <div class="r">
-                <span class="k">Tags</span>
-                <span class="v">
+              <div class="grid grid-cols-[120px_1fr] gap-[10px] py-[8px] border-t border-border items-start">
+                <span class="text-[12.5px] text-muted-foreground">Tags</span>
+                <span class="text-[12.5px] text-foreground text-left break-words">
                   {#if cleanTags(sel).length}
-                    <span class="chips">
+                    <span class="flex gap-[5px] flex-wrap justify-start">
                       {#each cleanTags(sel) as t (t)}
                         <Badge variant="outline" class="font-mono font-normal">{t}</Badge>
                       {/each}
                     </span>
                   {:else}
-                    <span class="muted">&lt;none&gt;</span>
+                    <span class="text-muted-foreground/70">&lt;none&gt;</span>
                   {/if}
                 </span>
               </div>
             </div>
 
-            <div class="kv">
-              <div class="sec">Tag image</div>
-              <div class="tag-form">
+            <div class="flex flex-col">
+              <div class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70 pt-[4px] pb-[9px]">Tag image</div>
+              <div class="flex items-center flex-wrap gap-[8px]">
                 <Input
                   class="flex-1"
                   placeholder="repository (e.g. myrepo/app)"
                   bind:value={tagRepo}
                   aria-label="Repository"
                 />
-                <span class="tag-sep">:</span>
+                <span class="text-muted-foreground/70">:</span>
                 <Input class="w-[96px]" placeholder="tag" bind:value={tagTag} aria-label="Tag" />
                 <Button
                   variant="outline"
@@ -695,27 +695,27 @@
             </div>
           {:else if detailTab === "history"}
             {#if detailLoading}
-              <p class="pull-status">Loading history…</p>
+              <p class="text-[12px] text-muted-foreground truncate">Loading history…</p>
             {:else if historyData.length === 0}
-              <p class="pull-status">No history.</p>
+              <p class="text-[12px] text-muted-foreground truncate">No history.</p>
             {:else}
-              <div class="layers">
+              <div class="flex flex-col border border-border rounded-[9px] overflow-hidden bg-card">
                 {#each historyData as layer, i (i)}
-                  <div class="layer">
-                    <span class="cmd" title={layer.created_by}
+                  <div class="grid grid-cols-[1fr_auto] gap-[12px] items-center py-[9px] px-[14px] border-t border-border first:border-t-0">
+                    <span class="font-mono text-[11.5px] text-muted-foreground truncate" title={layer.created_by}
                       >{layer.created_by}{layer.comment ? `  (${layer.comment})` : ""}</span
                     >
-                    <span class="size num">{imagesApi.humanBytes(layer.size)}</span>
+                    <span class="text-[11.5px] text-muted-foreground/70 tabular-nums shrink-0">{imagesApi.humanBytes(layer.size)}</span>
                   </div>
                 {/each}
               </div>
             {/if}
           {:else if detailTab === "inspect"}
             {#if detailLoading}
-              <p class="pull-status">Loading…</p>
+              <p class="text-[12px] text-muted-foreground truncate">Loading…</p>
             {:else}
-              <div class="outpane">
-                <div class="bar">
+              <div class="border border-border rounded-[9px] bg-background overflow-hidden">
+                <div class="flex items-center gap-[8px] bg-muted border-b border-border py-[8px] px-[12px] text-[12px] text-muted-foreground">
                   <Boxes aria-hidden="true" />
                   <span>Inspect</span>
                   <span style="flex:1"></span>
@@ -723,7 +723,7 @@
                     <Copy aria-hidden="true" />
                   </Button>
                 </div>
-                <pre class="body-out">{inspectData}</pre>
+                <pre class="max-h-[14rem] overflow-auto py-[10px] px-[12px] font-mono text-[11.5px] leading-[1.55] text-muted-foreground select-text">{inspectData}</pre>
               </div>
             {/if}
           {/if}
@@ -734,67 +734,22 @@
 </div>
 
 <style>
-  /* Layout-only helpers (tokens only — no raw colours). */
-  .img-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
+  /* Animation-only: progress sheen (cannot be expressed with inline utilities). */
+  .progress-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--lime-deep), var(--lime), var(--lime-bright));
+    background-size: 200% 100%;
+    animation: progress-sheen 1.6s linear infinite;
+    transition: width 0.3s ease-out;
   }
-  .img-pull {
-    flex: 1;
-    min-width: 240px;
-    max-width: 520px;
-  }
-
-  .pull-feed {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-  }
-  .pull-status {
-    font-size: 12px;
-    color: var(--text-3);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .img-split {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
-    align-items: start;
-    min-width: 0;
-  }
-  .img-split.has-detail {
-    grid-template-columns: minmax(0, 1fr) clamp(340px, 34%, 392px);
-  }
-  .img-detail {
-    border: 1px solid var(--line);
-    border-radius: var(--r-lg);
-    box-shadow: var(--shadow), inset 0 1px 0 var(--hi);
-    max-height: calc(100vh - 210px);
-    position: sticky;
-    top: 0;
-  }
-
-  /* loud name + inline badges */
-  .nm-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-  }
-
-  /* tag editor inputs */
-  .tag-form {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .tag-sep {
-    color: var(--text-4);
+  @keyframes progress-sheen {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
   }
 </style>

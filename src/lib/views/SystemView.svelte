@@ -208,23 +208,23 @@
   );
 </script>
 
-<div class="page">
+<div class="flex flex-col gap-[16px] min-w-0 pt-[18px] px-[22px] pb-[24px]">
   <!-- Page header -->
-  <div class="head">
-    <h1>System</h1>
+  <div class="flex items-end gap-[14px] shrink-0 pt-[22px] px-[22px] pb-[16px]">
+    <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">System</h1>
     {#if engineRunning}
       <Badge variant="secondary" class="gap-1.5 font-normal">
-        <span class="d"></span>Engine running
-        {#if info?.server_version}<span class="x">·</span><b class="mono">{info.server_version}</b>{/if}
+        <span class="size-[6px] rounded-full bg-chart-2 shrink-0"></span>Engine running
+        {#if info?.server_version}<span class="text-muted-foreground/70">·</span><b class="font-mono tabular-nums">{info.server_version}</b>{/if}
       </Badge>
     {:else}
-      <Badge variant="secondary" class="gap-1.5 font-normal"><span class="dot-off"></span>{stateLabel}</Badge>
+      <Badge variant="secondary" class="gap-1.5 font-normal"><span class="size-[6px] rounded-full bg-chart-5 shrink-0"></span>{stateLabel}</Badge>
     {/if}
     {#if df && totalReclaimable > 0}
-      <Badge variant="secondary" class="gap-1.5 font-normal"><b class="num">{humanBytes(totalReclaimable)}</b> reclaimable</Badge>
+      <Badge variant="secondary" class="gap-1.5 font-normal"><b class="tabular-nums">{humanBytes(totalReclaimable)}</b> reclaimable</Badge>
     {/if}
     {#if loading}<Badge variant="secondary" class="gap-1.5 font-normal">Loading…</Badge>{/if}
-    <span class="sp"></span>
+    <span class="flex-1"></span>
   </div>
 
   {#if errorMsg}
@@ -235,24 +235,24 @@
   {/if}
 
   <!-- Disk usage -->
-  <section class="sec-block">
-    <div class="section-title">Disk usage</div>
+  <section class="flex flex-col gap-[10px]">
+    <div class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70">Disk usage</div>
     {#if diskCards.length === 0}
-      <div class="card card-pad muted-note">
+      <div class="bg-card border border-border rounded-[11px] shadow-sm px-[18px] pt-[26px] pb-[26px] text-center text-muted-foreground">
         {#if loading}Loading…{:else if engineRunning}No data.{:else}Engine not running.{/if}
       </div>
     {:else}
-      <div class="statgrid wide">
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-[10px]">
         {#each diskCards as c (c.label)}
           {@const s = splitBytes(c.u.size)}
           {@const Icon = c.icon}
-          <div class="stat" class:focus={c.label === focusLabel}>
-            <div class="k"><Icon aria-hidden="true" />{c.label}</div>
-            <div class="big num">{s.v}<small>{s.u}</small></div>
-            <div class="sub2">
+          <div class="relative overflow-hidden bg-card border border-border rounded-[9px] py-[13px] px-[14px] shadow-sm">
+            <div class="flex items-center gap-[6px] text-[11px] font-medium text-muted-foreground [&_svg]:size-[13px] [&_svg]:text-muted-foreground/70"><Icon aria-hidden="true" />{c.label}</div>
+            <div class="text-[21px] font-[680] tracking-[-0.5px] mt-[8px] tabular-nums">{s.v}<small class="text-[12px] font-medium text-muted-foreground ml-[2px]">{s.u}</small></div>
+            <div class="text-[11px] text-muted-foreground/70 tabular-nums mt-[2px]">
               {c.u.count} item{c.u.count === 1 ? "" : "s"} · {humanBytes(c.u.reclaimable)} reclaimable
             </div>
-            <div class="mbar"><i style="width:{reclaimPct(c.u)}%"></i></div>
+            <div class="relative overflow-hidden h-[4px] rounded-[3px] bg-muted mt-[9px]"><i class={(c.label === focusLabel ? "bg-primary" : "bg-muted-foreground") + " absolute inset-y-0 left-0 rounded-[3px]"} style="width:{reclaimPct(c.u)}%"></i></div>
           </div>
         {/each}
       </div>
@@ -260,16 +260,16 @@
   </section>
 
   <!-- Reclaim space -->
-  <section class="card card-pad reclaim">
-    <div class="reclaim-head">
-      <span class="ic"><Trash2 aria-hidden="true" /></span>
+  <section class="bg-card border border-border rounded-[11px] shadow-sm py-[16px] px-[18px] flex flex-col gap-[12px]">
+    <div class="flex items-start gap-[11px]">
+      <span class="size-[30px] rounded-[8px] shrink-0 grid place-items-center bg-muted border border-border text-muted-foreground [&_svg]:size-[15px]"><Trash2 aria-hidden="true" /></span>
       <div>
-        <div class="section-title">Reclaim space</div>
-        <p class="prose">Removes stopped containers, unused images, and unused networks.</p>
+        <div class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70">Reclaim space</div>
+        <p class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground mt-[4px]">Removes stopped containers, unused images, and unused networks.</p>
       </div>
     </div>
 
-    <div class="field">
+    <div class="flex items-center gap-[9px] text-[13px] text-muted-foreground">
       <Checkbox
         id="prune-all-images"
         bind:checked={allImages}
@@ -277,7 +277,7 @@
       />
       <Label for="prune-all-images">Remove ALL unused images, not just dangling</Label>
     </div>
-    <div class="field">
+    <div class="flex items-center gap-[9px] text-[13px] text-muted-foreground">
       <Checkbox
         id="prune-volumes"
         bind:checked={pruneVolumes}
@@ -286,7 +286,7 @@
       <Label for="prune-volumes">Also remove unused volumes</Label>
     </div>
 
-    <div class="reclaim-acts">
+    <div class="flex items-center gap-[12px] flex-wrap mt-[2px]">
       <Button
         disabled={pruning || !engineRunning}
         onclick={runPrune}
@@ -295,165 +295,33 @@
         {pruning ? "Pruning…" : "Prune unused"}
       </Button>
       {#if pruneResult}
-        <span class="prune-ok"><CircleCheck aria-hidden="true" />{pruneResult}</span>
+        <span class="inline-flex items-center gap-[7px] text-[12.5px] text-chart-2 select-text [&_svg]:size-[14px] [&_svg]:shrink-0"><CircleCheck aria-hidden="true" />{pruneResult}</span>
       {/if}
     </div>
   </section>
 
   <!-- Engine info -->
-  <section class="card card-pad">
-    <div class="kv">
-      <div class="sec engine-sec">
-        <span class="ic-sm"><Server aria-hidden="true" /></span>
+  <section class="bg-card border border-border rounded-[11px] shadow-sm py-[16px] px-[18px]">
+    <div class="flex flex-col">
+      <div class="flex items-center gap-[8px] text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70 pt-[4px] pb-[9px]">
+        <span class="inline-flex text-muted-foreground/70 [&_svg]:size-[14px]"><Server aria-hidden="true" /></span>
         Engine info
         {#if info?.name}
-          <span class="engine-name"><Cpu aria-hidden="true" />{info.name}</span>
+          <span class="ml-auto inline-flex items-center gap-[5px] text-[11px] font-medium tracking-normal normal-case text-muted-foreground font-mono [&_svg]:size-[12px] [&_svg]:text-muted-foreground/70"><Cpu aria-hidden="true" />{info.name}</span>
         {/if}
       </div>
       {#if infoRows.length === 0}
-        <div class="muted-note plain">
+        <div class="text-center text-muted-foreground pt-[18px] pb-[8px]">
           {#if loading}Loading…{:else if engineRunning}No data.{:else}Engine not running.{/if}
         </div>
       {:else}
         {#each infoRows as row (row.k)}
-          <div class="r">
-            <span class="k">{row.k}</span>
-            <span class="v {row.cls}">{row.v}</span>
+          <div class="grid grid-cols-[120px_1fr] gap-[10px] py-[8px] border-t border-border items-start">
+            <span class="text-[12.5px] text-muted-foreground">{row.k}</span>
+            <span class={"text-left break-words text-foreground " + (row.cls === "mono" ? "font-mono text-[11.5px]" : row.cls === "num" ? "text-[12.5px] tabular-nums" : "text-[12.5px]")}>{row.v}</span>
           </div>
         {/each}
       {/if}
     </div>
   </section>
 </div>
-
-<style>
-  .sec-block {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .muted-note {
-    color: var(--text-3);
-    text-align: center;
-    padding-top: 26px;
-    padding-bottom: 26px;
-  }
-  .muted-note.plain {
-    border: 0;
-    box-shadow: none;
-    background: transparent;
-    padding: 18px 0 8px;
-  }
-
-  /* Reclaim card layout */
-  .reclaim {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .reclaim-head {
-    display: flex;
-    align-items: flex-start;
-    gap: 11px;
-  }
-  .reclaim-head .prose {
-    margin-top: 4px;
-  }
-  .ic {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    flex: none;
-    display: grid;
-    place-items: center;
-    background: linear-gradient(180deg, var(--s3), var(--s2));
-    border: 1px solid var(--line);
-    color: var(--text-3);
-    box-shadow: inset 0 1px 0 var(--hi);
-  }
-  .ic :global(svg) {
-    width: 15px;
-    height: 15px;
-  }
-  .reclaim-acts {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-top: 2px;
-  }
-  .prune-ok {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 12.5px;
-    color: var(--ok);
-    -webkit-user-select: text;
-    user-select: text;
-  }
-  .prune-ok :global(svg) {
-    width: 14px;
-    height: 14px;
-    flex: none;
-  }
-
-  /* Engine-info section header */
-  .engine-sec {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .ic-sm {
-    display: inline-flex;
-    color: var(--text-4);
-  }
-  .ic-sm :global(svg) {
-    width: 14px;
-    height: 14px;
-  }
-  .engine-name {
-    margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0;
-    text-transform: none;
-    color: var(--text-3);
-    font-family: var(--mono);
-  }
-  .engine-name :global(svg) {
-    width: 12px;
-    height: 12px;
-    color: var(--text-4);
-  }
-
-  /* value typography helpers (kv .v already supplies base styling) */
-  .v.num {
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* quiet off-dot for non-running header chip */
-  .dot-off {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--off);
-    flex: none;
-  }
-
-  /* running-dot + separator inside the header Badge (formerly .chip .d/.x) */
-  .d {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--ok);
-    box-shadow: 0 0 7px var(--ok);
-    flex: none;
-  }
-  .x {
-    color: var(--text-4);
-  }
-</style>

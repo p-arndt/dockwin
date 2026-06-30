@@ -107,12 +107,22 @@
   </Sidebar.Content>
 
   <Sidebar.Footer class="group-data-[collapsible=icon]:hidden">
-    <div class="eng mt-0! border-t-0! px-0.5! py-1!">
-      <div class="row">
-        <span class="dot {engineTone}"></span>
+    <div class="mt-0 border-t-0 px-0.5 py-1">
+      <div
+        class="flex items-center gap-[9px] rounded-[10px] border border-border bg-muted px-[11px] py-[9px]"
+      >
+        <span
+          class="relative h-[7px] w-[7px] shrink-0 rounded-full {engineTone ===
+          'warn'
+            ? 'bg-chart-3'
+            : engineTone === 'off'
+              ? 'bg-chart-5'
+              : 'bg-chart-2'}"
+          class:eng-dot-ring={engineTone === 'live'}
+        ></span>
         <div>
-          <div class="et">{engineLine}</div>
-          <div class="es">WSL2 backend</div>
+          <div class="text-[12px] font-semibold leading-[1.2]">{engineLine}</div>
+          <div class="text-[11px] text-muted-foreground">WSL2 backend</div>
         </div>
       </div>
     </div>
@@ -120,3 +130,28 @@
 
   <Sidebar.Rail />
 </Sidebar.Root>
+
+<style>
+  /* Engine status "live" dot pulse ring — pseudo-element + keyframes can't be
+     expressed as inline Tailwind utilities, so reproduce the original
+     `.eng .dot.live::after` rule here. Uses raw design vars (animation-only). */
+  .eng-dot-ring::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 1px solid var(--ok);
+    opacity: 0.5;
+    animation: ring 2.6s var(--ease) infinite;
+  }
+  @keyframes ring {
+    0% {
+      transform: scale(0.6);
+      opacity: 0.6;
+    }
+    100% {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+  }
+</style>

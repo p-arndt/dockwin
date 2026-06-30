@@ -240,15 +240,15 @@
   }
 </script>
 
-<div class="page">
-  <div class="head">
-    <h1>Volumes</h1>
+<div class="flex flex-col min-w-0 gap-[16px] pt-[18px] px-[22px] pb-[24px]">
+  <div class="flex items-end shrink-0 gap-[14px] pt-[22px] px-[22px] pb-[16px]">
+    <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-[1]">Volumes</h1>
     {#if volumes.length}
       <Badge variant="secondary" class="gap-1.5 font-normal"
-        ><b class="num">{volumes.length}</b> total</Badge
+        ><b class="tabular-nums">{volumes.length}</b> total</Badge
       >
     {/if}
-    <span class="sp"></span>
+    <span class="flex-1"></span>
 
     <div class="relative w-[220px]">
       <Search
@@ -263,7 +263,7 @@
       />
     </div>
 
-    <div class="field" title="Force removal even when a volume is in use">
+    <div class="flex items-center gap-[9px] text-[13px] text-muted-foreground" title="Force removal even when a volume is in use">
       <Checkbox id="vol-force-remove" bind:checked={forceRemove} />
       <Label for="vol-force-remove">Force remove</Label>
     </div>
@@ -303,8 +303,8 @@
   {/if}
 
   {#if showCreate}
-    <form class="card card-pad" onsubmit={onCreate}>
-      <div class="section-title" style="margin-bottom:12px">New volume</div>
+    <form class="bg-card border border-border rounded-[11px] shadow-sm py-[16px] px-[18px]" onsubmit={onCreate}>
+      <div class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70 mb-[12px]">New volume</div>
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
         <div class="relative flex-1" style="min-width:200px">
           <HardDrive
@@ -344,7 +344,7 @@
     </form>
   {/if}
 
-  <div class="card overflow-hidden">
+  <div class="bg-card border border-border rounded-[11px] shadow-sm overflow-hidden">
     <Table.Root class="table-fixed">
       <Table.Header>
         <Table.Row class="hover:bg-transparent">
@@ -405,29 +405,28 @@
               }}
             >
               <Table.Cell>
-                <div class="cell-name">
-                  <span class="av"><HardDrive aria-hidden="true" /></span>
-                  <div style="min-width:0">
-                    <div class="nm" title={v.name}>{v.name}</div>
+                <div class="flex items-center gap-[12px] min-w-0">
+                  <span class="grid place-items-center size-[30px] rounded-[8px] shrink-0 bg-muted border border-border text-muted-foreground [&_svg]:size-[15px]"><HardDrive aria-hidden="true" /></span>
+                  <div class="min-w-0">
+                    <div class="font-semibold text-[13.5px] text-foreground tracking-[-0.1px] leading-[1.25] truncate" title={v.name}>{v.name}</div>
                     {#if v.scope}
-                      <div class="id">{v.scope}</div>
+                      <div class="font-mono text-[11px] text-muted-foreground/70 leading-[1.3]">{v.scope}</div>
                     {/if}
                   </div>
                 </div>
               </Table.Cell>
 
-              <Table.Cell><span class="text-2">{v.driver || "—"}</span></Table.Cell>
+              <Table.Cell><span class="text-muted-foreground">{v.driver || "—"}</span></Table.Cell>
 
               <Table.Cell>
                 <span
-                  class="mono text-3"
+                  class="font-mono tabular-nums text-muted-foreground block min-w-0 truncate"
                   title={v.mountpoint}
-                  style="display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
                   >{v.mountpoint || "—"}</span
                 >
               </Table.Cell>
 
-              <Table.Cell><span class="num text-3">{fmtCreated(v.created)}</span></Table.Cell>
+              <Table.Cell><span class="tabular-nums text-muted-foreground">{fmtCreated(v.created)}</span></Table.Cell>
 
               <Table.Cell class="text-right">
                 <div
@@ -466,14 +465,12 @@
             {#if open}
               <Table.Row class="hover:bg-transparent">
                 <Table.Cell colspan={5} class="p-0">
-                  <div
-                    style="padding:12px 18px;border-bottom:1px solid var(--line-soft)"
-                  >
-                    <div class="outpane">
-                      <div class="bar">
+                  <div class="py-[12px] px-[18px] border-b border-border">
+                    <div class="border border-border rounded-[9px] bg-background overflow-hidden">
+                      <div class="flex items-center gap-[8px] bg-muted border-b border-border py-[8px] px-[12px] text-[12px] text-muted-foreground">
                         <Search aria-hidden="true" />
-                        <span>Inspect · <span class="mono">{v.name}</span></span>
-                        <span style="flex:1"></span>
+                        <span>Inspect · <span class="font-mono tabular-nums">{v.name}</span></span>
+                        <span class="flex-1"></span>
                         <Button
                           variant="outline"
                           size="icon-sm"
@@ -483,7 +480,7 @@
                           <X aria-hidden="true" />
                         </Button>
                       </div>
-                      <pre class="body-out" style="white-space:pre">{inspecting
+                      <pre class="max-h-[14rem] overflow-auto py-[10px] px-[12px] font-mono text-[11.5px] leading-[1.55] text-muted-foreground select-text" style="white-space:pre">{inspecting
                           ? "Loading inspect…"
                           : inspectJson}</pre>
                     </div>

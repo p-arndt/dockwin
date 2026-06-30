@@ -13,44 +13,20 @@
 
   let { tone = "off", size = 7, halo = false }: Props = $props();
 
-  // "run" is an alias of "ok".
-  const colorVar = $derived(
+  // "run" is an alias of "ok". Map tone → colour utility.
+  const colorClass = $derived(
     tone === "ok" || tone === "run"
-      ? "var(--ok)"
+      ? "bg-chart-2"
       : tone === "warn"
-        ? "var(--warn)"
+        ? "bg-chart-3"
         : tone === "err"
-          ? "var(--err)"
-          : "var(--off)"
-  );
-  const dimVar = $derived(
-    tone === "ok" || tone === "run"
-      ? "var(--ok-dim)"
-      : tone === "warn"
-        ? "var(--warn-dim)"
-        : tone === "err"
-          ? "var(--err-dim)"
-          : "transparent"
+          ? "bg-destructive"
+          : "bg-chart-5"
   );
 </script>
 
 <span
-  class="sd"
-  style="--sd-size:{size}px; --sd-color:{colorVar}; --sd-dim:{dimVar};"
-  class:halo
+  class="inline-block rounded-full shrink-0 {colorClass}"
+  style="width:{size}px; height:{size}px;"
   aria-hidden="true"
 ></span>
-
-<style>
-  .sd {
-    display: inline-block;
-    width: var(--sd-size);
-    height: var(--sd-size);
-    border-radius: 50%;
-    background: var(--sd-color);
-    flex: none;
-  }
-  .sd.halo {
-    box-shadow: 0 0 0 3px var(--sd-dim);
-  }
-</style>

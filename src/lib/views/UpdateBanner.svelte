@@ -202,7 +202,7 @@
                 style="width: {enginePct}%"
               ></div>
             </div>
-            <span class="truncate font-mono-app text-[11px] text-muted-foreground" title={engineMsg}>
+            <span class="truncate font-mono text-[11px] text-muted-foreground" title={engineMsg}>
               {engineMsg}
             </span>
           {:else}

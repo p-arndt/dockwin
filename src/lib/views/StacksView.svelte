@@ -35,13 +35,13 @@
   let disabled = $derived(compose.busy || engineState !== "running");
 </script>
 
-<div class="head">
-  <h1>Stacks</h1>
+<div class="flex items-end gap-[14px] pt-[22px] px-[22px] pb-[16px] shrink-0">
+  <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">Stacks</h1>
   <Badge variant="secondary" class="gap-1.5 font-normal">
-    <b class="num text-foreground">{stacks.length}</b>
+    <b class="tabular-nums text-foreground">{stacks.length}</b>
     {stacks.length === 1 ? "project" : "projects"}
   </Badge>
-  <span class="sp"></span>
+  <span class="flex-1"></span>
   <Button title="Pick a docker-compose.yml and run it on the dockwin engine" {disabled} onclick={compose.up}>
     <FileUp aria-hidden="true" />
     {compose.busy ? "Working…" : "Compose up"}
@@ -59,14 +59,14 @@
     <ScrollText aria-hidden="true" />Logs
   </Button>
 </div>
-<div class="body">
-  <div class="page" style="padding-top:0">
+<div class="flex-1 overflow-auto grid grid-cols-[1fr] min-h-0">
+  <div class="flex flex-col gap-[16px] min-w-0 pt-0 px-[22px] pb-[24px]">
     {#if engineState === "running"}
-      <p class="prose">
+      <p class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground">
         Tip: in a terminal you can also run
-        <code class="code">dockwin up</code> from a folder with a
-        <code class="code">docker-compose.yml</code> (use this instead of
-        <code class="code">docker compose</code>, which targets Docker Desktop).
+        <code class="font-mono text-[0.92em] text-muted-foreground">dockwin up</code> from a folder with a
+        <code class="font-mono text-[0.92em] text-muted-foreground">docker-compose.yml</code> (use this instead of
+        <code class="font-mono text-[0.92em] text-muted-foreground">docker compose</code>, which targets Docker Desktop).
       </p>
     {/if}
     {#if errorMsg}
@@ -76,24 +76,20 @@
       </Alert.Root>
     {/if}
     {#if compose.panelOpen && compose.log.length}
-      <div class="outpane">
-        <div class="bar">
+      <div class="border border-border rounded-[9px] bg-background overflow-hidden">
+        <div class="flex items-center gap-[8px] bg-muted border-b border-border px-[12px] py-[8px] text-[12px] text-muted-foreground">
           <Terminal aria-hidden="true" />
-          <span style="font-weight:600;color:var(--text)">Compose output</span>
+          <span class="font-semibold text-foreground">Compose output</span>
           {#if compose.lastFile}
-            <span
-              class="mono"
-              style="font-size:11px;color:var(--text-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-              title={compose.lastFile}
-            >
+            <span class="font-mono text-[11px] text-muted-foreground/70 truncate" title={compose.lastFile}>
               {compose.lastFile}
             </span>
           {/if}
-          <Button variant="outline" size="sm" style="margin-left:auto" onclick={() => (compose.panelOpen = false)}>
+          <Button variant="outline" size="sm" class="ml-auto" onclick={() => (compose.panelOpen = false)}>
             Hide
           </Button>
         </div>
-        <div class="body-out">
+        <div class="max-h-[14rem] overflow-auto px-[12px] py-[10px] font-mono text-[11.5px] leading-[1.55] text-muted-foreground select-text">
           {#each compose.log as line, i (i)}
             <div style="white-space:pre-wrap;word-break:break-all">{line}</div>
           {/each}

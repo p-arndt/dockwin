@@ -38,19 +38,31 @@
 {#if !app.engineReady}
   <!-- Engine lifecycle: a slim branded bar (so theme is still toggleable) + the
        full-window EngineGate, which owns set-up / progress / start / unreachable. -->
-  <div class="solo">
-    <div class="ctx">
-      <span class="brand" style="padding:0;gap:9px">
-        <span class="logo" style="width:26px;height:26px;border-radius:8px">
-          <Container size={15} aria-hidden="true" />
+  <div class="flex flex-col h-screen min-h-0">
+    <div
+      class="flex items-center gap-[14px] pl-[22px] pr-[16px] h-[46px] shrink-0 border-b border-border text-muted-foreground text-[12px]"
+    >
+      <span class="flex items-center gap-[9px] p-0">
+        <span
+          class="grid place-items-center shrink-0 size-[26px] rounded-[8px] bg-primary text-primary-foreground"
+        >
+          <Container size={19} aria-hidden="true" />
         </span>
-        <span class="bt" style="font-size:14px">dockwin</span>
+        <span class="font-[680] text-[14px] tracking-[-0.2px] leading-[1.1]">dockwin</span>
       </span>
-      <span class="sep"></span>
-      <span class="live {app.engineTone}"><span class="d"></span>{app.engineLine}</span>
-      <span class="sp"></span>
+      <span class="w-px h-[13px] bg-border"></span>
+      <span class="flex items-center gap-[7px] text-muted-foreground font-medium"
+        ><span
+          class="size-[6px] rounded-full {app.engineTone === 'warn'
+            ? 'bg-chart-3'
+            : app.engineTone === 'off'
+              ? 'bg-chart-5'
+              : 'bg-chart-2'}"
+        ></span>{app.engineLine}</span
+      >
+      <span class="flex-1"></span>
       <ThemeToggle />
-      <span class="sep"></span>
+      <span class="w-px h-[13px] bg-border"></span>
       <Button variant="outline" size="icon" title="Refresh" disabled={app.working} onclick={app.manualRefresh}>
         <RefreshCw aria-hidden="true" />
       </Button>
@@ -78,7 +90,7 @@
       onSelect={navigate}
     />
 
-    <Sidebar.Inset class="main">
+    <Sidebar.Inset class="flex flex-col min-w-0 overflow-hidden">
       <TopBar
         label={app.viewLabel(activeView)}
         engineState={app.engineState}
@@ -93,7 +105,13 @@
 
       {@render children()}
 
-      <div class="statusbar" class:err={app.footerErr}>{app.footer}</div>
+      <div
+        class="shrink-0 border-t border-border bg-card py-[6px] px-[22px] text-[11.5px] select-text {app.footerErr
+          ? 'text-destructive'
+          : 'text-muted-foreground'}"
+      >
+        {app.footer}
+      </div>
     </Sidebar.Inset>
   </Sidebar.Provider>
 {/if}

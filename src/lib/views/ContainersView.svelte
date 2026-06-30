@@ -36,19 +36,19 @@
 
 {#if selected && detailFull}
   <!-- FULL-DETAIL: the list is hidden, ContainerDetails fills the pane. -->
-  <div class="detail-full">
+  <div class="flex-1 overflow-auto min-h-0">
     <ContainerDetails container={selected} full={true} onClose={onCloseDetail} onToggleFull={onToggleFull} />
   </div>
 {:else}
-  <div class="head">
-    <h1>Containers</h1>
+  <div class="flex items-end gap-[14px] pt-[22px] px-[22px] pb-[16px] shrink-0">
+    <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">Containers</h1>
     <Badge variant="secondary" class="gap-1.5 font-normal">
-      <span class="size-1.5 rounded-full bg-[var(--ok)] shadow-[0_0_7px_var(--ok)]"></span>
-      <b class="num text-foreground">{runningCount}</b> running
+      <span class="size-1.5 rounded-full bg-chart-2"></span>
+      <b class="tabular-nums text-foreground">{runningCount}</b> running
       <span class="text-muted-foreground">·</span>
-      <b class="num text-foreground">{containers.length}</b> total
+      <b class="tabular-nums text-foreground">{containers.length}</b> total
     </Badge>
-    <span class="sp"></span>
+    <span class="flex-1"></span>
     <div class="relative w-[260px]" aria-hidden="true">
       <Search
         class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -62,8 +62,12 @@
       </div>
     </div>
   </div>
-  <div class="body" class:split={!!selected}>
-    <div class="list">
+  <div
+    class="flex-1 overflow-auto grid min-h-0 {selected
+      ? 'grid-cols-[1fr_clamp(340px,30%,392px)]'
+      : 'grid-cols-[1fr]'}"
+  >
+    <div class="px-[22px] pb-[22px] min-w-0">
       {#if errorMsg}
         <Alert.Root variant="destructive" class="mb-3.5">
           <TriangleAlert aria-hidden="true" />

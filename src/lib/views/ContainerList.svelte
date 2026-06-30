@@ -76,7 +76,9 @@
   }
 </script>
 
-<div class="card list-card overflow-hidden">
+<div
+  class="data-table-card overflow-hidden rounded-[11px] border border-border bg-card shadow-sm"
+>
   <Table.Root class="table-fixed">
     <Table.Header>
       <Table.Row class="hover:bg-transparent">
@@ -128,31 +130,78 @@
             }}
           >
             <Table.Cell>
-              <div class="cell-name">
-                <span class="lamp {st.lamp}"></span>
-                <span class="av"><Box aria-hidden="true" /></span>
-                <div style="min-width:0">
-                  <div class="nm" title={c.name}>{c.name}</div>
-                  <div class="id" title={c.id}>{c.shortId}</div>
+              <div class="flex min-w-0 items-center gap-[12px]">
+                <span
+                  class="h-[7px] w-[7px] shrink-0 rounded-full {st.lamp ===
+                  'run'
+                    ? 'bg-chart-2'
+                    : st.lamp === 'warn'
+                      ? 'bg-chart-3'
+                      : st.lamp === 'err'
+                        ? 'bg-destructive'
+                        : 'bg-chart-5'}"
+                ></span>
+                <span
+                  class="grid size-[30px] shrink-0 place-items-center rounded-[8px] border border-border bg-muted text-muted-foreground"
+                  ><Box aria-hidden="true" class="size-[15px]" /></span
+                >
+                <div class="min-w-0">
+                  <div
+                    class="truncate text-[13.5px] font-semibold leading-[1.25] tracking-[-0.1px] text-foreground"
+                    title={c.name}
+                  >
+                    {c.name}
+                  </div>
+                  <div
+                    class="font-mono text-[11px] leading-[1.3] text-muted-foreground/70"
+                    title={c.id}
+                  >
+                    {c.shortId}
+                  </div>
                 </div>
               </div>
             </Table.Cell>
 
             <Table.Cell>
-              <span class="img" title={c.image}>{c.image}</span>
+              <span
+                class="block min-w-0 truncate font-mono text-[12px] text-muted-foreground"
+                title={c.image}>{c.image}</span
+              >
             </Table.Cell>
 
             <Table.Cell>
-              <div class="st {st.tone}">
-                <span class="l"><span class="d"></span>{st.word}</span>
-                {#if c.status}<span class="sub">{c.status}</span>{/if}
+              <div class="flex min-w-0 flex-col gap-[2px]">
+                <span
+                  class="flex items-center gap-[7px] text-[12.5px] font-medium {st.tone ===
+                  'warn'
+                    ? 'text-chart-3'
+                    : st.tone === 'err'
+                      ? 'text-destructive'
+                      : st.tone === 'exit'
+                        ? 'text-muted-foreground'
+                        : 'text-foreground'}"
+                  ><span
+                    class="h-[6px] w-[6px] shrink-0 rounded-full {st.tone ===
+                    'warn'
+                      ? 'bg-chart-3'
+                      : st.tone === 'err'
+                        ? 'bg-destructive'
+                        : st.tone === 'exit'
+                          ? 'bg-chart-5'
+                          : 'bg-chart-2'}"
+                  ></span>{st.word}</span
+                >
+                {#if c.status}<span
+                    class="truncate text-[11px] tabular-nums text-muted-foreground/70"
+                    >{c.status}</span
+                  >{/if}
               </div>
             </Table.Cell>
 
             <Table.Cell>
-              <div class="ports">
+              <div class="flex flex-wrap gap-[5px]">
                 {#if c.ports.length === 0}
-                  <span class="muted">—</span>
+                  <span class="text-muted-foreground/70">—</span>
                 {:else}
                   {#each c.ports as p, i (i)}
                     {#if p.url}
@@ -236,3 +285,13 @@
     </Table.Body>
   </Table.Root>
 </div>
+
+<style>
+  /* The shadcn table container renders its own `overflow-x-auto`, but inside a
+     clipping card with fixed-width truncating columns that only yields a stray
+     1px scrollbar. This targets a child component's slot, so it can't be an
+     inline utility — keep it as a scoped :global rule. */
+  .data-table-card :global([data-slot="table-container"]) {
+    overflow: visible;
+  }
+</style>
