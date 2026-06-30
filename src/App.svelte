@@ -1,7 +1,8 @@
 <script lang="ts">
   // Top-level shell: branded sidebar (Workloads / Resources + counts + active
-  // rail + engine pod) and a slim top ctx bar (engine status, theme + accent
-  // toggles). Talks to dockwin-core only through src/lib/api.ts. No raw invoke.
+  // rail + engine pod, the single engine-status anchor) and a slim top ctx bar
+  // (active-view label + theme toggle + actions; accent lives in Settings).
+  // Talks to dockwin-core only through src/lib/api (no raw invoke).
   import { onMount, type Component } from "svelte";
   import Container from "@lucide/svelte/icons/container";
   import Boxes from "@lucide/svelte/icons/boxes";
