@@ -462,9 +462,15 @@
 
   <!-- ===== tabs ===== -->
   <Tabs.Root bind:value={activeTab}>
-    <Tabs.List variant="line" class="mx-5">
+    <Tabs.List
+      variant="line"
+      class="h-auto w-full justify-start gap-5 rounded-none border-b border-border bg-transparent px-5 pt-3 pb-0"
+    >
       {#each TABS as t (t.key)}
-        <Tabs.Trigger value={t.key} class="after:bg-[var(--primary)]">{t.label}</Tabs.Trigger>
+        <Tabs.Trigger
+          value={t.key}
+          class="flex-none px-0 pt-0 pb-[11px] text-[13px] font-medium group-data-[orientation=horizontal]/tabs:after:bottom-0 after:bg-[var(--primary)]"
+        >{t.label}</Tabs.Trigger>
       {/each}
     </Tabs.List>
   </Tabs.Root>
