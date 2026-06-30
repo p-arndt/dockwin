@@ -41,19 +41,29 @@
         position: relative;
         display: grid;
         place-items: center;
-        width: 56px;
-        height: 56px;
-        border-radius: 14px;
-        background: var(--primary);
-        color: var(--primary-foreground);
+        width: 88px;
+        height: 88px;
       }
       #initial-splash .mark::before {
         content: "";
         position: absolute;
-        inset: 0;
-        border-radius: 14px;
-        background: var(--primary);
-        animation: initial-splash-halo 1.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+        inset: 6px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          color-mix(in srgb, var(--primary) 40%, transparent),
+          transparent 72%
+        );
+        animation: initial-splash-halo 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+      }
+      #initial-splash .mark img {
+        position: relative;
+        z-index: 1;
+        width: 72px;
+        height: 72px;
+        object-fit: contain;
+        filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.35));
+        animation: initial-splash-breathe 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
       }
       #initial-splash .word {
         font-family:
@@ -65,12 +75,21 @@
       }
       @keyframes initial-splash-halo {
         0% {
-          transform: scale(0.85);
-          opacity: 0.55;
+          transform: scale(0.7);
+          opacity: 0.7;
         }
         100% {
-          transform: scale(1.7);
+          transform: scale(1.5);
           opacity: 0;
+        }
+      }
+      @keyframes initial-splash-breathe {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.045);
         }
       }
     </style>
@@ -78,24 +97,7 @@
   <body>
     <div id="initial-splash" aria-hidden="true">
       <span class="mark">
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M22 7.7c0-.6-.4-1.2-.8-1.5l-6.3-3.9a1.72 1.72 0 0 0-1.7 0l-10.3 6c-.5.2-.9.8-.9 1.4v6.6c0 .5.4 1.2.8 1.5l6.3 3.9a1.72 1.72 0 0 0 1.7 0l10.3-6c.5-.3.9-1 .9-1.5Z"
-          />
-          <path d="M10 21.9V14L2.1 9.1" />
-          <path d="m10 14 11.9-6.9" />
-          <path d="M14 19.8v-8.1" />
-          <path d="M18 17.5V9.4" />
-        </svg>
+        <img src="./dockwin-mark.png" alt="" width="72" height="72" />
       </span>
       <span class="word">dockwin</span>
     </div>
