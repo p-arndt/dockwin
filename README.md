@@ -19,46 +19,20 @@ Stock `dockerd` in a single dedicated WSL2 distro · native Tauri GUI · scripta
 </div>
 
 > [!IMPORTANT]
-> Early development.
+> Early development. Check [What works / what's stubbed](#what-works--whats-stubbed)
+> before relying on this for anything important.
 
 ---
 
 ## Contents
 
-- [Why dockwin exists](#why-dockwin-exists)
 - [Features](#features)
-- [Architecture](#architecture)
 - [Getting started](#getting-started)
-- [What works / what's stubbed](#what-works--whats-stubbed)
-- [Roadmap](#roadmap--milestones)
+- [Why dockwin exists](#why-dockwin-exists)
+- [Architecture](#architecture)
 - [Known risks & caveats](#known-risks--caveats)
 - [Contributing](#contributing)
 - [License](#license)
-
----
-
-## Why dockwin exists
-
-Docker Engine (Moby) is Apache-2.0 — free, open, unencumbered. The friction is
-**Docker Desktop**, whose subscription terms require a paid license once an
-organization crosses a size/revenue threshold. Teams end up either paying
-per-seat for what is essentially a GUI wrapped around an engine that's already
-free, or dropping Docker Desktop and losing a decent developer experience.
-
-dockwin's thesis: the engine is already free, so the wrapper should be too.
-It also skips what Docker Desktop bundles on top of the engine — the
-always-on background backend, the vpnkit-style network proxy, the
-auto-updater, the telemetry. The whole product is one small Rust workspace.
-
-| Piece | License |
-| --- | --- |
-| Docker Engine / `dockerd` (Moby) | Apache-2.0 |
-| Rust crates (bollard, tokio, …) | MIT / Apache-2.0 |
-| Tauri v2 | MIT / Apache-2.0 |
-| Ubuntu WSL rootfs (base userland) | permissive / redistributable |
-| **dockwin itself** | **Apache-2.0 OR MIT** |
-
-You can use dockwin commercially, at any org size, for free.
 
 ---
 
@@ -72,88 +46,6 @@ You can use dockwin commercially, at any org size, for free.
 - 🧹 **System view** — disk usage (`df`), prune (incl. all-images / volumes), engine info.
 - ⚙️ **One-click provisioning** — imports a minimal (~29 MB) Ubuntu rootfs, installs pinned `dockerd`, wires systemd autostart, from the GUI's first-run panel or `dockwin install`.
 - 🖥️ **Scriptable CLI** — `dockwin status/install/start/stop/uninstall` mirrors the GUI's setup logic exactly.
-
----
-
-## Architecture
-
-A thin Windows-native Rust core with a Tauri v2 GUI shell, driving one
-dedicated WSL2 distro (`dockwin`) that runs stock `dockerd`.
-
-```mermaid
-graph TD
-    subgraph Windows["Windows (host)"]
-        GUI["dockwin-gui<br/>(Tauri v2)<br/>web frontend"]
-        CLI["dockwin.exe<br/>(CLI)"]
-        Core["dockwin-core<br/>(Rust lib)<br/>- engine lifecycle<br/>- bollard client<br/>- named-pipe proxy"]
-        Pipe["\\.\pipe\dockwin_engine"]
-
-        GUI -->|Tauri cmd/event| Core
-        CLI -->|args| Core
-        Core -->|connect| Pipe
-    end
-
-    subgraph WSL["WSL2 distro 'dockwin' (Ubuntu)"]
-        Systemd["systemd"]
-        Dockerd["dockerd"]
-        Socket["unix:///var/run/docker.sock"]
-        Resources["containers / images / volumes"]
-
-        Systemd -->|start| Dockerd
-        Dockerd -->|listen| Socket
-        Dockerd -->|manage| Resources
-    end
-
-    Pipe -->|wsl.exe -e socat| Socket
-
-    Note["fallback: dockerd tcp://127.0.0.1:2375<br/>← localhostForwarding → Windows"]
-```
-
-**Wiring.** `dockerd` listens only on its unix socket
-(`/var/run/docker.sock`) — no TCP, no network attack surface. `dockwin-core`
-hosts a Windows named pipe `\\.\pipe\dockwin_engine`, ACL'd to the current
-user, and relays each connection into the distro with:
-
-```
-wsl.exe -d dockwin -e socat - UNIX-CONNECT:/var/run/docker.sock
-```
-
-bollard talks to that pipe directly, and the stock `docker.exe` CLI works too:
-
-```powershell
-docker context create dockwin --docker host=npipe:////./pipe/dockwin_engine
-docker context use dockwin
-docker ps
-```
-
-A loopback-only `tcp://127.0.0.1:2375` fallback exists for when the relay
-misbehaves. It's unauthenticated and reachable by any local process, so it's
-flagged insecure and never the default.
-
-**Provisioning.** `dockwin install` runs `wsl --import` with the minimal
-Ubuntu 24.04 `ubuntu-base` rootfs (~29 MB vs. ~216 MB for the full cloud
-image), installs systemd (the minimal base ships without it), writes
-`/etc/wsl.conf` (`systemd=true`, interop off), installs `dockerd` from the
-pinned official apt repo, forces `iptables-legacy`, and verifies the engine
-before reporting ready. Teardown is `wsl --unregister dockwin`.
-
-| Component | Tech | Responsibility |
-| --- | --- | --- |
-| **dockwin-core** | Rust lib (bollard, tokio, named pipe) | WSL2 lifecycle, provisioning, bollard client, pipe proxy. |
-| **dockwin** (CLI) | Rust binary (clap) | `status/install/start/stop/uninstall` + passthrough ops. |
-| **dockwin-gui** | Tauri v2 (Rust + web) | Container/image lists, logs, exec, stats. Stateless view. |
-| **Named-pipe proxy** | Rust pipe server + socat | Serves `\\.\pipe\dockwin_engine`, relays into the distro. |
-| **dockwin distro** | Ubuntu 24.04 `ubuntu-base` + systemd + docker-ce | Isolated engine host, autostarted by systemd. |
-
-A few choices that aren't obvious from the diagram:
-
-- `\\wsl.localhost\...\docker.sock` looks like it should work as a direct
-  unix-socket path from Windows — it doesn't (it's a 9P network share, not a
-  connectable AF_UNIX endpoint), hence the pipe relay.
-- Alpine would shrink the rootfs further but fights `systemd=true`
-  (musl + no systemd); deferred.
-- Default networking is NAT, not mirrored — the GUI surfaces published-port
-  reachability and its caveats instead of forcing mirrored mode on everyone.
 
 ---
 
@@ -220,6 +112,77 @@ docker run --rm hello-world
 > Windows `localhost:8080` automatically. `127.0.0.1`-bound publishes
 > (`-p 127.0.0.1:8080:80`) are **not** forwarded — the GUI flags this when it
 > links a port. If ports stop forwarding after sleep/wake, try `wsl --shutdown`.
+
+---
+
+## Why dockwin exists
+
+Docker Engine (Moby) is Apache-2.0 — free, open, unencumbered. The friction is
+**Docker Desktop**, whose subscription terms require a paid license once an
+organization crosses a size/revenue threshold. Teams end up either paying
+per-seat for what is essentially a GUI wrapped around an engine that's already
+free, or dropping Docker Desktop and losing a decent developer experience.
+
+dockwin's thesis: the engine is already free, so the wrapper should be too.
+It also skips what Docker Desktop bundles on top of the engine — the
+always-on background backend, the vpnkit-style network proxy, the
+auto-updater, the telemetry. The whole product is one small Rust workspace.
+
+| Piece | License |
+| --- | --- |
+| Docker Engine / `dockerd` (Moby) | Apache-2.0 |
+| Rust crates (bollard, tokio, …) | MIT / Apache-2.0 |
+| Tauri v2 | MIT / Apache-2.0 |
+| Ubuntu WSL rootfs (base userland) | permissive / redistributable |
+| **dockwin itself** | **Apache-2.0 OR MIT** |
+
+You can use dockwin commercially, at any org size, for free.
+
+---
+
+## Architecture
+
+A thin Windows-native Rust core (`dockwin-core`) drives one dedicated WSL2
+distro (`dockwin`) running stock `dockerd`, with a Tauri v2 GUI and a `dockwin`
+CLI built on top of it.
+
+```mermaid
+graph TD
+    subgraph Windows["Windows (host)"]
+        GUI["dockwin-gui<br/>(Tauri v2)<br/>web frontend"]
+        CLI["dockwin.exe<br/>(CLI)"]
+        Core["dockwin-core<br/>(Rust lib)<br/>- engine lifecycle<br/>- bollard client<br/>- named-pipe proxy"]
+        Pipe["\\.\pipe\dockwin_engine"]
+
+        GUI -->|Tauri cmd/event| Core
+        CLI -->|args| Core
+        Core -->|connect| Pipe
+    end
+
+    subgraph WSL["WSL2 distro 'dockwin' (Ubuntu)"]
+        Systemd["systemd"]
+        Dockerd["dockerd"]
+        Socket["unix:///var/run/docker.sock"]
+        Resources["containers / images / volumes"]
+
+        Systemd -->|start| Dockerd
+        Dockerd -->|listen| Socket
+        Dockerd -->|manage| Resources
+    end
+
+    Pipe -->|wsl.exe -e socat| Socket
+
+    Note["fallback: dockerd tcp://127.0.0.1:2375<br/>← localhostForwarding → Windows"]
+```
+
+`dockerd` listens only on its unix socket inside the distro — no TCP, no
+network attack surface. `dockwin-core` relays it to Windows over a named pipe
+(`\\.\pipe\dockwin_engine`), which both `bollard` and the stock `docker.exe`
+CLI can use. Provisioning imports a minimal ~29 MB Ubuntu rootfs, installs
+systemd and a pinned `dockerd`, and verifies the engine before reporting ready.
+
+📖 Full wiring details, the provisioning steps, the component breakdown, and
+the design-decision rationale live in **[docs/architecture.md](docs/architecture.md)**.
 
 ---
 
