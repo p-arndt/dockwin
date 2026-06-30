@@ -1,48 +1,82 @@
-// Stamp a version string into every dockwin manifest.
+// Stamp / bump the version across every dockwin manifest.
 //
-//   node scripts/set-version.mjs 0.2.0
+//   node scripts/set-version.mjs 0.2.0     # set an explicit version
+//   node scripts/set-version.mjs patch     # bump 0.1.3 -> 0.1.4
+//   node scripts/set-version.mjs minor     # bump 0.1.3 -> 0.2.0
+//   node scripts/set-version.mjs major     # bump 0.1.3 -> 1.0.0
 //
 // Updates package.json, src-tauri/tauri.conf.json, and the three crate
-// Cargo.tomls. Uses targeted regex replaces (not JSON.parse round-tripping) so
-// existing formatting, key order, and comments are left untouched. Cargo.lock
-// refreshes itself on the next build since the workspace crates are path deps.
+// Cargo.tomls via targeted regex replaces (not JSON round-tripping) so existing
+// formatting, key order, and comments are left untouched. Cargo.lock refreshes
+// itself on the next build since the workspace crates are path deps.
+//
+// Also exports readVersion / bumpVersion / setVersion for scripts/release.mjs.
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
-
-const version = process.argv[2];
-if (!version || !/^\d+\.\d+\.\d+/.test(version)) {
-  console.error("usage: node scripts/set-version.mjs <version>   (e.g. 0.2.0)");
-  process.exit(1);
-}
 
 // Repo root is one level up from this script's scripts/ directory.
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-// Each target: the file, the pattern to match, and its replacement.
-// `$1` keeps the matched key/prefix so only the value changes.
-const targets = [
-  // JSON: the top-level "version": "..." key only.
-  { file: "package.json",            re: /("version":\s*)"[^"]*"/,    sub: `$1"${version}"` },
-  { file: "src-tauri/tauri.conf.json", re: /("version":\s*)"[^"]*"/,  sub: `$1"${version}"` },
-  // Cargo.toml: the [package] version (anchored at line start, multiline),
-  // never the inline dependency `version = "..."` entries.
-  { file: "crates/dockwin-cli/Cargo.toml",  re: /^version = "[^"]*"/m, sub: `version = "${version}"` },
-  { file: "crates/dockwin-core/Cargo.toml", re: /^version = "[^"]*"/m, sub: `version = "${version}"` },
-  { file: "src-tauri/Cargo.toml",           re: /^version = "[^"]*"/m, sub: `version = "${version}"` },
+// Each target: the file and a regex whose group 1 captures the key/prefix, so
+// `$1"<version>"` swaps only the value. JSON hits the top-level "version" key;
+// the (?m)^ anchor on the Cargo.tomls hits the [package] version, never the
+// inline dependency `version = "..."` entries.
+const TARGETS = [
+  { file: "package.json",                   re: /("version":\s*)"[^"]*"/ },
+  { file: "src-tauri/tauri.conf.json",      re: /("version":\s*)"[^"]*"/ },
+  { file: "crates/dockwin-cli/Cargo.toml",  re: /^(version = )"[^"]*"/m },
+  { file: "crates/dockwin-core/Cargo.toml", re: /^(version = )"[^"]*"/m },
+  { file: "src-tauri/Cargo.toml",           re: /^(version = )"[^"]*"/m },
 ];
 
-for (const { file, re, sub } of targets) {
-  const path = join(root, file);
-  const before = readFileSync(path, "utf8");
-  const after = before.replace(re, sub);
-  if (after === before) {
-    console.error(`! no version match in ${file} — pattern may be stale`);
-    process.exit(1);
-  }
-  writeFileSync(path, after);
-  console.log(`  ${file}`);
+/** Read the current version from package.json. */
+export function readVersion() {
+  return JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
 }
 
-console.log(`Stamped version ${version}.`);
+/** Bump a semver string by "patch" | "minor" | "major". */
+export function bumpVersion(current, kind) {
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(current);
+  if (!m) throw new Error(`current version is not plain semver: ${current}`);
+  let [major, minor, patch] = m.slice(1).map(Number);
+  if (kind === "major") [major, minor, patch] = [major + 1, 0, 0];
+  else if (kind === "minor") [minor, patch] = [minor + 1, 0];
+  else if (kind === "patch") patch++;
+  else throw new Error(`unknown bump "${kind}" (use patch|minor|major)`);
+  return `${major}.${minor}.${patch}`;
+}
+
+/** Write `version` into every manifest. Throws if any pattern fails to match. */
+export function setVersion(version) {
+  if (!/^\d+\.\d+\.\d+/.test(version))
+    throw new Error(`invalid version "${version}" (expected x.y.z)`);
+  for (const { file, re } of TARGETS) {
+    const path = join(root, file);
+    const before = readFileSync(path, "utf8");
+    const after = before.replace(re, `$1"${version}"`);
+    if (after === before)
+      throw new Error(`no version match in ${file} — pattern may be stale`);
+    writeFileSync(path, after);
+    console.log(`  ${file}`);
+  }
+  console.log(`Stamped version ${version}.`);
+}
+
+// Resolve a CLI argument to a concrete version: a bump keyword or an explicit x.y.z.
+export function resolveVersion(arg) {
+  return ["patch", "minor", "major"].includes(arg)
+    ? bumpVersion(readVersion(), arg)
+    : arg;
+}
+
+// CLI entry point (only when run directly, not when imported).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const arg = process.argv[2];
+  if (!arg) {
+    console.error("usage: node scripts/set-version.mjs <patch|minor|major|x.y.z>");
+    process.exit(1);
+  }
+  setVersion(resolveVersion(arg));
+}

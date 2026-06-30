@@ -150,17 +150,19 @@ example-down:
 version:
     @(Get-Content package.json -Raw | ConvertFrom-Json).version
 
-# Stamp VERSION into every manifest: package.json, tauri.conf.json, and the
-# three crate Cargo.tomls. Cargo.lock is refreshed automatically on the next
-# build (workspace members are path deps). Example:  just set-version 0.2.0
-set-version VERSION:
-    node scripts/set-version.mjs {{VERSION}}
+# Stamp a version into every manifest (package.json, tauri.conf.json, the three
+# crate Cargo.tomls). Accepts a bump keyword or an explicit version; Cargo.lock
+# refreshes on the next build (workspace members are path deps). Examples:
+#   just set-version patch        just set-version 0.2.0
+set-version BUMP="patch":
+    node scripts/set-version.mjs {{BUMP}}
 
-# Full release: stamp VERSION across all manifests, then build the installer.
-# Commit + tag yourself once you've verified the bundle, e.g.:
-#   git commit -am "release: v0.2.0" && git tag v0.2.0
-release VERSION: (set-version VERSION) installer
-    @echo "Release {{VERSION}} built -> target/release/bundle/nsis/"
+# Cut a release: bump the version (patch|minor|major, or an explicit x.y.z),
+# stamp all manifests, commit, tag, and push -> triggers the release workflow
+# which builds the static CLI + installer. Examples:
+#   just release            just release minor            just release 1.0.0
+release BUMP="patch":
+    node scripts/release.mjs {{BUMP}}
 
 # Submit/update the winget manifest for VERSION pointing at the released
 # installer URL (needs wingetcreate + a published GitHub release asset).
