@@ -1,6 +1,6 @@
 {
   "name": "dockwin-gui",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Minimal web frontend for dockwin (Docker Desktop alternative for Windows 11)",
   "license": "(MIT OR Apache-2.0)",
   "private": true,
