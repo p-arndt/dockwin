@@ -39,12 +39,19 @@ console.log(`Releasing ${tag}  (${readVersion()} -> ${next})\n`);
 // 3. Stamp all manifests.
 setVersion(next);
 
-// 4. Commit + annotated tag.
+// 4. Refresh Cargo.lock so the new workspace versions land in the release commit.
+//    `--workspace` only re-pins the workspace members (path deps); other
+//    dependencies are left untouched. Without this the lock keeps the previous
+//    versions and has to be fixed up in a follow-up commit.
+console.log("\nRefreshing Cargo.lock ...");
+execSync("cargo update --workspace", { stdio: "inherit" });
+
+// 5. Commit + annotated tag.
 git("add -A");
 git(`commit -m "release: ${tag}"`);
 git(`tag -a ${tag} -m "${tag}"`);
 
-// 5. Push the current branch together with the new tag.
+// 6. Push the current branch together with the new tag.
 const branch = git("rev-parse --abbrev-ref HEAD");
 console.log(`\nPushing ${branch} + ${tag} ...`);
 execSync(`git push origin ${branch} --follow-tags`, { stdio: "inherit" });
