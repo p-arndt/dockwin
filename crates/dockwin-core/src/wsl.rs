@@ -26,12 +26,13 @@ pub const DISTRO: &str = "dockwin";
 /// download. The WSL-specific tarballs under `cloud-images.ubuntu.com/wsl/...`
 /// were removed upstream (404), and the cloud image carries cloud-init + a
 /// server payload we don't need; `ubuntu-base` is glibc/apt and works with the
-/// official Docker apt repo just the same. It ships **no systemd**, so
-/// provisioning installs systemd before the `wsl.conf systemd=true` reboot (see
-/// [`crate::ops::install_reporting`]). Pinned to a point release for
+/// official Docker apt repo just the same. It ships **no systemd**, which suits
+/// the non-systemd engine model: dockerd is kept alive by a small supervisor
+/// launched from `wsl.conf`'s `[boot] command=` (see [`crate::ops::install_reporting`]),
+/// so nothing has to bring systemd up as PID 1. Pinned to a point release for
 /// reproducibility — bump when a newer one ships. Swap back to the cloud image
 /// (`https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64-root.tar.xz`)
-/// if systemd ever misbehaves on the minimal base.
+/// if the minimal base ever misbehaves.
 pub const DEFAULT_ROOTFS_URL: &str =
     "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.4-base-amd64.tar.gz";
 
@@ -136,11 +137,12 @@ pub fn run_checked(args: &[&str]) -> Result<()> {
 ///
 /// Returns `Ok(true)` on a clean exit and `Ok(false)` on a non-zero exit. If the
 /// child is still running after `timeout` it is killed and this returns an error.
-/// Used for operations that can wedge indefinitely with no output — notably the
-/// first cold-boot after enabling `systemd` in `wsl.conf`, which can stall on
-/// systemd's network-unit timeouts and is further slowed by endpoint-security
-/// software inspecting the VM start. Without a bound the whole install would
-/// appear frozen there (`wsl::run`'s `.status()` waits forever).
+/// Used for operations that can wedge indefinitely with no output — notably a
+/// distro cold-boot, where WSL's own service can transiently stall tearing down
+/// and re-starting the distro instance in the shared utility VM (worse with other
+/// distros running and endpoint-security software inspecting the VM start).
+/// Without a bound the whole install would appear frozen there (`wsl::run`'s
+/// `.status()` waits forever).
 pub fn run_with_timeout(args: &[&str], timeout: Duration) -> Result<bool> {
     let mut child = command("wsl.exe")
         .args(args)
@@ -155,9 +157,9 @@ pub fn run_with_timeout(args: &[&str], timeout: Duration) -> Result<bool> {
             let _ = child.kill();
             let _ = child.wait();
             bail!(
-                "`wsl.exe {}` did not finish within {}s (killed). The distro is \
-                 likely stuck booting systemd — check endpoint-security software \
-                 and other running WSL distros.",
+                "`wsl.exe {}` did not finish within {}s (killed). The WSL service \
+                 is likely stuck starting the distro — check endpoint-security \
+                 software and other running WSL distros.",
                 args.join(" "),
                 timeout.as_secs()
             );

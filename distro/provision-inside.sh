@@ -4,8 +4,9 @@
 #
 # Installs Docker Engine from the PINNED official Docker apt repo (not the
 # unpinned get.docker.com convenience script), configures the documented WSL2
-# gotchas (iptables-legacy, systemd cgroup driver, cgroup v2), enables dockerd
-# autostart via systemd, and verifies the daemon comes up on its UNIX socket.
+# gotchas (iptables-legacy, cgroupfs cgroup driver, cgroup v2), starts dockerd
+# via the NON-systemd supervisor (/usr/local/sbin/dockwin-supervise.sh, like
+# Docker Desktop), and verifies the daemon comes up on its UNIX socket.
 #
 # dockerd listens ONLY on /var/run/docker.sock (no TCP) per the architecture's
 # chosen wiring. The Windows side reaches it through the named-pipe relay.
@@ -48,7 +49,7 @@ fi
 #     every subsequent apt call refuses to proceed until it is reconfigured.
 #     Because this script is idempotent and re-run by `dockwin install`, heal
 #     that state up front so a second attempt always completes instead of
-#     leaving the engine half-installed (no docker.service).
+#     leaving the engine half-installed (no dockerd binary).
 # ---------------------------------------------------------------------------
 log "ensuring dpkg/apt state is consistent (recovers from an interrupted run)"
 dpkg --configure -a 2>/dev/null || true
@@ -116,8 +117,10 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 3. daemon.json: systemd cgroup driver + unix socket only.
-#    cgroup v2 is the WSL2 default; pair it with the systemd cgroup driver.
+# 3. daemon.json: cgroupfs cgroup driver + unix socket only.
+#    cgroup v2 is the WSL2 default; without systemd as PID 1 there is no systemd
+#    cgroup manager to defer to, so use the cgroupfs driver (dockerd manages the
+#    cgroups itself), which works on WSL2 cgroup v2.
 # ---------------------------------------------------------------------------
 log "writing /etc/docker/daemon.json"
 install -m 0755 -d /etc/docker
@@ -131,7 +134,7 @@ fi
 cat > /etc/docker/daemon.json <<JSON
 {
   "hosts": [ ${HOSTS_JSON} ],
-  "exec-opts": ["native.cgroupdriver=systemd"],
+  "exec-opts": ["native.cgroupdriver=cgroupfs"],
   "iptables": true,
   "log-driver": "json-file",
   "log-opts": { "max-size": "10m", "max-file": "3" },
@@ -142,40 +145,18 @@ cat > /etc/docker/daemon.json <<JSON
 }
 JSON
 
-# When daemon.json sets "hosts", the systemd unit's own `-H fd://` collides
-# with it ("unable to configure the Docker daemon ... hosts ... both"). Drop
-# the unit-level -H via a drop-in so daemon.json is the single source of truth.
-log "writing docker.service drop-in (let daemon.json own -H)"
-install -m 0755 -d /etc/systemd/system/docker.service.d
-cat > /etc/systemd/system/docker.service.d/10-dockwin-hosts.conf <<'UNIT'
-[Service]
-ExecStart=
-ExecStart=/usr/bin/dockerd --containerd=/run/containerd/containerd.sock
-UNIT
-
 # ---------------------------------------------------------------------------
-# 4. Enable + (re)start dockerd. Use systemd when it is PID 1, otherwise fall
-#    back to the sysv service (the non-systemd autostart path).
+# 4. Start dockerd via the non-systemd supervisor (like Docker Desktop). There
+#    is no systemd here, so autostart/Restart-on-failure come from
+#    /usr/local/sbin/dockwin-supervise.sh instead: on every distro start WSL runs
+#    it from wsl.conf's [boot] command=, and it keeps dockerd alive in a detached
+#    restart loop. It is placed by ops.rs before this script runs; invoke it now
+#    (it self-detaches and is idempotent) so dockerd comes up during provisioning.
 # ---------------------------------------------------------------------------
-if [ -d /run/systemd/system ]; then
-    log "systemd detected: enabling and starting docker via systemctl"
-    systemctl daemon-reload
-    systemctl enable docker.service containerd.service >/dev/null 2>&1 || \
-        warn "systemctl enable reported a problem"
-    # NOTE: we deliberately do NOT try to disable docker-ce's sysv autostart
-    # here. On Debian `update-rc.d` and `systemctl enable` are kept in sync by
-    # systemd-sysv-install (disabling sysv also disables the unit, and vice
-    # versa), so you can't have systemd-on + sysv-off via these tools. It isn't
-    # needed anyway: a native docker.service makes systemd ignore the sysv
-    # runlevel links, so the ONLY path that can launch the pidfile-stealing bare
-    # `dockerd -p /var/run/docker.pid` is wsl.conf's `[boot] command=`, which
-    # waits for systemd before deciding so it can't race it (see distro/wsl.conf).
-    systemctl restart docker.service
-else
-    warn "systemd is NOT PID 1; using sysv 'service docker start' fallback"
-    update-rc.d docker defaults >/dev/null 2>&1 || true
-    service docker restart || service docker start
-fi
+SUPERVISOR=/usr/local/sbin/dockwin-supervise.sh
+[ -x "$SUPERVISOR" ] || die "supervisor $SUPERVISOR missing or not executable (should be placed by the installer)"
+log "starting dockerd via $SUPERVISOR (non-systemd supervisor)"
+"$SUPERVISOR"
 
 # ---------------------------------------------------------------------------
 # 5. Verify dockerd is actually reachable on its unix socket.
@@ -190,7 +171,7 @@ for i in $(seq 1 30); do
     sleep 1
 done
 
-[ "$ok" -eq 1 ] || die "dockerd did not become reachable; check 'journalctl -u docker' inside the distro"
+[ "$ok" -eq 1 ] || die "dockerd did not become reachable; check '/var/log/dockwin-dockerd.log' inside the distro"
 
 log "dockerd is up:"
 docker version --format '  server: {{.Server.Version}} (api {{.Server.APIVersion}})' || true

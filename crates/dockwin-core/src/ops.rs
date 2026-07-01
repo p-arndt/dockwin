@@ -21,6 +21,7 @@ use crate::wsl::{self, DISTRO};
 /// Shipping fallbacks: the real `distro/` assets, baked into the binary.
 const EMBEDDED_WSL_CONF: &str = include_str!("../../../distro/wsl.conf");
 const EMBEDDED_PROVISION: &str = include_str!("../../../distro/provision-inside.sh");
+const EMBEDDED_SUPERVISE: &str = include_str!("../../../distro/dockwin-supervise.sh");
 
 // ---------------------------------------------------------------------------
 // Progress reporting
@@ -523,23 +524,25 @@ pub fn install(opts: InstallOpts) -> Result<()> {
 /// Boot the dockwin distro and return only once a trivial `-- true` exec
 /// succeeds, in a bounded, self-healing loop.
 ///
-/// The first systemd cold-boot — or ANY boot on a *re-provision* where a prior,
-/// interrupted run already wrote `/etc/wsl.conf` with `systemd=true` — can
-/// transiently wedge WSL: the distro shows as "Running" but every exec fails
-/// with `Wsl/Service/E_UNEXPECTED` and it never becomes usable (seen on
-/// locked-down machines with other distros running / endpoint security
-/// inspecting the VM start). A `--terminate` + retry reliably clears that wedge,
+/// Any WSL boot can transiently wedge in the shared WSL2 VM's teardown↔startup
+/// window: the distro shows as "Running" but every exec fails with
+/// `Wsl/Service/E_UNEXPECTED` and it never becomes usable (seen on locked-down
+/// machines with other distros running / endpoint security inspecting the VM
+/// start). This is a GENERAL WSL-service race, not systemd-specific — dropping
+/// systemd (see distro/wsl.conf) removes the cold-boot that used to make it far
+/// worse, but the teardown/startup race can still surface, so this retry loop
+/// stays as cheap insurance. A `--terminate` + retry reliably clears the wedge,
 /// and each attempt is time-capped so a genuine hang fails fast with output
 /// instead of freezing silently (a plain `wsl -d … -- true` with no timeout
 /// hangs forever there, freezing the whole install with no further log lines).
 ///
 /// Set `terminate_first` to force a fresh boot on the first attempt too — used
-/// right after writing a new wsl.conf so `systemd=true` is actually picked up.
+/// right after writing a new wsl.conf so the new config is actually picked up.
 fn boot_distro_resilient(report: &dyn Fn(Progress), terminate_first: bool) -> Result<()> {
     const ATTEMPTS: u32 = 6;
-    // A HEALTHY cold-boot is fast: systemd reaches its target in well under a
-    // second and the `-- true` exec returns within a few seconds (measured <15s
-    // on the locked-down laptop this guards). The wedge, by contrast, either fails
+    // A HEALTHY boot is fast: without systemd the distro's /init is up and the
+    // `-- true` exec returns within a few seconds (measured <15s on the
+    // locked-down laptop this guards). The wedge, by contrast, either fails
     // *instantly* (E_UNEXPECTED — handled as a non-timeout below) or hangs
     // essentially forever. So a SHORT per-attempt cap loses nothing on a good boot
     // yet catches a hang quickly and spends the budget on MORE retries — each a
@@ -652,7 +655,7 @@ pub fn install_reporting(opts: InstallOpts, report: &dyn Fn(Progress)) -> Result
         let first = ver_text.lines().next().unwrap_or("").trim().to_string();
         report(Progress::info("preflight", 2.0, first));
     } else {
-        report(Progress::warn("preflight", 2.0, "old \"inbox\" WSL (no --version). systemd=true needs WSL >= 2.1.5; attempting `wsl --update`"));
+        report(Progress::warn("preflight", 2.0, "old \"inbox\" WSL (no --version). wsl.conf [boot] command= needs a modern WSL; attempting `wsl --update`"));
         let _ = wsl::run(&["--update"]);
     }
     let _ = wsl::run(&["--set-default-version", "2"]);
@@ -736,44 +739,33 @@ pub fn install_reporting(opts: InstallOpts, report: &dyn Fn(Progress)) -> Result
         report(Progress::info("import", 78.0, format!("imported into {}", install_dir.display())));
     }
 
-    // --- 4. Place /etc/wsl.conf --------------------------------------------
+    // --- 4. Place /etc/wsl.conf + the dockerd supervisor -------------------
     report(Progress::step("configure", 79.0, "Configuring /etc/wsl.conf"));
-    // Ensure the distro is booted before we exec into it. On a re-provision the
-    // distro can already carry `systemd=true` from a prior interrupted run, so
-    // this very first boot may hit the systemd cold-boot wedge — do it through
-    // the bounded, self-healing helper (a plain unbounded `-- true` here hangs
-    // forever on that wedge, which is what froze the install at 79%).
+    // Ensure the distro is booted before we exec into it. This first boot goes
+    // through the bounded, self-healing helper (a plain unbounded `-- true` here
+    // hangs forever on a WSL-service wedge, which is what froze the install at
+    // 79%).
     boot_distro_resilient(report, false)?;
 
-    // The minimal ubuntu-base rootfs ships no systemd, but our autostart design
-    // needs systemd as PID 1 (wsl.conf `systemd=true`). Install it BEFORE the
-    // apply-reboot below, so systemd actually comes up as PID 1 afterwards. On
-    // the full cloud image systemd is already present, so this is a quick no-op.
-    report(Progress::info("configure", 80.0, "ensuring systemd is present (required for autostart)"));
-    let bootstrap = "export DEBIAN_FRONTEND=noninteractive; \
-        apt-get update -y && apt-get install -y --no-install-recommends \
-        systemd systemd-sysv dbus ca-certificates 2>&1";
-    let mut boot_line = |line: &str| report(Progress::info("configure", 80.0, line.to_string()));
-    let bootstrapped = wsl::run_streaming(
-        &["-d", DISTRO, "-u", "root", "--", "bash", "-lc", bootstrap],
-        &mut boot_line,
-    )
-    .context("installing systemd into the base distro failed")?;
-    if !bootstrapped {
-        bail!("failed to install systemd into the distro (required for systemd autostart)");
-    }
-
+    // NON-systemd model (like Docker Desktop): the distro's own /init stays PID 1
+    // and dockerd is kept alive by dockwin-supervise.sh, launched from wsl.conf's
+    // [boot] command=. Write both BEFORE the apply-reboot below so the new
+    // wsl.conf's boot command finds the supervisor already in place.
     let wsl_conf = load_text_asset(opts.wsl_conf, "wsl.conf", EMBEDDED_WSL_CONF)?;
     wsl::write_into_distro(&wsl_conf, "/etc/wsl.conf", "0644")?;
 
-    report(Progress::info("configure", 81.0, "applying wsl.conf (restarting distro to enable systemd)"));
+    let supervise = load_text_asset(None, "dockwin-supervise.sh", EMBEDDED_SUPERVISE)?;
+    wsl::write_into_distro(&supervise, "/usr/local/sbin/dockwin-supervise.sh", "0755")?;
+
+    report(Progress::info("configure", 81.0, "applying wsl.conf (restarting distro)"));
     // Terminate ONLY our distro — not a global `wsl --shutdown`, which would also
     // tear down every other running distro (e.g. a Docker Desktop VM) and can
     // block for a long time on locked-down machines. A distro re-reads its
     // /etc/wsl.conf on the next start, so terminating just `dockwin` is enough to
-    // pick up `systemd=true`. `terminate_first` forces that fresh boot so the
-    // newly written wsl.conf actually takes effect.
-    report(Progress::info("configure", 81.0, "waiting for the distro to come back up with systemd…"));
+    // pick up the new config. `terminate_first` forces that fresh boot so the
+    // newly written wsl.conf actually takes effect. This is now RACE-FREE (no
+    // systemd cold-boot); the resilient loop remains as cheap insurance.
+    report(Progress::info("configure", 81.0, "waiting for the distro to come back up…"));
     boot_distro_resilient(report, true)?;
 
     // --- 5. Provision inside ------------------------------------------------
@@ -809,7 +801,7 @@ pub fn install_reporting(opts: InstallOpts, report: &dyn Fn(Progress)) -> Result
     report(Progress::step("verify", 96.0, "Verifying dockerd"));
     match wsl::docker_server_version()? {
         Some(v) => report(Progress::info("verify", 97.0, format!("dockerd server version: {v}"))),
-        None => report(Progress::warn("verify", 97.0, "could not confirm dockerd yet; check: wsl -d dockwin -u root -- journalctl -u docker")),
+        None => report(Progress::warn("verify", 97.0, "could not confirm dockerd yet; check: wsl -d dockwin -u root -- tail -n 50 /var/log/dockwin-dockerd.log")),
     }
 
     // --- 7. Wire the Windows docker context (best effort) -------------------
@@ -882,9 +874,13 @@ fn to_wsl_path(p: &Path) -> Result<String> {
 }
 
 /// Make sure dockerd is up before a compose call (best effort, quick).
+/// Non-systemd model: the supervisor keeps dockerd alive and is idempotent (a
+/// no-op while one is running), so simply (re)invoking it is enough.
 fn ensure_dockerd() {
-    let start_cmd = "if [ -d /run/systemd/system ]; then systemctl is-active --quiet docker || systemctl start docker; else service docker status >/dev/null 2>&1 || service docker start; fi";
-    let _ = wsl::run(&["-d", DISTRO, "-u", "root", "--", "bash", "-lc", start_cmd]);
+    let _ = wsl::run(&[
+        "-d", DISTRO, "-u", "root", "--",
+        "/usr/local/sbin/dockwin-supervise.sh",
+    ]);
 }
 
 /// Run `docker compose -f <file> <action…>` INSIDE the dockwin distro, streaming
@@ -1022,9 +1018,16 @@ pub fn start(timeout_secs: u64) -> Result<()> {
         );
     }
 
+    // Booting the distro (above) already runs wsl.conf's [boot] command=, which
+    // launches the supervisor -> dockerd. Defensively invoke the supervisor once
+    // more here in case the boot command didn't run (older WSL, or the distro was
+    // already up); it self-detaches and is idempotent (a no-op while a supervisor
+    // is alive), so a second call is harmless.
     step("Ensuring dockerd is started");
-    let start_cmd = "if [ -d /run/systemd/system ]; then systemctl is-active --quiet docker || systemctl start docker; else service docker status >/dev/null 2>&1 || service docker start; fi";
-    let _ = wsl::run(&["-d", DISTRO, "-u", "root", "--", "bash", "-lc", start_cmd]);
+    let _ = wsl::run(&[
+        "-d", DISTRO, "-u", "root", "--",
+        "/usr/local/sbin/dockwin-supervise.sh",
+    ]);
 
     step("Waiting for dockerd to become reachable");
     let deadline = Instant::now() + Duration::from_secs(timeout_secs);
@@ -1037,7 +1040,7 @@ pub fn start(timeout_secs: u64) -> Result<()> {
         }
         if Instant::now() >= deadline {
             warn(&format!("dockerd not reachable after {timeout_secs}s."));
-            warn("diagnose: wsl -d dockwin -u root -- journalctl -u docker --no-pager -n 50");
+            warn("diagnose: wsl -d dockwin -u root -- tail -n 50 /var/log/dockwin-dockerd.log");
             bail!("engine did not come up");
         }
         sleep(Duration::from_secs(1));
@@ -1057,9 +1060,15 @@ pub fn stop(terminate: bool) -> Result<()> {
         return Ok(());
     }
     step("Stopping dockerd");
-    let stop_cmd = "if [ -d /run/systemd/system ]; then systemctl stop docker.socket docker.service 2>/dev/null || systemctl stop docker 2>/dev/null || true; else service docker stop 2>/dev/null || true; fi";
+    // Kill the SUPERVISOR LOOP first so it stops respawning dockerd, THEN SIGTERM
+    // dockerd for a clean shutdown; finally drop the pidfile. Order matters: if we
+    // killed dockerd first the supervisor would immediately restart it.
+    let stop_cmd = "if [ -f /run/dockwin-supervise.pid ]; then \
+        kill \"$(cat /run/dockwin-supervise.pid)\" 2>/dev/null || true; fi; \
+        pkill -TERM dockerd 2>/dev/null || true; \
+        rm -f /run/dockwin-supervise.pid";
     let _ = wsl::run(&["-d", DISTRO, "-u", "root", "--", "bash", "-lc", stop_cmd]);
-    ok("dockerd stopped (systemd will restart it on next boot unless disabled).");
+    ok("dockerd stopped (the supervisor restarts it on next distro boot).");
 
     if terminate {
         step(&format!("Terminating distro '{DISTRO}' to free memory"));
@@ -1273,10 +1282,13 @@ pub fn update_engine_reporting(report: &dyn Fn(Progress)) -> Result<()> {
         bail!("docker package upgrade exited with an error (see the log above)");
     }
 
-    // Restart dockerd so a new daemon binary actually takes effect.
+    // Restart dockerd so a new daemon binary actually takes effect. Non-systemd
+    // model: SIGTERM the running dockerd and let the supervisor respawn it (~2s)
+    // on the upgraded binary; if no supervisor is running, (re)invoke it to start
+    // one. `pkill` is best-effort — a fresh supervisor start covers the cold case.
     report(Progress::step("restart", 90.0, "Restarting dockerd"));
-    let restart = "if [ -d /run/systemd/system ]; then systemctl restart docker; \
-        else service docker restart; fi";
+    let restart = "pkill -TERM dockerd 2>/dev/null || true; \
+        /usr/local/sbin/dockwin-supervise.sh";
     let _ = wsl::run(&["-d", DISTRO, "-u", "root", "--", "bash", "-lc", restart]);
 
     report(Progress::step("verify", 95.0, "Verifying dockerd"));
@@ -1290,7 +1302,7 @@ pub fn update_engine_reporting(report: &dyn Fn(Progress)) -> Result<()> {
             "verify",
             98.0,
             "could not confirm dockerd after the upgrade; check: \
-             wsl -d dockwin -u root -- journalctl -u docker",
+             wsl -d dockwin -u root -- tail -n 50 /var/log/dockwin-dockerd.log",
         )),
     }
     report(Progress::step("done", 100.0, "Docker engine up to date."));
