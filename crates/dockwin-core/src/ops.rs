@@ -656,9 +656,26 @@ pub fn install_reporting(opts: InstallOpts, report: &dyn Fn(Progress)) -> Result
     wsl::write_into_distro(&wsl_conf, "/etc/wsl.conf", "0644")?;
 
     report(Progress::info("configure", 81.0, "applying wsl.conf (restarting distro to enable systemd)"));
-    let _ = wsl::run(&["--shutdown"]);
+    // Terminate ONLY our distro — not a global `wsl --shutdown`, which would also
+    // tear down every other running distro (e.g. a Docker Desktop VM) and can
+    // block for a long time on locked-down machines. A distro re-reads its
+    // /etc/wsl.conf on the next start, so terminating just `dockwin` is enough to
+    // pick up `systemd=true`.
+    let _ = wsl::run(&["--terminate", DISTRO]);
     sleep(Duration::from_secs(3));
-    wsl::run_checked(&["-d", DISTRO, "-u", "root", "--", "true"])?;
+    // Cold-boot the distro with systemd now as PID 1. Bound this: systemd can
+    // stall on network-unit timeouts (and endpoint security further delays the VM
+    // start), and without a timeout the install would appear frozen here with no
+    // output. 120s is generous for a healthy boot but still fails fast when wedged.
+    report(Progress::info("configure", 81.0, "waiting for the distro to come back up with systemd…"));
+    let rebooted = wsl::run_with_timeout(
+        &["-d", DISTRO, "-u", "root", "--", "true"],
+        Duration::from_secs(120),
+    )
+    .context("distro did not come back up after applying wsl.conf")?;
+    if !rebooted {
+        bail!("distro failed to restart after applying wsl.conf (systemd may not have come up)");
+    }
 
     // --- 5. Provision inside ------------------------------------------------
     report(Progress::step("provision", 82.0, "Installing Docker Engine inside the distro (a few minutes)…"));

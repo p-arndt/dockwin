@@ -13,6 +13,8 @@
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::thread::sleep;
+use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Result};
 
@@ -128,6 +130,40 @@ pub fn run_checked(args: &[&str]) -> Result<()> {
         bail!("`wsl.exe {}` failed", args.join(" "));
     }
     Ok(())
+}
+
+/// Run `wsl.exe <args>` inheriting stdio, but give up after `timeout`.
+///
+/// Returns `Ok(true)` on a clean exit and `Ok(false)` on a non-zero exit. If the
+/// child is still running after `timeout` it is killed and this returns an error.
+/// Used for operations that can wedge indefinitely with no output — notably the
+/// first cold-boot after enabling `systemd` in `wsl.conf`, which can stall on
+/// systemd's network-unit timeouts and is further slowed by endpoint-security
+/// software inspecting the VM start. Without a bound the whole install would
+/// appear frozen there (`wsl::run`'s `.status()` waits forever).
+pub fn run_with_timeout(args: &[&str], timeout: Duration) -> Result<bool> {
+    let mut child = command("wsl.exe")
+        .args(args)
+        .spawn()
+        .context("failed to spawn wsl.exe")?;
+    let start = Instant::now();
+    loop {
+        if let Some(status) = child.try_wait().context("failed to poll wsl.exe")? {
+            return Ok(status.success());
+        }
+        if start.elapsed() >= timeout {
+            let _ = child.kill();
+            let _ = child.wait();
+            bail!(
+                "`wsl.exe {}` did not finish within {}s (killed). The distro is \
+                 likely stuck booting systemd — check endpoint-security software \
+                 and other running WSL distros.",
+                args.join(" "),
+                timeout.as_secs()
+            );
+        }
+        sleep(Duration::from_millis(250));
+    }
 }
 
 /// Run `wsl.exe <args>` capturing stdout line-by-line, invoking `on_line` for
