@@ -536,7 +536,15 @@ pub fn install(opts: InstallOpts) -> Result<()> {
 /// Set `terminate_first` to force a fresh boot on the first attempt too — used
 /// right after writing a new wsl.conf so `systemd=true` is actually picked up.
 fn boot_distro_resilient(report: &dyn Fn(Progress), terminate_first: bool) -> Result<()> {
-    const ATTEMPTS: u32 = 3;
+    const ATTEMPTS: u32 = 6;
+    // A HEALTHY cold-boot is fast: systemd reaches its target in well under a
+    // second and the `-- true` exec returns within a few seconds (measured <15s
+    // on the locked-down laptop this guards). The wedge, by contrast, either fails
+    // *instantly* (E_UNEXPECTED — handled as a non-timeout below) or hangs
+    // essentially forever. So a SHORT per-attempt cap loses nothing on a good boot
+    // yet catches a hang quickly and spends the budget on MORE retries — each a
+    // fresh roll of the timing dice — instead of a few long, doomed waits.
+    const BOOT_TIMEOUT: Duration = Duration::from_secs(45);
     // Remembered across attempts so the final error can quote what WSL actually
     // said (the E_UNEXPECTED wedge, a MountVhd error, …) instead of a generic
     // "would not start".
@@ -544,7 +552,14 @@ fn boot_distro_resilient(report: &dyn Fn(Progress), terminate_first: bool) -> Re
     for attempt in 1..=ATTEMPTS {
         if terminate_first || attempt > 1 {
             let _ = wsl::run(&["--terminate", DISTRO]);
-            sleep(Duration::from_secs(3));
+            // GROWING backoff before re-booting. The E_UNEXPECTED / hang is a race
+            // in WSL's teardown↔startup window for the shared WSL2 VM — worse when
+            // another distro (e.g. docker-desktop) keeps that VM alive and endpoint
+            // security inspects the VM start. Rushing terminate→boot re-triggers
+            // it; giving the VM progressively more time to fully drop the instance
+            // lets the window clear. Capped so worst-case runtime stays bounded.
+            let backoff = (3 + (attempt - 1) * 2).min(15) as u64;
+            sleep(Duration::from_secs(backoff));
         }
         report(Progress::info(
             "configure",
@@ -563,7 +578,7 @@ fn boot_distro_resilient(report: &dyn Fn(Progress), terminate_first: bool) -> Re
         };
         match wsl::run_with_timeout_captured(
             &["-d", DISTRO, "-u", "root", "--", "true"],
-            Duration::from_secs(90),
+            BOOT_TIMEOUT,
             &mut on_tick,
         ) {
             Ok((true, _)) => return Ok(()),
