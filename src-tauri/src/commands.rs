@@ -219,8 +219,12 @@ pub async fn engine_provision(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     enable_tcp: Option<bool>,
+    proxy: Option<String>,
 ) -> Result<(), String> {
     let enable_tcp = enable_tcp.unwrap_or(false);
+    // Empty string from the GUI field means "no explicit proxy" -> fall back to
+    // whatever WSL injects inside the distro.
+    let proxy = proxy.map(|p| p.trim().to_string()).filter(|p| !p.is_empty());
     let app2 = app.clone();
     let result = tokio::task::spawn_blocking(move || {
         let report = move |p: dockwin_core::ops::Progress| {
@@ -239,6 +243,7 @@ pub async fn engine_provision(
         dockwin_core::backend::detect().install(
             dockwin_core::ops::InstallOpts {
                 enable_tcp,
+                proxy,
                 ..Default::default()
             },
             &report,

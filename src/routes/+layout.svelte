@@ -88,6 +88,7 @@
       engineBusy={app.engineBusy}
       repairing={app.repairing}
       bind:enableTcp={app.enableTcp}
+      bind:proxy={app.proxy}
       onProvision={() => app.provisionEngine()}
       onStart={() => app.toggleEngine()}
       onRepair={() => app.repairEngine()}

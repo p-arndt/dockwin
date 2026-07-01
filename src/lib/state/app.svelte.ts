@@ -42,6 +42,7 @@ export class AppController {
   // Setup / teardown (provisioning is long-running — minutes).
   working = $state(false); // provision or teardown in flight
   enableTcp = $state(false); // opt into the insecure loopback-TCP fallback
+  proxy = $state(""); // optional HTTP(S) proxy for in-distro apt/docker (empty = auto)
   withBackup = $state(false); // export a .tar before teardown
   provision = $state<ProvisionUi | null>(null); // live provisioning progress
 
@@ -364,7 +365,7 @@ export class AppController {
     this.provision = { pct: 0, phase: "preflight", message: "Starting setup…", log: [] };
     this.setFooter("Setting up engine… this can take several minutes.");
     try {
-      await api.engineProvision(this.enableTcp);
+      await api.engineProvision(this.enableTcp, this.proxy);
       this.setFooter("Engine set up. Starting…");
     } catch (e) {
       this.setFooter(`Setup failed: ${api.errText(e)}`, true);

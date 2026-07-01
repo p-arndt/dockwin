@@ -99,6 +99,30 @@ dockwin status        # is it registered/running and is dockerd reachable?
 dockwin uninstall    # tear down (add --backup to export a .tar first)
 ```
 
+### Behind a corporate proxy
+
+Provisioning downloads the Ubuntu image and installs Docker via `apt`, so a
+locked-down host that only reaches the internet through a proxy needs that proxy
+configured. By default dockwin **auto-detects**: it uses the proxy WSL injects
+from Windows *only if that proxy is actually reachable* from inside the distro,
+and otherwise provisions with direct egress (so an inherited corporate proxy that
+can't be resolved off the VPN/LAN no longer blocks setup). A chosen proxy is
+threaded into the distro's `apt`, `curl` and `dockerd` (runtime `docker pull`)
+consistently. To override:
+
+```powershell
+# GUI: type into the optional "HTTP(S) proxy" field on the setup screen.
+dockwin install --proxy http://USER:PASS@HOST:PORT   # force a specific proxy
+dockwin install --proxy direct                       # force proxy-less egress
+```
+
+> [!TIP]
+> Many corporate proxies use **Negotiate/Kerberos**, which `apt` can't
+> authenticate to even with `user:pass` (you'll see `407 Proxy authentication
+> required` in the log). Run a local no-auth forwarder that does the
+> Windows-credential handshake for you (e.g. [`px`](https://github.com/genotrance/px)
+> or `cntlm`) and point dockwin at it: `--proxy http://127.0.0.1:3128`.
+
 ### Point the stock Docker CLI at dockwin (optional)
 
 ```powershell

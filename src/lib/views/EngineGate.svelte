@@ -14,6 +14,7 @@
   import StatusDot from "../components/StatusDot.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
+  import { Input } from "$lib/components/ui/input/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
   import * as Alert from "$lib/components/ui/alert/index.js";
   import type { EngineState, ProvisionUi } from "../types";
@@ -25,6 +26,7 @@
     engineBusy,
     repairing,
     enableTcp = $bindable(),
+    proxy = $bindable(),
     onProvision,
     onStart,
     onRepair,
@@ -36,12 +38,38 @@
     engineBusy: boolean;
     repairing: boolean;
     enableTcp: boolean;
+    proxy: string;
     onProvision: () => void;
     onStart: () => void;
     onRepair: () => void;
     onRetry: () => void;
   } = $props();
 </script>
+
+<!-- Optional HTTP(S) proxy field, shared by first-run setup and finish-setup.
+     Empty = use whatever proxy WSL injects from Windows. -->
+{#snippet proxyField()}
+  <div class="mt-[16px]">
+    <Label for="proxy-url" class="text-[13px] text-muted-foreground">
+      HTTP(S) proxy (optional)
+    </Label>
+    <Input
+      id="proxy-url"
+      type="text"
+      bind:value={proxy}
+      disabled={working}
+      placeholder={'http://127.0.0.1:3128, http://user:pass@host:port, or "direct"'}
+      class="mt-[7px] font-mono text-[12.5px]"
+    />
+    <p class="mt-[6px] text-[12px] leading-[1.5] text-muted-foreground/80">
+      Leave empty to auto-detect — the Windows proxy is used only if it's actually
+      reachable, otherwise setup goes direct. Type <span class="font-mono">direct</span>
+      to force a proxy-less setup. If your corporate proxy needs a login (HTTP&nbsp;407
+      in the log), point this at a local no-auth forwarder (e.g. px/cntlm) or put
+      credentials in the URL.
+    </p>
+  </div>
+{/snippet}
 
 <div
   class="flex flex-1 min-h-0 items-center justify-center overflow-auto p-[24px]"
@@ -158,6 +186,8 @@
         </Label>
       </div>
 
+      {@render proxyField()}
+
       <div class="flex mt-[18px]">
         <Button disabled={working} onclick={onProvision}>
           <DownloadCloud aria-hidden="true" />
@@ -237,6 +267,8 @@
           it left off (it's safe to re-run) and completes the install.
         </Alert.Description>
       </Alert.Root>
+
+      {@render proxyField()}
 
       <div class="flex mt-[18px]">
         <Button disabled={working} onclick={onProvision}>

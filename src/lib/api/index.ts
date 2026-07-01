@@ -62,8 +62,9 @@ export function engineStop(): Promise<void> {
 
 // Provision the dedicated WSL2 engine distro end-to-end (download/import rootfs,
 // install dockerd, wire the docker context). Long-running — minutes.
-export function engineProvision(enableTcp = false): Promise<void> {
-  return invoke("engine_provision", { enableTcp });
+export function engineProvision(enableTcp = false, proxy = ""): Promise<void> {
+  // Empty proxy -> null: the backend then falls back to the proxy WSL injects.
+  return invoke("engine_provision", { enableTcp, proxy: proxy.trim() || null });
 }
 
 // Tear down the engine distro (wsl --unregister) + remove docker context(s).

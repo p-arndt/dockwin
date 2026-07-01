@@ -53,6 +53,20 @@ enum Commands {
         /// Also enable the INSECURE loopback TCP (127.0.0.1:2375) fallback.
         #[arg(long)]
         enable_tcp: bool,
+
+        /// HTTP(S) proxy for the in-distro apt/curl/dockerd, e.g.
+        /// http://user:pass@host:port or a local no-auth forwarder
+        /// http://127.0.0.1:3128 (the reliable path for Negotiate/Kerberos
+        /// proxies). Use "direct" (or "none") to force proxy-less egress.
+        /// Omit to auto-detect: the WSL-injected Windows proxy is used only if
+        /// it's actually reachable, otherwise provisioning goes direct.
+        #[arg(long)]
+        proxy: Option<String>,
+
+        /// Comma-separated no-proxy hosts for the in-distro apt/docker
+        /// (default: localhost,127.0.0.1,::1).
+        #[arg(long)]
+        no_proxy: Option<String>,
     },
 
     /// Boot the distro and bring dockerd up.
@@ -170,6 +184,8 @@ fn main() -> ExitCode {
             wsl_conf,
             provision_script,
             enable_tcp,
+            proxy,
+            no_proxy,
         } => {
             let opts = InstallOpts {
                 rootfs,
@@ -177,6 +193,8 @@ fn main() -> ExitCode {
                 wsl_conf,
                 provision_script,
                 enable_tcp,
+                proxy,
+                no_proxy,
             };
             dockwin_core::backend::detect()
                 .install(opts, &|p| dockwin_core::ops::print_progress(&p))

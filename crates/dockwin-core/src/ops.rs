@@ -514,11 +514,45 @@ pub struct InstallOpts {
     pub wsl_conf: Option<PathBuf>,
     pub provision_script: Option<PathBuf>,
     pub enable_tcp: bool,
+    /// HTTP(S) proxy for the in-distro apt/curl/dockerd (e.g.
+    /// `http://user:pass@host:port`, or a local no-auth forwarder like
+    /// `http://127.0.0.1:3128`). `direct`/`none` forces proxy-less egress.
+    /// `None`/empty auto-detects: it uses the proxy WSL injects from Windows only
+    /// if that proxy is actually reachable, otherwise falls back to direct.
+    pub proxy: Option<String>,
+    /// Comma-separated no-proxy hosts. `None` uses the in-distro default
+    /// (`localhost,127.0.0.1,::1`).
+    pub no_proxy: Option<String>,
 }
 
 /// Provision the engine, printing progress to stdout (the CLI path).
 pub fn install(opts: InstallOpts) -> Result<()> {
     install_reporting(opts, &|p| print_progress(&p))
+}
+
+/// Single-quote a value for safe inclusion in a `bash -lc` command line. Proxy
+/// URLs carry `:`/`/`/`@` and arbitrary password punctuation, so wrap in single
+/// quotes and escape any embedded single quote the POSIX way (`'\''`).
+fn sh_single_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
+
+/// Mask the password in a `scheme://user:pass@host` proxy URL for logging, so
+/// credentials never land in the provisioning log. Non-URL / passwordless values
+/// pass through unchanged.
+fn redact_proxy(url: &str) -> String {
+    if let (Some(scheme_end), Some(at)) = (url.find("://"), url.find('@')) {
+        let creds = &url[scheme_end + 3..at];
+        if let Some(colon) = creds.find(':') {
+            return format!(
+                "{}://{}:***@{}",
+                &url[..scheme_end],
+                &creds[..colon],
+                &url[at + 1..]
+            );
+        }
+    }
+    url.to_string()
 }
 
 /// Boot the dockwin distro and return only once a trivial `-- true` exec
@@ -773,12 +807,25 @@ pub fn install_reporting(opts: InstallOpts, report: &dyn Fn(Progress)) -> Result
     let provision = load_text_asset(opts.provision_script, "provision-inside.sh", EMBEDDED_PROVISION)?;
     wsl::write_into_distro(&provision, "/usr/local/sbin/dockwin-provision.sh", "0755")?;
 
-    let env_prefix = if opts.enable_tcp {
+    // Build the env prefix for the in-distro provisioning script. Each value is
+    // single-quoted (proxy URLs carry `:`/`/`/`@` and password punctuation) so
+    // `bash -lc` treats it literally.
+    let mut env_prefix = String::new();
+    if opts.enable_tcp {
         report(Progress::warn("provision", 82.0, "TCP fallback enabled: dockerd will ALSO bind 127.0.0.1:2375 (INSECURE)"));
-        "DOCKWIN_ENABLE_TCP=1 "
-    } else {
-        ""
-    };
+        env_prefix.push_str("DOCKWIN_ENABLE_TCP=1 ");
+    }
+    if let Some(p) = opts.proxy.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        if matches!(p.to_ascii_lowercase().as_str(), "direct" | "none" | "off") {
+            report(Progress::info("provision", 82.0, "proxy disabled: provisioning with direct egress".to_string()));
+        } else {
+            report(Progress::info("provision", 82.0, format!("routing in-distro apt/docker through proxy: {}", redact_proxy(p))));
+        }
+        env_prefix.push_str(&format!("DOCKWIN_PROXY={} ", sh_single_quote(p)));
+    }
+    if let Some(np) = opts.no_proxy.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        env_prefix.push_str(&format!("DOCKWIN_NO_PROXY={} ", sh_single_quote(np)));
+    }
     // Stream the in-distro apt/docker output line-by-line so the GUI shows life.
     // pct creeps from 82 toward 95 as lines arrive (capped — duration is unknown).
     let cmd = format!("{env_prefix}/usr/local/sbin/dockwin-provision.sh 2>&1");
