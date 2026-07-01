@@ -661,20 +661,43 @@ pub fn install_reporting(opts: InstallOpts, report: &dyn Fn(Progress)) -> Result
     // block for a long time on locked-down machines. A distro re-reads its
     // /etc/wsl.conf on the next start, so terminating just `dockwin` is enough to
     // pick up `systemd=true`.
-    let _ = wsl::run(&["--terminate", DISTRO]);
-    sleep(Duration::from_secs(3));
-    // Cold-boot the distro with systemd now as PID 1. Bound this: systemd can
-    // stall on network-unit timeouts (and endpoint security further delays the VM
-    // start), and without a timeout the install would appear frozen here with no
-    // output. 120s is generous for a healthy boot but still fails fast when wedged.
+    //
+    // The FIRST systemd cold-boot can transiently wedge WSL: the distro shows up
+    // as "Running" but every exec fails with `Wsl/Service/E_UNEXPECTED` and it
+    // never becomes usable (seen on locked-down machines with other distros
+    // running / endpoint security inspecting the VM start). A `--terminate` +
+    // retry reliably clears that wedge, so boot in a bounded, self-healing loop
+    // instead of a single shot: each attempt is time-capped (so a genuine hang
+    // fails fast with output instead of freezing silently), and a failed attempt
+    // terminates the distro before the next try.
     report(Progress::info("configure", 81.0, "waiting for the distro to come back up with systemd…"));
-    let rebooted = wsl::run_with_timeout(
-        &["-d", DISTRO, "-u", "root", "--", "true"],
-        Duration::from_secs(120),
-    )
-    .context("distro did not come back up after applying wsl.conf")?;
+    let mut rebooted = false;
+    for attempt in 1..=3 {
+        let _ = wsl::run(&["--terminate", DISTRO]);
+        sleep(Duration::from_secs(3));
+        if wsl::run_with_timeout(
+            &["-d", DISTRO, "-u", "root", "--", "true"],
+            Duration::from_secs(90),
+        )
+        .unwrap_or(false)
+        {
+            rebooted = true;
+            break;
+        }
+        if attempt < 3 {
+            report(Progress::warn(
+                "configure",
+                81.0,
+                "distro did not come up cleanly; resetting it and retrying…",
+            ));
+        }
+    }
     if !rebooted {
-        bail!("distro failed to restart after applying wsl.conf (systemd may not have come up)");
+        bail!(
+            "distro '{DISTRO}' would not restart cleanly with systemd after applying \
+             wsl.conf (tried 3×). This is usually endpoint-security software delaying \
+             the WSL VM start — try `dockwin install` again, or reboot Windows first."
+        );
     }
 
     // --- 5. Provision inside ------------------------------------------------
