@@ -8,11 +8,11 @@
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
-  import Container from "@lucide/svelte/icons/container";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
   import AppSidebar, { type View } from "$lib/components/AppSidebar.svelte";
+  import Titlebar from "$lib/components/Titlebar.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import ConfirmHost from "$lib/components/ConfirmHost.svelte";
   import StatusDot from "$lib/components/StatusDot.svelte";
@@ -51,22 +51,18 @@
   });
 </script>
 
+<!-- Custom window frame (native decorations are off): brand + drag region +
+     min/max/close, sitting above whichever shell state is active below. -->
+<div class="flex flex-col h-screen">
+  <Titlebar />
+  <div class="flex-1 min-h-0">
 {#if !app.engineReady}
-  <!-- Engine lifecycle: a slim branded bar (so theme is still toggleable) + the
+  <!-- Engine lifecycle: a slim status bar (so theme is still toggleable) + the
        full-window EngineGate, which owns set-up / progress / start / unreachable. -->
-  <div class="flex flex-col h-screen min-h-0">
+  <div class="flex flex-col h-full min-h-0">
     <div
       class="flex items-center gap-[14px] pl-[22px] pr-[16px] h-[50px] shrink-0 border-b border-border text-muted-foreground text-[12px]"
     >
-      <span class="flex items-center gap-[9px] p-0">
-        <span
-          class="grid place-items-center shrink-0 size-[26px] rounded-[8px] bg-primary text-primary-foreground"
-        >
-          <Container size={19} aria-hidden="true" />
-        </span>
-        <span class="font-[680] text-[14px] tracking-[-0.2px] leading-[1.1]">dockwin</span>
-      </span>
-      <span class="w-px h-[13px] bg-border"></span>
       <span class="flex items-center gap-[7px] text-muted-foreground font-medium"
         ><StatusDot
           tone={app.engineTone === "warn" ? "warn" : app.engineTone === "off" ? "off" : "run"}
@@ -96,7 +92,7 @@
     />
   </div>
 {:else}
-  <Sidebar.Provider class="h-screen overflow-hidden">
+  <Sidebar.Provider class="h-full min-h-0 overflow-hidden">
     <AppSidebar
       {activeView}
       counts={app.navCounts}
@@ -146,6 +142,8 @@
     </Sidebar.Inset>
   </Sidebar.Provider>
 {/if}
+  </div>
+</div>
 
 <!-- In-app update toast (app + engine). Fixed-position; checks on mount. -->
 <UpdateBanner />

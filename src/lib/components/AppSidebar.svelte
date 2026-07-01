@@ -40,7 +40,6 @@
 </script>
 
 <script lang="ts">
-  import Container from "@lucide/svelte/icons/container";
   import Settings from "@lucide/svelte/icons/settings";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
   import StatusDot from "./StatusDot.svelte";
@@ -65,22 +64,6 @@
 </script>
 
 <Sidebar.Root collapsible="icon">
-  <Sidebar.Header>
-    <div
-      class="flex items-center gap-3 p-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
-    >
-      <span
-        class="flex aspect-square size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-[0_4px_14px_-4px_rgba(166,227,91,0.35),inset_0_1px_0_rgba(255,255,255,0.25)]"
-      >
-        <Container size={19} aria-hidden="true" />
-      </span>
-      <div class="grid flex-1 leading-tight group-data-[collapsible=icon]:hidden">
-        <span class="text-sm font-semibold tracking-tight">dockwin</span>
-        <span class="text-[11px] text-muted-foreground">Docker workspace</span>
-      </div>
-    </div>
-  </Sidebar.Header>
-
   <Sidebar.Content>
     {#each NAV_SECTIONS as section (section)}
       <Sidebar.Group>
