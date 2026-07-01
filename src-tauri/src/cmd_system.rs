@@ -227,6 +227,90 @@ impl DockerClient {
 
         Ok(out)
     }
+
+    /// Force-remove EVERYTHING the engine knows about, in use or not: stops &
+    /// removes all containers (running included), then all images, all volumes,
+    /// and all user-defined networks. This is the irreversible "wipe the engine"
+    /// action — a hard superset of [`Self::system_prune`] that ignores whether an
+    /// object is currently in use. Individual failures are tolerated so one stuck
+    /// object can't abort the whole sweep. Space reclaimed is estimated from the
+    /// disk-usage totals measured before and after.
+    pub async fn system_wipe(&self) -> crate::docker::Result<PruneResultDto> {
+        let mut out = PruneResultDto::default();
+
+        // Snapshot usage up front so we can report roughly how much we freed.
+        let before = self.disk_usage().await.ok();
+
+        // Containers first: force-remove stops running ones and releases their
+        // holds on volumes/networks so the later sweeps can succeed.
+        let containers = self
+            .inner()
+            .list_containers(Some(bollard::container::ListContainersOptions::<String> {
+                all: true,
+                ..Default::default()
+            }))
+            .await?;
+        for c in &containers {
+            if let Some(id) = c.id.as_deref() {
+                if self.remove_container(id, true).await.is_ok() {
+                    out.containers_deleted += 1;
+                }
+            }
+        }
+
+        // Images: force so tagged images referenced by multiple tags still go.
+        let images = self
+            .inner()
+            .list_images(Some(bollard::image::ListImagesOptions::<String> {
+                all: true,
+                ..Default::default()
+            }))
+            .await?;
+        for img in &images {
+            if self.remove_image(&img.id, true, false).await.is_ok() {
+                out.images_deleted += 1;
+            }
+        }
+
+        // Volumes: every named volume now that no container is holding one.
+        let vols = self
+            .inner()
+            .list_volumes(None::<bollard::volume::ListVolumesOptions<String>>)
+            .await?;
+        for v in vols.volumes.unwrap_or_default() {
+            if self.remove_volume(&v.name, true).await.is_ok() {
+                out.volumes_deleted += 1;
+            }
+        }
+
+        // Networks: every user-defined network. The built-in bridge/host/none are
+        // undeletable, so skip them to avoid guaranteed errors.
+        let networks = self
+            .inner()
+            .list_networks(None::<bollard::network::ListNetworksOptions<String>>)
+            .await?;
+        for n in &networks {
+            let name = n.name.clone().unwrap_or_default();
+            if matches!(name.as_str(), "bridge" | "host" | "none") {
+                continue;
+            }
+            if let Some(id) = n.id.as_deref() {
+                if self.remove_network(id).await.is_ok() {
+                    out.networks_deleted += 1;
+                }
+            }
+        }
+
+        // Estimate reclaimed bytes from the disk-usage delta across all buckets.
+        if let (Some(before), Ok(after)) = (before, self.disk_usage().await) {
+            let total = |df: &SystemDfDto| {
+                df.images.size + df.containers.size + df.volumes.size + df.build_cache.size
+            };
+            out.space_reclaimed = (total(&before) - total(&after)).max(0);
+        }
+
+        Ok(out)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -256,4 +340,10 @@ pub async fn system_prune(
         .system_prune(all_images.unwrap_or(false), volumes.unwrap_or(false))
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn system_wipe(state: tauri::State<'_, AppState>) -> Result<PruneResultDto, String> {
+    let client = state.get_client().await?;
+    client.system_wipe().await.map_err(|e| e.to_string())
 }

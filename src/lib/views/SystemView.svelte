@@ -18,6 +18,7 @@
     systemDf,
     systemInfo,
     systemPrune,
+    systemWipe,
     humanBytes,
     type SystemDfDto,
     type SystemInfoDto,
@@ -48,6 +49,9 @@
   let pruneVolumes = $state(false);
   let pruning = $state(false);
   let pruneResult = $state("");
+
+  // Full-wipe state (force-remove everything, in use or not).
+  let wiping = $state(false);
 
   let busy = false; // non-reactive guard against overlapping loads
 
@@ -121,6 +125,46 @@
       errorMsg = `Prune failed: ${errText(e)}`;
     } finally {
       pruning = false;
+    }
+  }
+
+  // Full engine wipe: force-remove everything, whether or not it's in use.
+  // A hard superset of prune — separate handler with its own stern confirm.
+  async function runWipe() {
+    if (wiping || pruning || engineState !== "running") return;
+    const parts: string[] = [];
+    if (df) {
+      if (df.containers.count) parts.push(`${df.containers.count} container(s)`);
+      if (df.images.count) parts.push(`${df.images.count} image(s)`);
+      if (df.volumes.count) parts.push(`${df.volumes.count} volume(s)`);
+    }
+    const running = info?.containers_running ?? 0;
+    const description =
+      (parts.length
+        ? `This will force-remove ${parts.join(", ")} plus all user-defined networks`
+        : "This will force-remove all containers, images, volumes, and user-defined networks") +
+      (running ? `, including ${running} running container(s)` : "") +
+      ". Everything is deleted whether or not it is in use. This cannot be undone.";
+    if (
+      !(await confirmDialog({
+        title: "Remove everything?",
+        description,
+        destructive: true,
+        confirmText: "Remove everything",
+      }))
+    )
+      return;
+    wiping = true;
+    pruneResult = "";
+    errorMsg = "";
+    try {
+      const res = await systemWipe();
+      pruneResult = `Removed everything · reclaimed ${humanBytes(res.space_reclaimed)} · ${res.containers_deleted} container(s), ${res.images_deleted} image(s), ${res.networks_deleted} network(s), ${res.volumes_deleted} volume(s).`;
+      await load(); // refresh the disk-usage table
+    } catch (e) {
+      errorMsg = `Remove everything failed: ${errText(e)}`;
+    } finally {
+      wiping = false;
     }
   }
 
@@ -264,7 +308,7 @@
       <span class="size-[30px] rounded-[8px] shrink-0 grid place-items-center bg-muted border border-border text-muted-foreground [&_svg]:size-[15px]"><Trash2 aria-hidden="true" /></span>
       <div>
         <div class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-muted-foreground/70">Reclaim space</div>
-        <p class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground mt-[4px]">Removes stopped containers, unused images, and unused networks.</p>
+        <p class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground mt-[4px]">Removes stopped containers, unused images, and unused networks — only things not in use.</p>
       </div>
     </div>
 
@@ -272,7 +316,7 @@
       <Checkbox
         id="prune-all-images"
         bind:checked={allImages}
-        disabled={pruning || !engineRunning}
+        disabled={pruning || wiping || !engineRunning}
       />
       <Label for="prune-all-images">Remove all unused images, not just dangling</Label>
     </div>
@@ -280,16 +324,15 @@
       <Checkbox
         id="prune-volumes"
         bind:checked={pruneVolumes}
-        disabled={pruning || !engineRunning}
+        disabled={pruning || wiping || !engineRunning}
       />
       <Label for="prune-volumes">Also remove unused volumes</Label>
     </div>
 
     <div class="flex items-center gap-[12px] flex-wrap mt-[2px]">
       <Button
-        disabled={pruning || !engineRunning}
+        disabled={pruning || wiping || !engineRunning}
         onclick={runPrune}
-        variant={allImages ? "destructive" : "default"}
       >
         <Trash2 aria-hidden="true" />
         {pruning ? "Pruning…" : "Prune unused"}
@@ -297,6 +340,27 @@
       {#if pruneResult}
         <span class="inline-flex items-center gap-[7px] text-[12.5px] text-chart-2 select-text [&_svg]:size-[14px] [&_svg]:shrink-0"><CircleCheck aria-hidden="true" />{pruneResult}</span>
       {/if}
+    </div>
+
+    <!-- Danger zone: force-remove everything, in use or not. -->
+    <div class="mt-[6px] pt-[14px] border-t border-destructive/20 flex flex-col gap-[10px]">
+      <div class="flex items-start gap-[11px]">
+        <span class="size-[30px] rounded-[8px] shrink-0 grid place-items-center bg-destructive/10 border border-destructive/25 text-destructive [&_svg]:size-[15px]"><TriangleAlert aria-hidden="true" /></span>
+        <div>
+          <div class="text-[10.5px] font-[650] tracking-[0.7px] uppercase text-destructive/80">Danger zone</div>
+          <p class="max-w-[64ch] text-[13px] leading-[1.6] text-muted-foreground mt-[4px]">Force-removes <span class="text-foreground font-medium">everything</span> — all containers (even running), images, volumes, and networks — whether or not they're in use. This can't be undone.</p>
+        </div>
+      </div>
+      <div>
+        <Button
+          disabled={pruning || wiping || !engineRunning}
+          onclick={runWipe}
+          variant="destructive"
+        >
+          <TriangleAlert aria-hidden="true" />
+          {wiping ? "Removing…" : "Remove everything"}
+        </Button>
+      </div>
     </div>
   </section>
 

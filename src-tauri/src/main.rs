@@ -208,6 +208,7 @@ fn main() {
             cmd_system::system_df,
             cmd_system::system_info,
             cmd_system::system_prune,
+            cmd_system::system_wipe,
             // Compose
             commands::compose_up,
             commands::compose_down,

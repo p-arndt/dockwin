@@ -58,6 +58,13 @@ export function systemPrune(
   return invoke<PruneResultDto>("system_prune", { allImages, volumes });
 }
 
+// Force-remove EVERYTHING regardless of whether it's in use: stops & removes all
+// containers, then all images, all volumes, and all user-defined networks.
+// Irreversible — a full engine wipe, not a prune of unused resources.
+export function systemWipe(): Promise<PruneResultDto> {
+  return invoke<PruneResultDto>("system_wipe");
+}
+
 // --- Helpers ---
 
 // Format a byte count as a short human-readable string (B/KB/MB/GB/TB).
