@@ -8,7 +8,6 @@
   // the drag region so clicks register normally. All window calls are guarded so
   // plain-browser dev (no Tauri runtime) degrades to no-ops.
   import { onMount } from "svelte";
-  import Container from "@lucide/svelte/icons/container";
 
   // The current window handle, or null when the Tauri runtime isn't present.
   let appWindow = $state<import("@tauri-apps/api/window").Window | null>(null);
@@ -36,15 +35,11 @@
 
 <div
   data-tauri-drag-region
-  class="flex h-[34px] shrink-0 items-center gap-[9px] border-b border-border bg-card pl-[12px] select-none"
+  class="flex h-[var(--titlebar-h,34px)] shrink-0 items-center gap-[9px] border-b border-border bg-card pl-[12px] select-none"
 >
   <!-- Brand (pointer-events pass through to the drag region) -->
-  <span class="pointer-events-none flex items-center gap-[8px]">
-    <span
-      class="grid size-[20px] place-items-center rounded-[6px] bg-primary text-primary-foreground shadow-[0_2px_8px_-3px_rgba(166,227,91,0.4),inset_0_1px_0_rgba(255,255,255,0.25)]"
-    >
-      <Container size={13} aria-hidden="true" />
-    </span>
+  <span class="pointer-events-none flex items-center gap-[7px]">
+    <img src="/dockwin-mark.png" alt="" width="20" height="20" class="size-[20px] shrink-0" />
     <span class="text-[12.5px] font-semibold tracking-tight leading-none">dockwin</span>
   </span>
 

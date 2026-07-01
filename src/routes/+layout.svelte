@@ -52,8 +52,10 @@
 </script>
 
 <!-- Custom window frame (native decorations are off): brand + drag region +
-     min/max/close, sitting above whichever shell state is active below. -->
-<div class="flex flex-col h-screen">
+     min/max/close, sitting above whichever shell state is active below.
+     --titlebar-h drives the bar height AND the offset applied to the fixed
+     sidebar panel below, so the two never overlap (see Sidebar.Root). -->
+<div class="flex flex-col h-screen [--titlebar-h:34px]">
   <Titlebar />
   <div class="flex-1 min-h-0">
 {#if !app.engineReady}

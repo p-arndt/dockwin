@@ -63,7 +63,13 @@
   } = $props();
 </script>
 
-<Sidebar.Root collapsible="icon">
+<!-- The fixed sidebar panel is pinned to the viewport top (shadcn default); push
+     it below the custom titlebar so it doesn't overlap (--titlebar-h set in the
+     root layout). -->
+<Sidebar.Root
+  collapsible="icon"
+  class="top-[var(--titlebar-h)]! h-[calc(100svh-var(--titlebar-h))]!"
+>
   <Sidebar.Content>
     {#each NAV_SECTIONS as section (section)}
       <Sidebar.Group>
