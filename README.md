@@ -19,8 +19,7 @@ Stock `dockerd` in a single dedicated WSL2 distro · native Tauri GUI · scripta
 </div>
 
 > [!IMPORTANT]
-> Early development. Check [What works / what's stubbed](#what-works--whats-stubbed)
-> before relying on this for anything important.
+> Early development. Report issues if you encounter any problems, and please read the [Known risks & caveats](#known-risks--caveats) section before filing. 
 
 ---
 
