@@ -286,8 +286,7 @@ fn head_content_length(url: &str) -> Option<u64> {
     let text = String::from_utf8_lossy(&out.stdout);
     // After redirects there may be several headers; the last one wins.
     text.lines()
-        .filter(|l| l.to_ascii_lowercase().starts_with("content-length:"))
-        .next_back()
+        .rfind(|l| l.to_ascii_lowercase().starts_with("content-length:"))
         .and_then(|l| l.split(':').nth(1))
         .and_then(|v| v.trim().parse::<u64>().ok())
 }
@@ -521,6 +520,98 @@ pub fn install(opts: InstallOpts) -> Result<()> {
     install_reporting(opts, &|p| print_progress(&p))
 }
 
+/// Boot the dockwin distro and return only once a trivial `-- true` exec
+/// succeeds, in a bounded, self-healing loop.
+///
+/// The first systemd cold-boot — or ANY boot on a *re-provision* where a prior,
+/// interrupted run already wrote `/etc/wsl.conf` with `systemd=true` — can
+/// transiently wedge WSL: the distro shows as "Running" but every exec fails
+/// with `Wsl/Service/E_UNEXPECTED` and it never becomes usable (seen on
+/// locked-down machines with other distros running / endpoint security
+/// inspecting the VM start). A `--terminate` + retry reliably clears that wedge,
+/// and each attempt is time-capped so a genuine hang fails fast with output
+/// instead of freezing silently (a plain `wsl -d … -- true` with no timeout
+/// hangs forever there, freezing the whole install with no further log lines).
+///
+/// Set `terminate_first` to force a fresh boot on the first attempt too — used
+/// right after writing a new wsl.conf so `systemd=true` is actually picked up.
+fn boot_distro_resilient(report: &dyn Fn(Progress), terminate_first: bool) -> Result<()> {
+    const ATTEMPTS: u32 = 3;
+    // Remembered across attempts so the final error can quote what WSL actually
+    // said (the E_UNEXPECTED wedge, a MountVhd error, …) instead of a generic
+    // "would not start".
+    let mut last_output = String::new();
+    for attempt in 1..=ATTEMPTS {
+        if terminate_first || attempt > 1 {
+            let _ = wsl::run(&["--terminate", DISTRO]);
+            sleep(Duration::from_secs(3));
+        }
+        report(Progress::info(
+            "configure",
+            81.0,
+            format!("booting the distro (attempt {attempt}/{ATTEMPTS})…"),
+        ));
+        // Heartbeat every 15s so a slow-but-progressing boot doesn't look frozen.
+        let mut on_tick = |secs: u64| {
+            if secs > 0 && secs % 15 == 0 {
+                report(Progress::info(
+                    "configure",
+                    81.0,
+                    format!("still waiting for the distro to come up… ({secs}s elapsed)"),
+                ));
+            }
+        };
+        match wsl::run_with_timeout_captured(
+            &["-d", DISTRO, "-u", "root", "--", "true"],
+            Duration::from_secs(90),
+            &mut on_tick,
+        ) {
+            Ok((true, _)) => return Ok(()),
+            // Exec ran but exited non-zero (typically the E_UNEXPECTED wedge):
+            // surface WSL's own message so the log shows WHY it failed.
+            Ok((false, out)) => {
+                last_output = out;
+                let detail = last_output
+                    .lines()
+                    .find(|l| !l.trim().is_empty())
+                    .unwrap_or("(no output)");
+                report(Progress::warn(
+                    "configure",
+                    81.0,
+                    format!("distro exec failed (attempt {attempt}/{ATTEMPTS}): {detail}"),
+                ));
+            }
+            // Timed out (killed) — the bail message already carries any output.
+            Err(e) => {
+                last_output = format!("{e:#}");
+                report(Progress::warn(
+                    "configure",
+                    81.0,
+                    format!("boot timed out (attempt {attempt}/{ATTEMPTS}): {last_output}"),
+                ));
+            }
+        }
+        if attempt < ATTEMPTS {
+            report(Progress::warn(
+                "configure",
+                81.0,
+                "resetting the distro and retrying…",
+            ));
+        }
+    }
+    let tail = if last_output.trim().is_empty() {
+        String::new()
+    } else {
+        format!("\n\nLast WSL output:\n{}", last_output.trim())
+    };
+    bail!(
+        "distro '{DISTRO}' would not start cleanly (tried {ATTEMPTS}×). This is \
+         usually endpoint-security software delaying the WSL VM start, or another \
+         WSL distro holding the VM — try `dockwin install` again, or reboot \
+         Windows first.{tail}"
+    );
+}
+
 /// Provision the engine, forwarding every progress update to `report`. The GUI
 /// passes a reporter that re-emits these as Tauri events for its progress bar;
 /// [`install`] passes a stdout printer. The pct values are weighted across the
@@ -632,7 +723,12 @@ pub fn install_reporting(opts: InstallOpts, report: &dyn Fn(Progress)) -> Result
 
     // --- 4. Place /etc/wsl.conf --------------------------------------------
     report(Progress::step("configure", 79.0, "Configuring /etc/wsl.conf"));
-    wsl::run_checked(&["-d", DISTRO, "-u", "root", "--", "true"])?; // ensure booted
+    // Ensure the distro is booted before we exec into it. On a re-provision the
+    // distro can already carry `systemd=true` from a prior interrupted run, so
+    // this very first boot may hit the systemd cold-boot wedge — do it through
+    // the bounded, self-healing helper (a plain unbounded `-- true` here hangs
+    // forever on that wedge, which is what froze the install at 79%).
+    boot_distro_resilient(report, false)?;
 
     // The minimal ubuntu-base rootfs ships no systemd, but our autostart design
     // needs systemd as PID 1 (wsl.conf `systemd=true`). Install it BEFORE the
@@ -660,45 +756,10 @@ pub fn install_reporting(opts: InstallOpts, report: &dyn Fn(Progress)) -> Result
     // tear down every other running distro (e.g. a Docker Desktop VM) and can
     // block for a long time on locked-down machines. A distro re-reads its
     // /etc/wsl.conf on the next start, so terminating just `dockwin` is enough to
-    // pick up `systemd=true`.
-    //
-    // The FIRST systemd cold-boot can transiently wedge WSL: the distro shows up
-    // as "Running" but every exec fails with `Wsl/Service/E_UNEXPECTED` and it
-    // never becomes usable (seen on locked-down machines with other distros
-    // running / endpoint security inspecting the VM start). A `--terminate` +
-    // retry reliably clears that wedge, so boot in a bounded, self-healing loop
-    // instead of a single shot: each attempt is time-capped (so a genuine hang
-    // fails fast with output instead of freezing silently), and a failed attempt
-    // terminates the distro before the next try.
+    // pick up `systemd=true`. `terminate_first` forces that fresh boot so the
+    // newly written wsl.conf actually takes effect.
     report(Progress::info("configure", 81.0, "waiting for the distro to come back up with systemd…"));
-    let mut rebooted = false;
-    for attempt in 1..=3 {
-        let _ = wsl::run(&["--terminate", DISTRO]);
-        sleep(Duration::from_secs(3));
-        if wsl::run_with_timeout(
-            &["-d", DISTRO, "-u", "root", "--", "true"],
-            Duration::from_secs(90),
-        )
-        .unwrap_or(false)
-        {
-            rebooted = true;
-            break;
-        }
-        if attempt < 3 {
-            report(Progress::warn(
-                "configure",
-                81.0,
-                "distro did not come up cleanly; resetting it and retrying…",
-            ));
-        }
-    }
-    if !rebooted {
-        bail!(
-            "distro '{DISTRO}' would not restart cleanly with systemd after applying \
-             wsl.conf (tried 3×). This is usually endpoint-security software delaying \
-             the WSL VM start — try `dockwin install` again, or reboot Windows first."
-        );
-    }
+    boot_distro_resilient(report, true)?;
 
     // --- 5. Provision inside ------------------------------------------------
     report(Progress::step("provision", 82.0, "Installing Docker Engine inside the distro (a few minutes)…"));

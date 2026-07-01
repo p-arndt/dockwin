@@ -166,6 +166,93 @@ pub fn run_with_timeout(args: &[&str], timeout: Duration) -> Result<bool> {
     }
 }
 
+/// Like [`run_with_timeout`] but **captures** stdout+stderr (merged, decoded)
+/// and pings `on_tick(elapsed_secs)` roughly once a second while it waits.
+///
+/// Two reasons this exists over `run_with_timeout`:
+///   * `on_tick` lets a caller emit UI heartbeats during an otherwise silent
+///     boot, so a 90s wait doesn't look frozen.
+///   * on failure OR timeout the captured output is returned/attached, so WSL's
+///     own diagnostic (e.g. `Wsl/Service/E_UNEXPECTED`) surfaces in the log/UI
+///     instead of being swallowed with the killed child.
+///
+/// Returns `Ok((success, output))` on exit. On timeout the child is killed and
+/// this returns an `Err` whose message includes any output seen so far. stdout
+/// and stderr are drained on background threads so a chatty child can't deadlock
+/// on a full pipe buffer while we poll.
+pub fn run_with_timeout_captured(
+    args: &[&str],
+    timeout: Duration,
+    on_tick: &mut dyn FnMut(u64),
+) -> Result<(bool, String)> {
+    use std::io::Read;
+    let mut child = command("wsl.exe")
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("failed to spawn wsl.exe")?;
+
+    let mut out = child.stdout.take();
+    let mut err = child.stderr.take();
+    let out_h = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        if let Some(ref mut o) = out {
+            let _ = o.read_to_end(&mut buf);
+        }
+        buf
+    });
+    let err_h = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        if let Some(ref mut e) = err {
+            let _ = e.read_to_end(&mut buf);
+        }
+        buf
+    });
+
+    // Join both drain threads and merge their decoded output into one string.
+    let collect = move || {
+        let mut s = decode_wsl(&out_h.join().unwrap_or_default());
+        let e = decode_wsl(&err_h.join().unwrap_or_default());
+        if !e.trim().is_empty() {
+            if !s.is_empty() {
+                s.push('\n');
+            }
+            s.push_str(&e);
+        }
+        s.trim().to_string()
+    };
+
+    let start = Instant::now();
+    let mut last_tick = 0u64;
+    loop {
+        if let Some(status) = child.try_wait().context("failed to poll wsl.exe")? {
+            return Ok((status.success(), collect()));
+        }
+        let secs = start.elapsed().as_secs();
+        if secs != last_tick {
+            last_tick = secs;
+            on_tick(secs);
+        }
+        if start.elapsed() >= timeout {
+            let _ = child.kill();
+            let _ = child.wait();
+            let partial = collect();
+            bail!(
+                "`wsl.exe {}` did not finish within {}s (killed).{}",
+                args.join(" "),
+                timeout.as_secs(),
+                if partial.is_empty() {
+                    String::new()
+                } else {
+                    format!(" Output so far:\n{partial}")
+                }
+            );
+        }
+        sleep(Duration::from_millis(250));
+    }
+}
+
 /// Run `wsl.exe <args>` capturing stdout line-by-line, invoking `on_line` for
 /// each line as it arrives (for live progress from long in-distro commands).
 /// stderr is dropped — callers that want it merged should append `2>&1` to the
