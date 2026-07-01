@@ -1,6 +1,6 @@
 [package]
 name = "dockwin-gui"
-version = "0.2.0"
+version = "0.2.1"
 description = "dockwin - a lightweight Docker Desktop alternative for Windows 11"
 authors = ["dockwin contributors"]
 license = "MIT OR Apache-2.0"

@@ -1061,7 +1061,7 @@ dependencies = [
 
 [[package]]
 name = "dockwin-cli"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -1070,7 +1070,7 @@ dependencies = [
 
 [[package]]
 name = "dockwin-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "flate2",
@@ -1080,7 +1080,7 @@ dependencies = [
 
 [[package]]
 name = "dockwin-gui"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "bollard",
  "dockwin-core",
