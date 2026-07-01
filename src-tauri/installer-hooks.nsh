@@ -6,56 +6,81 @@
 ;
 ; Two things happen here:
 ;   1. PATH: add the install dir to the per-user PATH on install, so the bundled
-;      `dockwin` CLI works from any shell. The common Tauri/NSIS recipe uses the
-;      EnVar plugin, but Tauri does not bundle it, so rather than vendoring a
-;      binary DLL we edit HKCU\Environment directly and broadcast
-;      WM_WININICHANGE. Scope is HKCU to match `installMode: currentUser`.
+;      `dockwin` CLI works from any shell. Scope is HKCU to match
+;      `installMode: currentUser`.
+;
+;      We deliberately do NOT edit HKCU\Environment\Path from NSIS directly.
+;      NSIS strings are capped at NSIS_MAX_STRLEN (1024 in the stock build Tauri
+;      ships), so `ReadRegStr` SILENTLY TRUNCATES any real-world PATH past 1024
+;      chars, and writing that back DESTROYS everything beyond it — in the worst
+;      case collapsing the whole PATH down to a single entry. Instead we shell
+;      out to PowerShell and edit HKCU\Environment\Path via the .NET registry
+;      API, which has no such length limit.
+;
+;      TWO subtleties that both matter and are both verified by test:
+;        * We read with DoNotExpandEnvironmentNames and write with
+;          RegistryValueKind.ExpandString (REG_EXPAND_SZ). We do NOT use
+;          [Environment]::SetEnvironmentVariable: under Windows PowerShell /
+;          .NET Framework it rewrites the value as REG_SZ, which would stop
+;          Windows from expanding existing %VAR% entries (e.g. %USERPROFILE%\bin)
+;          in the user's PATH — silently breaking them.
+;        * $INSTDIR is passed as an argument ($args[0]), never embedded into the
+;          script text, so a path containing a quote can't break the script.
+;      The append is idempotent (skips if the dir is already present). No
+;      WM_SETTINGCHANGE broadcast is sent; a newly opened shell picks up the
+;      change (already-running shells wouldn't refresh from a broadcast anyway).
+;
 ;      Deliberately NOT removed on uninstall: a read-modify-write against the
 ;      shared per-user PATH can race with another installer doing the same
-;      thing at the same time, and the loser's write clobbers the winner's —
-;      in the worst case truncating the whole PATH down to one entry. A stale
-;      PATH entry after uninstall is harmless clutter; that failure mode is not.
+;      thing at the same time, and the loser's write clobbers the winner's. A
+;      stale PATH entry after uninstall is harmless clutter; that failure mode
+;      is not.
 ;   2. ENGINE: before the app files are deleted, offer to tear down the dockwin
 ;      engine (the WSL2 distro + docker context + %LOCALAPPDATA%\dockwin\distro)
 ;      via the bundled CLI's own teardown — otherwise "Uninstall" leaves an
 ;      orphaned WSL distro behind.
 
-!include "WinMessages.nsh"
-
 ; ---------------------------------------------------------------------------
-; Per-user PATH helpers (plugin-free).
+; Per-user PATH helper (plugin-free, via PowerShell/.NET).
 ; ---------------------------------------------------------------------------
 
-; Append $INSTDIR to the per-user PATH, unless it is already present.
+; Append $INSTDIR to the per-user PATH, unless it is already present. See the
+; header comment for WHY this goes through PowerShell/.NET instead of NSIS's own
+; registry ops. We write a tiny helper script to $PLUGINSDIR (auto-created by
+; InitPluginsDir, auto-deleted at the end of the run) and run it, passing
+; $INSTDIR as an argument so its value never needs quoting inside the script.
 Function dockwinPathAdd
-  Push $0 ; current PATH
-  Push $2 ; sliding window
-  Push $3 ; len($INSTDIR)
-  Push $4 ; scan index
+  Push $0 ; file handle / nsExec exit code
 
-  ReadRegStr $0 HKCU "Environment" "Path"
-  StrLen $3 "$INSTDIR"
-  StrCpy $4 0
-  dockwin_pa_scan:
-    StrCpy $2 $0 $3 $4
-    StrCmp $2 "$INSTDIR" dockwin_pa_done   ; already on PATH -> nothing to do
-    StrCmp $2 "" dockwin_pa_append         ; ran past the end -> not found
-    IntOp $4 $4 + 1
-    Goto dockwin_pa_scan
-  dockwin_pa_append:
-    StrCmp $0 "" 0 dockwin_pa_sep
-      StrCpy $0 "$INSTDIR"                 ; PATH was empty
-      Goto dockwin_pa_write
-    dockwin_pa_sep:
-      StrCpy $0 "$0;$INSTDIR"
-  dockwin_pa_write:
-    WriteRegExpandStr HKCU "Environment" "Path" "$0"
-    SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
-  dockwin_pa_done:
+  ; Guarantee $PLUGINSDIR exists even if no plugin has been used yet. Idempotent.
+  InitPluginsDir
 
-  Pop $4
-  Pop $3
-  Pop $2
+  FileOpen $0 "$PLUGINSDIR\dockwin-path.ps1" w
+  FileWrite $0 "$$ErrorActionPreference = 'Stop'$\r$\n"
+  FileWrite $0 "$$dir = $$args[0]$\r$\n"
+  FileWrite $0 "$$key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')$\r$\n"
+  FileWrite $0 "try {$\r$\n"
+  FileWrite $0 "  $$path = [string]$$key.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)$\r$\n"
+  FileWrite $0 "  if ([string]::IsNullOrEmpty($$path)) {$\r$\n"
+  FileWrite $0 "    $$new = $$dir$\r$\n"
+  FileWrite $0 "  } elseif (($$path -split ';') -notcontains $$dir) {$\r$\n"
+  FileWrite $0 "    $$new = $$path.TrimEnd(';') + ';' + $$dir$\r$\n"
+  FileWrite $0 "  } else {$\r$\n"
+  FileWrite $0 "    $$new = $$null$\r$\n"
+  FileWrite $0 "  }$\r$\n"
+  FileWrite $0 "  if ($$null -ne $$new) {$\r$\n"
+  FileWrite $0 "    $$key.SetValue('Path', $$new, [Microsoft.Win32.RegistryValueKind]::ExpandString)$\r$\n"
+  FileWrite $0 "  }$\r$\n"
+  FileWrite $0 "} finally {$\r$\n"
+  FileWrite $0 "  $$key.Close()$\r$\n"
+  FileWrite $0 "}$\r$\n"
+  FileClose $0
+
+  DetailPrint "Adding $INSTDIR to the per-user PATH..."
+  nsExec::ExecToLog 'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\dockwin-path.ps1" "$INSTDIR"'
+  Pop $0
+  DetailPrint "PATH update finished (exit code $0)."
+
   Pop $0
 FunctionEnd
 
