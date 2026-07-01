@@ -41,10 +41,10 @@
   <h1 class="text-[23px] font-[680] tracking-[-0.5px] leading-none">Settings</h1>
 </div>
 <div class="flex-1 overflow-auto grid grid-cols-[1fr] min-h-0">
-  <div class="px-[22px] pt-[18px] pb-[24px] min-w-0 flex flex-col gap-[28px]">
+  <div class="px-[22px] pt-[18px] pb-[24px] min-w-0 w-full max-w-[900px] mx-auto flex flex-col gap-[28px]">
     <div class="flex flex-col gap-[16px]">
       <div
-        class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px] max-w-[60ch]"
+        class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px]"
       >
         <div
           class="text-[12px] font-semibold text-muted-foreground mb-[12px]"
@@ -64,7 +64,7 @@
         </div>
       </div>
       <div
-        class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px] max-w-[60ch]"
+        class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px]"
       >
         <div
           class="text-[12px] font-semibold text-muted-foreground mb-[12px]"
@@ -109,7 +109,7 @@
       </div>
     </div>
     <div
-      class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px] max-w-[60ch]"
+      class="bg-card border border-border rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_28px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] py-[16px] px-[18px]"
     >
       <div
         class="text-[12px] font-semibold text-muted-foreground mb-[12px]"
